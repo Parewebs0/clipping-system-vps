@@ -1,177 +1,90 @@
-# Pipeline Status — fuente de verdad del estado del proyecto
+# Pipeline Status — fuente de verdad del estado del pipeline
 
-> **Última verificación:** 2026-09-17 14:35 UTC (refactor pipeline v2).
-> **Cambio relevante:** el paso 3 monolítico se ha partido en 3a (brief-reader),
-> 3b (drive-resolver) y 3c (campaign-scorer), encadenados por estado en BD.
-> El paso 2 (campaign-prioritizer) está jubilado. Ver `architecture_flow.md`.
-> **Relación con otros docs:**
-> - **`architecture_flow.md`** sigue siendo la fuente de verdad del **flujo** (qué paso hace qué, en qué orden).
-> - Este doc (`PIPELINE_STATUS.md`) es la fuente de verdad del **estado** (qué está hecho hoy, qué no, quién lo ejecuta, IDs de los crons).
-> - **`MEMORY.md`** (mi memoria principal) apunta a este doc cuando Molina pregunta por "estado del pipeline".
-> - **`PROJECT_STATUS.md`** (en `/opt/clipping-system/docs/`) sigue cubriendo el estado técnico interno del backend (tests, endpoints, migraciones, smoke). NO lo sustituyo: la granularidad es distinta.
+> **Última actualización:** 2026-09-30 (migración VPS → mini PC).
+> **Realidad actual:** el pipeline es **100 % scripts Python** del repo, lanzados por
+> **cron del host** (usuario `jarvis`) con `docker exec` dentro del contenedor `api`.
+> **OpenClaw ya no interviene** (ni skills, ni agentTurns, ni `openclaw cron`).
+> El flujo detallado está en `architecture_flow.md`.
 
-> **Regla de mantenimiento:** cada vez que se cree, deshabilite o cambie de ownership un cron/script del pipeline, este doc se actualiza en el mismo commit/PR. Sin excepciones.
+## Dónde corre
 
----
-
-## TL;DR
-
-| # | Paso | Quién lo ejecuta | Estado |
-|---|---|---|---|
-| 1 | Descubrir campañas (UPSERT mínimo) | **OpenClaw / CRON** `whop-discovery-cron` | ✅ pipeline v2 |
-| 2 | ~~Priorizar campañas~~ | ~~`campaign-prioritizer-tick`~~ | ❌ jubilado 2026-09-17, absorbed by 3c |
-| 3a | Leer brief → rules + asset_links | **OpenClaw / CRON** `brief-reader-tick` | ✅ pipeline v2 |
-| 3b | Resolver Drive folders → assets reales | **OpenClaw / CRON** `drive-resolver-tick` | ✅ pipeline v2 |
-| 3c | Puntuar campaña (rules + assets reales) | **OpenClaw / CRON** `campaign-scorer-tick` | ✅ pipeline v2 |
-| 4 | Guardar campaign + spec/rules/score | VPS Backend (`PATCH /campaigns/{id}`) | ✅ |
-| 5 | Asset Resolver (legacy) | VPS Backend (`resolve_assets_for_campaign`) | ✅ ya no se llama desde paso 1 |
-| 6 | Registrar vídeos en BD | VPS Backend (alta en `assets`) | ✅ |
-| 7 | Crear DOWNLOAD JOBS | **OpenClaw / CRON** `download-enqueue-tick` (10m) | ✅ pipeline v2 |
-| 8 | Worker descarga | **Worker Windows** (Molina) | ✅ |
-| 9 | Marcar DOWNLOADED + crear TRANSCRIBE JOB | VPS Backend (auto, callback Worker) | ✅ |
-| 10 | Worker transcribe (WhisperX) | **Worker Windows** (Molina) | ✅ |
-| 11 | Guardar transcripción + marcar TRANSCRIBED | VPS Backend (auto) | ✅ |
-| 12 | Detectar transcripciones nuevas | **OpenClaw / CRON** `clip-decider-tick` | ✅ |
-| 13 | Decidir buenos clips → Candidatos | **OpenClaw / Mini­Max** (`clip-decider-tick`) | ✅ |
-| 14 | Guardar candidatos + validar reglas | OpenClaw (LLM) + VPS Backend (storage) | ⚠️ parcial — sin gate duro |
-| 15 | Crear RENDER JOBS | VPS Backend (auto al aprobar candidato) | ✅ |
-| 16 | Worker render (FFmpeg) | **Worker Windows** (Molina) | ✅ |
-| 17 | Registrar clip + crear QA JOB | VPS Backend (auto) | ✅ |
-| 18 | Worker QA (FFprobe) | **Worker Windows** (Molina) | ✅ |
-| 19 | Guardar QA + PASS/FAIL/REVIEW | VPS Backend (auto) | ✅ |
-| 20 | Revisar estado de campañas | **OpenClaw** (vía `campaign-publish-tick`) | ⚠️ sin cron dedicado |
-| 21 | Publicación / submission | **OpenClaw / CRON** `campaign-publish-tick` | ✅ |
-
-**Leyenda**: ✅ verificado hoy · ⚠️ parcial o pendiente · ❌ no implementado.
-
----
-
-## Owner del proyecto
-
-| Territorio | Quién | Repos |
+| Pieza | Dónde | Notas |
 |---|---|---|
-| VPS Backend (FastAPI + Postgres + Job Queue + Mission Control) | **Clipper** (yo, OpenClaw) | `jarvismolinabot/clipping-system-vps` |
-| Worker Windows (descarga + WhisperX + FFmpeg + FFprobe + QA) | **Molina** (PC Windows) | repo del Worker |
-| Orquestación LLM (decider, scorer, brief_reader, drive_resolver, publish) | **Clipper** (OpenClaw crons + Mini­Max) | workspace OpenClaw |
+| API FastAPI + Mission Control | mini PC `molinaserver` (Tailscale `100.70.150.107`), contenedor `clipping-system-vps-api-1`, puerto `8080` | `docker compose` en `/srv/datos/apps/clipping-system-vps` (rama `feat/publish-youtube`) |
+| PostgreSQL 16 | contenedor `clipping-system-vps-postgres-1`, datos en `./pgdata` | Esquema por Alembic (`alembic upgrade head`, hoy `0014_publish_gate`). Arrancó **vacía** el 2026-09-30 (no se migraron datos del VPS) |
+| Ticks del pipeline | crontab de `jarvis` en el mini PC | `flock -n` + `timeout`, logs en `/home/jarvis/clipping-cron/logs/` |
+| Worker Windows | PC de Molina | download / WhisperX / FFmpeg render / FFprobe QA / publish. Hace polling a `GET /worker/jobs/next` |
+| VPS antiguo (`100.109.27.21`) | retirado | crontabs de `ubuntu` y `root` comentados (backup en `~/crontab-backup-*`), datos intactos |
 
-**Regla de oro (AGENTS.md):** Worker = Molina. VPS = mío. No tocar el repo ajeno. No force-push.
+## TL;DR — pasos y quién los ejecuta
 
----
+| # | Paso | Script / componente | Estado que consume → produce | Cron (mini PC) |
+|---|---|---|---|---|
+| 0/1 | Descubrir campañas Whop | `scripts/whop_discovery.py --max-active 3 --no-fetch-detail` | Whop API → `campaigns.status='discovered'` (solo si hay < 3 activas) | 08:15 y 20:15 Europe/Madrid |
+| 3a | Brief reader (Grok) | `scripts/brief_reader_tick.py --limit 1` | `discovered` → `briefed` / `failed_brief` (rules, asset_links, score_preview) | cada 15 min |
+| 3b | Asset resolver (Drive vía `gog`, Dropbox file, URL directa) | `scripts/drive_resolver_tick.py --limit 25` (ver gap abajo) | `briefed` (+ reintento `failed_resolve` si fallo de gog) → `assets_resolved` / `failed_resolve`; crea assets | cada 8 min |
+| 3c | Scorer determinista | `scripts/campaign_scorer_tick.py --limit 5` | `assets_resolved` → `scored` / `blocked_no_assets` (score < 50, 0 assets reales o host no soportado) | cada 5 min |
+| 7 | Encolar descargas | `scripts/download_enqueue_tick.py --limit 1` | campañas `scored`/`ready` + assets `pending` sin job → job `download` | cada 10 min |
+| 8–9 | Descarga | Worker Windows + hook `on_download_completed` | job `download` → asset `downloaded` + job `transcribe` | — (automático) |
+| 10–11 | Transcripción | Worker (WhisperX) + hook `on_transcribe_completed` | asset `transcribed`; si es **silencioso** el backend crea candidatos por duración y auto-aprueba el primero si no hay render en curso | — (automático) |
+| 12–13 | Clip decider (voz, Grok) | `scripts/grok_clip_decider_tick.py --limit 1` | assets `transcribed` con voz y sin candidatos → 1–2 candidatos `pending` (con title/caption) | 4×/hora (min 7,22,37,52), **sin `--approve`** |
+| 14 | Aprobación de candidato | humano: `POST /candidates/{id}/approve` (o Mission Control) | candidato `approved` → job `render` | manual |
+| 15–19 | Render + QA | Worker (FFmpeg / FFprobe) + hooks | job `render` → clip `created` + job `qa` → clip `approved` / `rejected` / `review` | — (automático) |
+| 20 | Publish gate | humano: `POST /clips/{id}/approve_publish` | clip `approved` + QA `pass` → `clip_publications.status='pending'` | manual |
+| 21 | Encolar publicación | `scripts/publish_enqueue_tick.py --limit 1 [--live]` | `clip_publications` pending → job `publish` (dry-run por defecto) → Worker | **deshabilitado** (línea comentada) hasta cerrar el trial |
 
-## Inventario de crons activos (OpenClaw)
+## Dependencias externas (solo nombres)
 
-| Cron ID | Nombre | Cada | Target | Comando / Mensaje | Propietario |
-|---|---|---|---|---|---|
-| `7c3800ef-...` | `whop-discovery-cron` | 6h | isolated | `venv/bin/python scripts/whop_discovery.py --limit 50` (UPSERT mínimo, status='discovered') | Clipper |
-| `335f304e-...` | `brief-reader-tick` ⭐ nuevo | 1h30m | isolated | agentTurn — paso 3a, status='discovered' → 'briefed' | Clipper |
-| `d1f2e08e-...` | `drive-resolver-tick` ⭐ nuevo | 1h30m | isolated | agentTurn — paso 3b, status='briefed' → 'assets_resolved' | Clipper |
-| `9ec4dbe3-...` | `campaign-scorer-tick` ⭐ nuevo | 1h30m | isolated | agentTurn — paso 3c, status='assets_resolved' → 'scored' / 'blocked_no_assets' | Clipper |
-| `<new>` | `download-enqueue-tick` ⭐ nuevo | 10m | isolated | `venv/bin/python scripts/download_enqueue_tick.py --limit 50` — paso 7, status IN ('scored','ready') | Clipper |
-| `0f0d1264-...` | `campaign-analyze-tick` ⛔ deshabilitado | 1h30m | isolated | legacy — sustituido por 3a+3b+3c. No eliminar. | Clipper |
-| `239ee9a8-...` | `campaign-prioritizer-tick` ⛔ deshabilitado | 2h | isolated | legacy — absorbed by 3c. No eliminar. | Clipper |
-| `84f2395a-...` | `clip-decider-tick` | 1h15m | isolated | agentTurn — pasa 12-13, usa `/clip_selection/queue?priority_only=true` | Clipper |
-| `818e85d0-...` | `campaign-publish-tick` | 20h | isolated | agentTurn — paso 21 (publicación/submission) | Clipper |
-| `18a1d89f-...` | Heartbeat main | 2h | main | — | OpenClaw |
-| `4da427e4-...` | OpenClaw media cleanup | 1d 04:00 UTC | isolated | — | OpenClaw |
-| `81bb0a7c-...` | Memory Dreaming | 1d 03:00 UTC | isolated | — | OpenClaw |
-
-> Lista viva: `openclaw cron list`. Cada ID es estable entre reinicios del Gateway.
-
----
-
-## Scripts / archivos relevantes del VPS
-
-| Ruta | Qué hace |
+| Script | Necesita |
 |---|---|
-| `/opt/clipping-system/scripts/whop_discovery.py` | Paso 1 — discover + upsert + analyze de drafts |
-| `/opt/clipping-system/scripts/campaign_prioritizer.py` | Paso 2 — scoring 50/30/10/10, marca `priority_tier` en `source_metadata` |
-| `/opt/clipping-system/scripts/vps_pipeline_tick.py` | Drenaje de jobs pendientes (auxiliar) |
-| `/opt/clipping-system/scripts/clip_scanner.py` | Utilidad offline (no en cron) |
-| `/opt/clipping-system/app/api/mission_control.py` | Dashboard read-only (7 GET endpoints) |
-| `/opt/clipping-system/app/api/clip_selection.py` | `GET /clip_selection/queue[?priority_only=true&priority_tier=...]` |
-| `/opt/clipping-system/app/services/campaign_analyzer.py` | Parser determinista + enriquecimiento LLM (paso 3 soporte) |
-| `/opt/clipping-system/app/static/mission-control/` | Frontend del dashboard (HTML/CSS/JS vanilla) |
+| `whop_discovery.py` | `WHOP_TENANT_URL`, `WHOP_API_BASE`, `WHOP_API_TIMEOUT_S`; opcional `DISCOVERY_MAX_ACTIVE` |
+| `brief_reader_tick.py`, `grok_clip_decider_tick.py` | `XAI_API_KEY`, `XAI_API_BASE`, `XAI_MODEL`; salida a `docs.google.com` (briefs públicos) |
+| `drive_resolver_tick.py` | binario `gog` (v0.40.0, en la imagen `/usr/local/bin/gog`), `GOG_KEYRING_PASSWORD`, config/keyring de gog montados en `/root/.config/gogcli` y `/root/.local/share/gogcli` (host: `./gog/config`, `./gog/share`, fuera de git) |
+| `campaign_scorer_tick.py`, `download_enqueue_tick.py` | solo BD |
+| `publish_enqueue_tick.py` | `PUBLISH_DRY_RUN` (default `1`); el Worker hace la subida real |
+| Todos | `CLIPPING_DB_*` (desde `.env`, montado read-only) |
 
----
+## Crontab instalada (usuario `jarvis`, host en UTC)
 
-## Detalle por paso
+`cron` de Ubuntu no soporta `CRON_TZ`, así que discovery se lanza a las :15 de 06/07/18/19 UTC
+con un guard `TZ=Europe/Madrid date +%H ∈ {08,20}` → siempre 08:15 y 20:15 hora de Madrid (a prueba de cambio horario).
 
-### Paso 1 — Descubrir campañas (UPSERT mínimo) ✅ pipeline v2
-- **Quién**: OpenClaw cron `whop-discovery-cron`.
-- **Cómo**: llama a la API pública de Whop (tenant vía `WHOP_TENANT_URL`), upserta **solo datos básicos** en `campaigns`: `name`, `cpm_usd_per_1k`, `prize_pool_usd`, `source_url`, `source_instructions`, `source_provider='whop'`. NO crea assets. NO analiza.
-- **Output**: campañas con `status='discovered'`. Sin `spec.rules`, sin `score`, sin `asset_links`. El LLM (paso 3a) decidirá qué es asset real y qué es basura.
+```
+C=/home/jarvis/clipping-cron
+X=docker exec clipping-system-vps-api-1 python
+15 6,7,18,19 * * * H=$(TZ=Europe/Madrid date +\%H); { [ "$H" = 08 ] || [ "$H" = 20 ]; } && flock -n $C/locks/discovery.lock timeout 20m $X scripts/whop_discovery.py --max-active 3 --no-fetch-detail >> $C/logs/discovery.log 2>&1
+*/15 * * * * flock -n $C/locks/brief.lock   timeout 12m $X scripts/brief_reader_tick.py --limit 1        >> $C/logs/brief_reader.log 2>&1
+*/8  * * * * flock -n $C/locks/resolve.lock timeout 20m $X scripts/drive_resolver_tick.py --limit 25     >> $C/logs/drive_resolver.log 2>&1
+*/5  * * * * flock -n $C/locks/score.lock   timeout 4m  $X scripts/campaign_scorer_tick.py --limit 5    >> $C/logs/scorer.log 2>&1
+*/10 * * * * flock -n $C/locks/enqueue.lock timeout 9m  $X scripts/download_enqueue_tick.py --limit 1   >> $C/logs/download_enqueue.log 2>&1
+7,22,37,52 * * * * flock -n $C/locks/decider.lock timeout 12m $X scripts/grok_clip_decider_tick.py --limit 1 >> $C/logs/clip_decider.log 2>&1
+#0 */4 * * * flock -n $C/locks/publish.lock timeout 10m $X scripts/publish_enqueue_tick.py --limit 1  >> $C/logs/publish_enqueue.log 2>&1
+0 4 * * 0 find $C/logs -name '*.log' -size +50M -exec truncate -s 0 {} \;
+```
 
-### Paso 2 — ~~Priorizar~~ JUBILADO ❌ 2026-09-17
-- **Quién (antes)**: OpenClaw cron `campaign-prioritizer-tick` (id `239ee9a8-…`).
-- **Razón**: ahora el paso 1 no trae assets, así que el peso del 10% de "assets_available" del score 50/30/10/10 se queda sin datos o pasa a 0.
-- **Absorción**: el scoring completo vive ahora en `campaign-scorer-tick` (paso 3c), que usa la fórmula de `skills/campaign-scorer` (no la 50/30/10/10).
-- **Estado**: cron **deshabilitado**, no eliminado. Script `scripts/campaign_prioritizer.py` queda en repo por trazabilidad. Si quieres reactivarlo en algún momento, hay que rehacer la fórmula contra el nuevo modelo.
+Los scripts además escriben sus propios logs en `/opt/clipping-system/logs/` (montado en `./logs` del proyecto).
 
-### Paso 3a — Brief reader ✅ pipeline v2
-- **Quién**: OpenClaw cron `brief-reader-tick` (id `335f304e-…`, cada 1h30m).
-- **Cómo**: agentTurn aislado. `GET /campaigns?status=discovered`, lee `source_instructions` + `source_url` de cada una y, usando SOLO la skill `brief-reader`, extrae `rules` (jsonb) + `asset_links` (jsonb). Por cada Drive folder crea un asset row con `kind='drive_folder'`. Cambia `status` a `briefed` (o `failed_brief`).
-- **Output**: `campaigns.source_metadata.rules`, `campaigns.source_metadata.asset_links`, posibles assets `drive_folder`. `status='briefed'`.
+## Scripts que NO van en cron
 
-### Paso 3b — Drive resolver ✅ pipeline v2
-- **Quién**: OpenClaw cron `drive-resolver-tick` (id `d1f2e08e-…`, cada 1h30m).
-- **Cómo**: agentTurn aislado. `GET /campaigns?status=briefed`, busca assets con `kind='drive_folder'`, y por cada uno usa SOLO la skill `drive-resolver` (gog CLI autenticado): lista recursivamente (depth ≤ 4), filtra por extensiones `.mp4/.mov/.mkv/.webm/.zip/.tar/.gz`, deduplica por `source_id` y crea 1 asset row por archivo real (`source_url=https://drive.google.com/uc?export=download&id=…`). Cambia `status` a `assets_resolved` (o `failed_resolve`).
-- **Output**: assets reales en `assets`. `status='assets_resolved'`.
+| Script | Motivo |
+|---|---|
+| `requeue_download_missing.py`, `requeue_transcribe_stalled.py` | reparaciones puntuales (el primero está fijado a `campaign_id=6`) |
+| `classify_and_cut_silent.py` | puntual; el corte silencioso ya lo hace el hook de transcripción |
+| `vps_pipeline_tick.py`, `clip_scanner.py`, `clip_scanner_quiet.sh`, `campaign_prioritizer.py`, `clip_decider_tick.py.disabled` | legacy (pipeline v1 / MiniMax) |
+| `whop_playwright_probe.py` | sonda de investigación |
 
-### Paso 3c — Campaign scorer ✅ pipeline v2
-- **Quién**: OpenClaw cron `campaign-scorer-tick` (id `9ec4dbe3-…`, cada 1h30m).
-- **Cómo**: agentTurn aislado. `GET /campaigns?status=assets_resolved`, usa SOLO la skill `campaign-scorer` (cálculo determinista puro, sin red, sin LLM): aplica `base_revenue + asset_availability + rule_completeness − difficulty_penalty`, clamp 0..100, `priority = clamp(round(total/10), 1, 10)`, `tie_break = base_revenue`. Si 0 assets reales → `status='blocked_no_assets'`, `score=null`. Cambia `status` a `scored` (o `blocked_no_assets`).
-- **Output**: `campaigns.source_metadata.score = {total, breakdown, priority, tie_break, rank_reason}`. `status='scored'`.
+## Operación rápida
 
-### Paso 4 — Guardar CampaignSpec ✅
-- **Quién**: VPS Backend.
-- **Endpoint**: `PATCH /campaigns/{id}` (antes era `POST /campaigns/{id}/spec`; ahora los crons 3a/3b/3c usan el PATCH genérico, que ya acepta `status`, `spec` y `source_metadata`).
-- **Output**: `status` y/o `spec` y/o `source_metadata` actualizados según el paso.
+- Ejecutar un paso a mano: `docker exec clipping-system-vps-api-1 python scripts/<script>.py --dry-run`.
+- Re-leer un brief: `... brief_reader_tick.py --campaign-id N`; re-resolver: `... drive_resolver_tick.py --campaign-id N`.
+- Re-autorizar Google Drive (si 3b falla con `invalid_grant`): `docker exec -it clipping-system-vps-api-1 gog auth add <email> --services drive,docs --manual`.
+- Migraciones: `docker exec clipping-system-vps-api-1 alembic upgrade head`.
 
-### Paso 7 — Download enqueue (puente 3c → 8) ✅ pipeline v2
-- **Quién**: OpenClaw cron `download-enqueue-tick` (10m, isolated, command payload).
-- **Cómo**: `venv/bin/python scripts/download_enqueue_tick.py --limit 50`. Para cada campaña con `status IN ('scored','ready')` busca assets `status='pending'` con URL processable, crea 1 `download` job por campaña (idempotente: si ya hay un job `download` abierto, skip). Piggy-back: `process_pending_clip_selections` para drenar transcripciones cuyo decider nunca corrió.
-- **Por qué nuevo**: antes era `vps_pipeline_tick.py` que solo buscaba `status='ready'`. Pipeline v2 deja `scored`. Necesita su propio cron (opción 2 aprobada por Molina 2026-09-17) para no mezclar la lógica legacy con la nueva.
-- **Output**: jobs `download` encolados en `jobs` (Worker los coge via `GET /worker/jobs/next`).
+## Gaps conocidos
 
-### Pasos 5-7 — Asset Resolver (legacy, ya no se invoca desde paso 1) ✅
-- **Quién**: VPS Backend, función `resolve_assets_for_campaign`.
-- **Estado pipeline v2**: el script `whop_discovery.py` ya NO la llama. Los assets reales los crea paso 3b desde Drive folders. La función sigue existiendo por si en el futuro hay un asset_resolver desde otra fuente (YouTube, etc.).
+- No hay gate duro en el backend que valide candidatos contra las reglas de campaña (solo el prompt del decider).
+- `drive_resolver_tick.py` aplica `--limit` en SQL **antes** de saltar campañas `failed_resolve` no reintentables: con `--limit 1` una campaña atascada de id bajo bloquea a todas las demás (pasaba en el VPS con la campaña 9). Mitigado en cron con `--limit 25`; arreglo correcto: filtrar las atascadas en la query.
+- Carpetas de Dropbox no se listan (`dropbox_folder_needs_list` → `failed_resolve`).
+- Publicación real (`--live`) y cron de publish pendientes de cerrar el trial de YouTube.
 
-### Pasos 8-11 — Download + Transcribe ✅
-- **Quién**: Worker Windows hace el trabajo pesado (descarga + WhisperX); VPS Backend gestiona el ciclo de vida del job y persiste resultados.
-- **Ya validado E2E** (commit `a88bbe0` de Molina, mencionado en MEMORY.md).
-
-### Pasos 12-13 — Clip Decider ✅
-- **Quién**: OpenClaw cron `clip-decider-tick`.
-- **Cómo**: agentTurn aislado, lee `GET /clip_selection/queue?priority_only=true&limit=10`. Si la cola priority está vacía, fallback a la cola completa (`max 5`). Para cada asset, lee `CampaignSpec`, transcripción y propone `Candidate`.
-- **Output**: `POST /candidates`, asset marcado como `clip_proposed`.
-
-### Paso 14 — Validación de reglas ⚠️
-- **Quién actual**: OpenClaw (LLM valida internamente) + VPS Backend (storage).
-- **Gap**: no hay un **gate duro** en el VPS que rechace `Candidate` si viola `CampaignSpec` (duración, formato). La validación es solo del LLM.
-- **Riesgo**: clips que se renderizan y luego fallan QA por reglas de negocio (no técnicas).
-- **Mitigación futura**: endpoint `POST /candidates` que valide contra `spec` antes de aceptar.
-
-### Pasos 15-19 — Render + QA ✅
-- **Quién**: VPS Backend crea RENDER/QA jobs al aprobar candidato; Worker Windows ejecuta FFmpeg + FFprobe.
-- **Estado del clip**: `pending → pass/fail/review` según resultado.
-
-### Paso 20 — Revisar estado de campañas ⚠️
-- **Quién actual**: implícito en `campaign-publish-tick` (cada 20h mira `ready_to_submit=true`).
-- **Gap**: si una `ready` no genera clips durante días, nadie avisa.
-- **Mitigación futura**: cron ligero cada 2-4h que reporte campañas `ready` con 0 clips approved en N días.
-
-### Paso 21 — Publicación / submission ✅
-- **Quién**: OpenClaw cron `campaign-publish-tick` (cada 20h).
-- **Cómo**: agentTurn aislado, mira campañas con `ready_to_submit=true`, usa `brief_reader` si necesita re-leer reglas, marca `clips` como `published` / `submitted`.
-- **Pendiente**: conectores reales de TikTok/YouTube/Instagram (ver goal `clip-publish-pipeline` en MEMORY.md).
-
----
-
-## Reglas duras (no romper)
-
-1. **No reiniciar el Gateway durante autoconfig** (incidente 2026-09-08). Hot-reload verificado en skills/heartbeat/cron/model.
-2. **Worker = Molina**, VPS = Clipper. No mezclar repos. No force-push.
-3. **Read-only en Mission Control**: ningún endpoint escribe en BD. Tests verifican que solo hay GET.
-4. **Bearer token**: misma `API_TOKEN` del `.env` para API y Mission Control.
-5. **Pesos del priorizador**: `W_CPM=0.50, W_PRIZE=0.30, W_SPEC=0.10, W_ASSETS=0.10`. Cambios requieren OK explícito de Molina y actualización de este doc.
+**Regla de mantenimiento:** cualquier cambio de script o de cron del pipeline se refleja aquí en el mismo commit.
