@@ -48,3 +48,14 @@ class TestRunDiscoveryClosed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_discovery_run_endpoint_has_no_analyze_step(client, auth_headers):
+    """POST /discovery/run returns the run_discovery summary as-is (pipeline v1
+    analyze_after removed → no analyze_error / analyzed keys)."""
+    fake = {"providers": {}, "total_discovered": 0, "total_upserted": 0, "total_assets": 0}
+    with mock.patch("app.api.discovery.run_discovery", return_value=fake) as m:
+        r = client.post("/discovery/run?limit=1&analyze_after=true", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert r.json() == fake
+    m.assert_called_once()

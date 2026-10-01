@@ -11,12 +11,13 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.campaign import ALLOWED_CAMPAIGN_SOURCES
 
-# Source providers we currently support
-ALLOWED_SOURCES = {
-    "twitter", "youtube", "instagram", "tiktok",
-    "reddit", "twitch", "manual", "whop", "other",
-}
+
+# Source providers we currently support (whop, manual).
+# Must match ck_campaigns_source_provider (migration 0010): anything else would
+# pass validation and then fail at INSERT with a 500.
+ALLOWED_SOURCES = set(ALLOWED_CAMPAIGN_SOURCES)
 
 
 class CampaignSpec(BaseModel):
@@ -34,7 +35,7 @@ class CampaignSpec(BaseModel):
     #   - "qa_rules": dict con reglas técnicas que el QA Worker (FFprobe) aplica:
     #       { "width": int, "height": int, "min_fps": float,
     #         "require_audio": bool, "codec": str }
-    #     (poblado por app.campaign_engine.normalizer / campaign_analyzer).
+    #     (poblado por app.campaign_engine.normalizer).
     #   - "qa_rules_source": "local" | "llm"  (trazabilidad del origen).
     #   - "notes": list[str]  (notas del parser si quedaron huecos).
     extra: dict[str, Any] = Field(default_factory=dict)
