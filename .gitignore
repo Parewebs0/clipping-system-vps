@@ -46,3 +46,7 @@ Thumbs.db
 # Tmp
 tmp/
 *.tmp
+/pgdata/
+
+# Mini PC runtime: gog CLI binary + config/keyring (bind-mounted secrets)
+/gog/
