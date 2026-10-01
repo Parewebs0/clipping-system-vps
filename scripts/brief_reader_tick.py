@@ -143,7 +143,7 @@ def main() -> int:
                 continue
             try:
                 blob = json.dumps(payload, ensure_ascii=False)
-                rules = grok_chat_json(PROMPT + blob[:14000])
+                rules = grok_chat_json(PROMPT + blob[:14000], stage="brief_reader", campaign_id=c.id)
             except Exception as e:
                 print(f"campaign={c.id} failed_brief {e}")
                 c.status = "failed_brief"

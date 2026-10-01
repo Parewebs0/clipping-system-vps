@@ -1,14 +1,24 @@
-"""Minimal xAI Chat Completions client."""
+"""Minimal xAI Chat Completions client. Every call is logged to llm_usage."""
 from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any
 
 import httpx
 
+from app.services.llm_usage import record_usage
 
-def grok_chat_json(prompt: str, *, timeout: float = 60.0) -> dict[str, Any]:
+
+def grok_chat_json(
+    prompt: str,
+    *,
+    timeout: float = 60.0,
+    stage: str | None = None,
+    campaign_id: int | None = None,
+    asset_id: Any = None,
+) -> dict[str, Any]:
     key = os.environ.get("XAI_API_KEY") or ""
     if not key:
         raise RuntimeError("XAI_API_KEY missing")
@@ -26,17 +36,34 @@ def grok_chat_json(prompt: str, *, timeout: float = 60.0) -> dict[str, Any]:
             {"role": "user", "content": prompt},
         ],
     }
-    with httpx.Client(timeout=timeout) as client:
-        r = client.post(
-            f"{base}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
+    t0 = time.monotonic()
+    data: dict[str, Any] = {}
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            r = client.post(
+                f"{base}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            r.raise_for_status()
+            data = r.json()
+    except Exception as e:
+        record_usage(
+            model=model, usage=None, latency_ms=int((time.monotonic() - t0) * 1000),
+            stage=stage, campaign_id=campaign_id, asset_id=asset_id,
+            ok=False, error=f"{type(e).__name__}: {e}",
         )
-        r.raise_for_status()
-        data = r.json()
+        raise
+    record_usage(
+        model=data.get("model") or model,
+        usage=data.get("usage"),
+        latency_ms=int((time.monotonic() - t0) * 1000),
+        stage=stage, campaign_id=campaign_id, asset_id=asset_id,
+        extra={"requested_model": model, "prompt_chars": len(prompt)},
+    )
     content = data["choices"][0]["message"]["content"]
     if isinstance(content, list):
         content = "".join(

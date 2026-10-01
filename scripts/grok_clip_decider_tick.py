@@ -72,7 +72,7 @@ def main() -> int:
                 if done >= args.limit:
                     break
                 continue
-            data = grok_chat_json(prompt)
+            data = grok_chat_json(prompt, stage="clip_decider", campaign_id=asset.campaign_id, asset_id=asset.id)
             clips = data.get("clips") if isinstance(data, dict) else None
             if not clips:
                 print("no clips", data)
