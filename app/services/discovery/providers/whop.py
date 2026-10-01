@@ -658,6 +658,44 @@ class WhopProvider(CampaignProvider):
             return True
         return False
 
+    # Closed-state signals on the public detail page (2026-10-01).
+    # Conservative on purpose: a false positive silently drops a live
+    # campaign, a false negative only keeps the previous behaviour (the
+    # campaign goes through and the brief/scorer steps can still park it).
+    # We therefore only match explicit phrases / flags, never generic
+    # '"status":"completed"' markers that also appear on payouts or posts.
+    _CLOSED_TEXT_PATTERNS = (
+        re.compile(r"submissions\s+(?:are\s+)?(?:now\s+)?closed", re.I),
+        re.compile(r"no\s+longer\s+accepting\s+submissions", re.I),
+        re.compile(r"campaign\s+has\s+ended", re.I),
+    )
+    _CLOSED_JSON_PATTERNS = (
+        re.compile(r'"submissionsClosed"\s*:\s*true', re.I),
+        re.compile(r'"isSubmissionsClosed"\s*:\s*true', re.I),
+        re.compile(r'"acceptingSubmissions"\s*:\s*false', re.I),
+        re.compile(r'"submissionsOpen"\s*:\s*false', re.I),
+    )
+
+    @classmethod
+    def _detail_signals_closed(cls, src: str | None) -> bool:
+        """Return True if the detail HTML clearly says the campaign is closed.
+
+        Checks both the visible text (badge "Submissions closed", "Campaign
+        ended", ...) and embedded JSON / Next.js RSC payloads, where quotes
+        arrive escaped (``\\"submissionsClosed\\":true``).
+        """
+        if not src:
+            return False
+        # Un-escape RSC/JSON-in-JS quotes and HTML entities so both the
+        # visible badge and the embedded payload are matched the same way.
+        text = html.unescape(src.replace('\\"', '"'))
+        if any(p.search(text) for p in cls._CLOSED_JSON_PATTERNS):
+            return True
+        # Visible text: strip tags so "Submissions <span>closed</span>" matches.
+        plain = re.sub(r"<[^>]+>", " ", text)
+        plain = re.sub(r"\s+", " ", plain)
+        return any(p.search(plain) for p in cls._CLOSED_TEXT_PATTERNS)
+
     def fetch_detail(self, campaign: DiscoveredCampaign) -> DiscoveredCampaign | None:
         try:
             src = self._fetch(campaign.detail_url)

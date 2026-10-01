@@ -196,7 +196,7 @@ def upsert_campaign(
 
     c = Campaign(
         name=name,
-        status=status or CampaignStatus.DRAFT.value,
+        status=status or CampaignStatus.DISCOVERED.value,
         source_provider=discovered.provider,
         source_url=discovered.detail_url,
         source_metadata=metadata,
@@ -243,8 +243,10 @@ def run_discovery(db: Session, *, fetch_detail: bool = True, limit: int = 50) ->
 
         if fetch_detail:
             # Concurrent fetch_detail (8 workers) so 50-campaign discovery doesn't
-            # take 25s+ on slow whop.com pages. Failures are logged and skipped —
-            # the campaign still has its card-level asset_links.
+            # take 25s+ on slow whop.com pages. Failures are logged and the
+            # campaign is kept with its card-level asset_links. A provider
+            # returning None means "drop this campaign" (e.g. Whop detail page
+            # says "Submissions closed"), so those are filtered out here.
             from concurrent.futures import ThreadPoolExecutor
 
             def _safe_fetch(d):
@@ -255,10 +257,17 @@ def run_discovery(db: Session, *, fetch_detail: bool = True, limit: int = 50) ->
                         "provider %s fetch_detail failed for %s: %s",
                         provider.name, d.external_id, e,
                     )
-                    return None
+                    return d
 
             with ThreadPoolExecutor(max_workers=8) as pool:
-                list(pool.map(_safe_fetch, discovered, timeout=20))
+                results = list(pool.map(_safe_fetch, discovered, timeout=20))
+            dropped = sum(1 for r in results if r is None)
+            if dropped:
+                logger.info(
+                    "provider %s: dropped %d closed campaign(s) after fetch_detail",
+                    provider.name, dropped,
+                )
+            discovered = [d for d, r in zip(discovered, results) if r is not None]
 
         upserted = 0
         assets_created = 0

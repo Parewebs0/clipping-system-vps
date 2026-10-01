@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_bearer
 from app.db.database import get_db
+from app.models.campaign import CampaignStatus
 from app.schemas.campaign import (
     CampaignCreate,
     CampaignOut,
@@ -244,7 +245,7 @@ def enqueue_pipeline(
     Idempotent: existing pending/processing download jobs for the same
     campaign are left untouched. Returns the count of jobs created.
 
-    The campaign must be in status='ready' (analyzed with qa_rules). The
+    The campaign must be in status='scored' (pipeline v2, paso 3c). The
     first processable asset of the campaign becomes the source.
     """
     import uuid as _uuid
@@ -255,10 +256,13 @@ def enqueue_pipeline(
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    if c.status != "ready":
+    # Pipeline v2: 'scored' is the only state ready for downloads (same
+    # gate as scripts/download_enqueue_tick.py). Legacy 'ready' no longer
+    # exists since migration 0012.
+    if c.status != CampaignStatus.SCORED.value:
         raise HTTPException(
             status_code=409,
-            detail=f"Campaign is in status='{c.status}', expected 'ready'",
+            detail=f"Campaign is in status='{c.status}', expected 'scored'",
         )
 
     # Pick the first PROCESSABLE asset for this campaign.
@@ -409,7 +413,7 @@ def enqueue_all_ready(
     db: Session = Depends(get_db),
     _: bool = Depends(require_bearer),
 ):
-    """Backlog drain: enqueue pipeline for every 'ready' campaign without open jobs.
+    """Backlog drain: enqueue pipeline for every 'scored' campaign without open jobs.
 
     Called by the analyze cron loop (main.py) every 10 minutes.
     """
@@ -417,7 +421,7 @@ def enqueue_all_ready(
 
     ready = (
         db.query(Campaign)
-        .filter(Campaign.status == "ready")
+        .filter(Campaign.status == CampaignStatus.SCORED.value)
         .filter(Campaign.source_provider != "manual")  # don't re-enqueue manual ones
         .order_by(Campaign.id.asc())
         .limit(limit)

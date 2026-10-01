@@ -89,7 +89,7 @@ def main() -> int:
         "--fetch-detail",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="fetch_detail is broken; default off",
+        help="fetch the Whop detail page (drops closed campaigns); default off",
     )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
@@ -131,11 +131,17 @@ def main() -> int:
 
         summary["discovered"] = len(discovered)
         if args.fetch_detail:
+            kept = []
             for d in discovered:
                 try:
-                    provider.fetch_detail(d)
+                    if provider.fetch_detail(d) is None:
+                        # Detail page says closed → do not add this campaign.
+                        continue
                 except Exception as e:
                     logger.info("fetch_detail failed for %s: %s", d.external_id, e)
+                kept.append(d)
+            summary["skipped_closed"] = len(discovered) - len(kept)
+            discovered = kept
 
         if args.dry_run:
             summary["campaigns"] = [

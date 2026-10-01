@@ -34,7 +34,11 @@ from app.services.job_state_transitions import on_download_completed
 
 
 def _make_ready_campaign(client, headers, source_url):
-    """Create a campaign in status='ready' with one processable video asset.
+    """Create a campaign in status='scored' with one processable video asset.
+
+    'scored' is the pipeline v2 state that gates downloads (legacy 'ready'
+    was dropped in migration 0012). source_provider is 'manual' because
+    migration 0010 restricts it to whop|manual.
 
     The campaign status transitions are normally driven by the analyze cron
     loop, so we set status directly via SQL to keep the test focused on
@@ -45,7 +49,7 @@ def _make_ready_campaign(client, headers, source_url):
         "/campaigns",
         json={
             "name": name,
-            "source_provider": "youtube",
+            "source_provider": "manual",
             "source_id": "dQw4w9WgXcQ",
             "source_url": source_url,
             "source_metadata": {"channel": "test"},
@@ -62,11 +66,11 @@ def _make_ready_campaign(client, headers, source_url):
     assert r.status_code == 201, r.text
     cid = r.json()["id"]
 
-    # Force status='ready' directly — bypass the analyze cron loop for this test.
+    # Force status='scored' directly — bypass the 3a/3b/3c crons for this test.
     sess = SessionLocal()
     try:
         sess.execute(
-            text("UPDATE campaigns SET status='ready' WHERE id=:id"),
+            text("UPDATE campaigns SET status='scored' WHERE id=:id"),
             {"id": cid},
         )
         sess.commit()
@@ -114,7 +118,8 @@ class TestEnqueuePipelineContract(unittest.TestCase):
         self.assertEqual(body["total_created"], 1, f"Expected 1 job, got {body}")
         self.assertEqual(len(body["created"]), 1)
         self.assertEqual(body["created"][0]["job_type"], "download")
-        self.assertEqual(body["created"][0]["campaign_id"], str(cid))
+        # campaign_id lives at the top level of the response (never per job).
+        self.assertEqual(body["campaign_id"], cid)
 
     def test_download_payload_contains_url_field(self):
         """Worker contract: download.py requires payload['url']."""
@@ -182,26 +187,28 @@ class TestEnqueuePipelineContract(unittest.TestCase):
         self.assertEqual(r2.json()["total_created"], 0)
         self.assertEqual(r2.json()["total_skipped"], 1)
 
-    def test_enqueue_requires_campaign_in_ready_status(self):
-        """Campaign in 'draft' cannot be enqueued (returns 409)."""
-        # Create campaign (status will be 'draft') without forcing 'ready'.
+    def test_enqueue_requires_campaign_in_scored_status(self):
+        """Campaign not yet 'scored' cannot be enqueued (returns 409)."""
+        # Create campaign (status will be 'discovered') without forcing 'scored'.
         name = f"draft-{uuid.uuid4().hex[:8]}"
         r = self.client.post(
             "/campaigns",
             json={
                 "name": name,
-                "source_provider": "youtube",
+                "source_provider": "manual",
                 "source_id": "x",
                 "source_url": "https://youtube.com/watch?v=x",
                 "spec": {"format": "9:16"},
             },
             headers=self.headers,
         )
+        self.assertEqual(r.status_code, 201, r.text)
+        self.assertEqual(r.json()["status"], "discovered")
         cid = r.json()["id"]
 
         r = self.client.post(f"/campaigns/{cid}/enqueue", headers=self.headers)
         self.assertEqual(r.status_code, 409, r.text)
-        self.assertIn("ready", r.json()["detail"])
+        self.assertIn("scored", r.json()["detail"])
 
     def test_enqueue_returns_404_for_missing_campaign(self):
         r = self.client.post("/campaigns/999999999/enqueue", headers=self.headers)
