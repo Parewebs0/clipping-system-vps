@@ -79,6 +79,7 @@ Los scripts además escriben sus propios logs en `/opt/clipping-system/logs/` (m
 - Re-leer un brief: `... brief_reader_tick.py --campaign-id N`; re-resolver: `... drive_resolver_tick.py --campaign-id N`.
 - Re-autorizar Google Drive (si 3b falla con `invalid_grant`): `docker exec -it clipping-system-vps-api-1 gog auth add <email> --services drive,docs --manual`.
 - Migraciones: `docker exec clipping-system-vps-api-1 alembic upgrade head`.
+- Exposición de la API: compose publica `${API_BIND_ADDR:-0.0.0.0}:8080`. En el mini PC poner `API_BIND_ADDR=100.70.150.107` (IP Tailscale) en `.env` para no exponerla en la LAN; nunca `127.0.0.1` (el worker Windows entra por Tailscale). Aplicar con `docker compose up -d api`. Ojo: si Docker arranca antes que Tailscale tras un reboot, el bind a la IP Tailscale falla hasta que `tailscaled` esté arriba (revisar `docker compose ps` tras reiniciar).
 
 ## Gaps conocidos
 
