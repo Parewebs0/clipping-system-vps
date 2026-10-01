@@ -472,12 +472,19 @@ class TestRankedProposals:
 
     def test_clip_scanner_top_n_flag(self):
         """The --top-n CLI flag on clip_scanner defaults to 5 and is forwarded."""
+        import os
         import subprocess
+        import sys
+        from pathlib import Path
+
+        # Run from the repo checkout with the current interpreter instead of the
+        # old VPS layout (/opt/clipping-system + venv), so it works anywhere.
+        repo = Path(__file__).resolve().parents[1]
         result = subprocess.run(
-            ["python", "scripts/clip_scanner.py", "--help"],
-            cwd="/opt/clipping-system",
+            [sys.executable, "scripts/clip_scanner.py", "--help"],
+            cwd=str(repo),
             capture_output=True, text=True,
-            env={**__import__("os").environ, "PATH": "/opt/clipping-system/venv/bin:" + __import__("os").environ.get("PATH", "")},
+            env={**os.environ, "PYTHONPATH": str(repo)},
         )
         assert "--top-n" in result.stdout, "clip_scanner --help should show --top-n flag"
         # Check default value is 5
