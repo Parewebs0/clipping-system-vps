@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,17 +16,12 @@ from app.schemas.campaign import (
     CampaignOut,
     CampaignUpdate,
 )
-from app.services.campaign_analyzer import (
-    analyze_campaign,
-    analyze_due_campaigns,
-)
 from app.services.campaign_service import (
     create_campaign,
     get_campaign,
     list_campaigns,
     update_campaign,
 )
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -186,35 +182,6 @@ def update(
     return c
 
 
-
-# --- Steps 2 + 3 of architecture_flow.md: analyze a campaign ---------------
-
-@router.post("/analyze_due", response_model=dict)
-def analyze_due(
-    limit: int = Query(20, ge=1, le=200),
-    db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
-):
-    """Analyze every draft campaign with source_instructions.
-
-    Useful for manual triggering and smoke-testing. The cron loop inside
-    main.py calls this same function on a timer.
-    """
-    results = analyze_due_campaigns(db, settings=settings, limit=limit)
-    return {"analyzed": len(results), "results": results}
-
-
-@router.post("/{campaign_id}/analyze", response_model=dict)
-def analyze_one(
-    campaign_id: int,
-    db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
-):
-    """Analyze one campaign by id (idempotent: overwrites spec)."""
-    c = get_campaign(db, campaign_id)
-    if c is None:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    return analyze_campaign(db, c, settings=settings)
 
 
 # --- Step 7 of architecture_flow.md: enqueue pipeline jobs ---------------
@@ -415,7 +382,8 @@ def enqueue_all_ready(
 ):
     """Backlog drain: enqueue pipeline for every 'scored' campaign without open jobs.
 
-    Called by the analyze cron loop (main.py) every 10 minutes.
+    Manual backlog drain (not scheduled; the cron uses
+    scripts/download_enqueue_tick.py).
     """
     from app.models.campaign import Campaign
 

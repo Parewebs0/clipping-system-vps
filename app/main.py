@@ -1,16 +1,12 @@
 """FastAPI application entrypoint.
 
 NOTE (2026-09-11): The previous in-process `_analyze_loop` and
-`_discovery_loop` asyncio tasks have been removed. Both responsibilities
-have moved to the OpenClaw scheduler:
+`_discovery_loop` asyncio tasks have been removed. All cadence lives in the
+host crontab (pipeline v2 tick scripts, see docs/PIPELINE_STATUS.md); the
+pipeline v1 analyzer (campaign_analyzer / vps_pipeline_tick) was retired on
+2026-10-01.
 
-  - Step 1 (Whop discovery): OpenClaw cron `whop-discovery-cron` →
-    scripts/whop_discovery.py (every 6h).
-  - Steps 2/3 (analyze + drain): OpenClaw cron `vps-pipeline-tick` →
-    scripts/vps_pipeline_tick.py (every 10m).
-
-The API now has zero background tasks. All cadence lives in the scheduler,
-which gives us a run ledger, retry, and inspection.
+The API has zero background tasks.
 """
 import logging
 

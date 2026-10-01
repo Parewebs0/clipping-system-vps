@@ -35,7 +35,7 @@ class CampaignSpec(BaseModel):
     #   - "qa_rules": dict con reglas técnicas que el QA Worker (FFprobe) aplica:
     #       { "width": int, "height": int, "min_fps": float,
     #         "require_audio": bool, "codec": str }
-    #     (poblado por app.campaign_engine.normalizer / campaign_analyzer).
+    #     (poblado por app.campaign_engine.normalizer).
     #   - "qa_rules_source": "local" | "llm"  (trazabilidad del origen).
     #   - "notes": list[str]  (notas del parser si quedaron huecos).
     extra: dict[str, Any] = Field(default_factory=dict)

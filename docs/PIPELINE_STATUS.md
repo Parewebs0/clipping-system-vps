@@ -70,7 +70,7 @@ Los scripts además escriben sus propios logs en `/opt/clipping-system/logs/` (m
 |---|---|
 | `requeue_download_missing.py`, `requeue_transcribe_stalled.py` | reparaciones puntuales (el primero está fijado a `campaign_id=6`) |
 | `classify_and_cut_silent.py` | puntual; el corte silencioso ya lo hace el hook de transcripción |
-| `vps_pipeline_tick.py`, `clip_scanner.py`, `clip_scanner_quiet.sh`, `campaign_prioritizer.py`, `clip_decider_tick.py.disabled` | legacy (pipeline v1 / MiniMax) |
+| `clip_scanner.py`, `clip_scanner_quiet.sh`, `clip_decider_tick.py.disabled` | legacy (pipeline v1 / MiniMax) |
 | `whop_playwright_probe.py` | sonda de investigación |
 
 ## Operación rápida
@@ -80,6 +80,8 @@ Los scripts además escriben sus propios logs en `/opt/clipping-system/logs/` (m
 - Re-autorizar Google Drive (si 3b falla con `invalid_grant`): `docker exec -it clipping-system-vps-api-1 gog auth add <email> --services drive,docs --manual`.
 - Migraciones: `docker exec clipping-system-vps-api-1 alembic upgrade head`.
 - Exposición de la API: compose publica `${API_BIND_ADDR:-0.0.0.0}:8080`. En el mini PC poner `API_BIND_ADDR=100.70.150.107` (IP Tailscale) en `.env` para no exponerla en la LAN; nunca `127.0.0.1` (el worker Windows entra por Tailscale). Aplicar con `docker compose up -d api`. Ojo: si Docker arranca antes que Tailscale tras un reboot, el bind a la IP Tailscale falla hasta que `tailscaled` esté arriba (revisar `docker compose ps` tras reiniciar).
+
+Retirados el 2026-10-01 (pipeline v1, sin uso en cron ni en código vivo): `scripts/vps_pipeline_tick.py`, `scripts/campaign_prioritizer.py`, `app/services/campaign_analyzer.py` y los endpoints `POST /campaigns/analyze_due`, `POST /campaigns/{id}/analyze`, `POST /discovery/score_due`; `POST /discovery/run` ya no acepta `analyze_after`.
 
 ## Gaps conocidos
 

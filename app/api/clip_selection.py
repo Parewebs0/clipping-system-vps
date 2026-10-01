@@ -62,7 +62,7 @@ def list_pending(
     """List transcribed assets that have NOT yet been processed.
 
     Step 12 of architecture_flow.md. Optionally filters by the campaign's
-    priority_tier (populated by scripts/campaign_prioritizer.py every 2h).
+    source_metadata.priority_tier (defaults to 'standard' when absent).
     """
     q = (
         select(Asset, Campaign)
@@ -120,7 +120,7 @@ def process_all(
     """Process up to max_assets pending transcriptions.
 
     Step 13 of architecture_flow.md. When priority_only is true, processes
-    high-priority campaigns first (per scripts/campaign_prioritizer.py).
+    high-priority campaigns first (source_metadata.priority_tier).
     """
     candidate_q = (
         select(Asset.id, Campaign.source_metadata)
