@@ -37,6 +37,10 @@ class CampaignSource(str, enum.Enum):
 
 CAMPAIGN_SOURCE_VALUES = tuple(s.value for s in CampaignSource)
 
+# Sources the DB actually accepts (ck_campaigns_source_provider, migration
+# 0010_whop_only). The enum above keeps the wider vocabulary for asset kinds.
+ALLOWED_CAMPAIGN_SOURCES = (CampaignSource.WHOP.value, CampaignSource.MANUAL.value)
+
 
 class CampaignStatus(str, enum.Enum):
     # Pipeline v2 statuses (added 2026-09-17). Must stay in sync with
@@ -100,7 +104,7 @@ class Campaign(Base):
             name="ck_campaigns_status",
         ),
         CheckConstraint(
-            f"source_provider IN {CAMPAIGN_SOURCE_VALUES!r}",
+            f"source_provider IN {ALLOWED_CAMPAIGN_SOURCES!r}",
             name="ck_campaigns_source_provider",
         ),
     )

@@ -11,12 +11,13 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.campaign import ALLOWED_CAMPAIGN_SOURCES
 
-# Source providers we currently support
-ALLOWED_SOURCES = {
-    "twitter", "youtube", "instagram", "tiktok",
-    "reddit", "twitch", "manual", "whop", "other",
-}
+
+# Source providers we currently support (whop, manual).
+# Must match ck_campaigns_source_provider (migration 0010): anything else would
+# pass validation and then fail at INSERT with a 500.
+ALLOWED_SOURCES = set(ALLOWED_CAMPAIGN_SOURCES)
 
 
 class CampaignSpec(BaseModel):

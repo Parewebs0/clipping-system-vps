@@ -211,3 +211,13 @@ def test_campaigns_require_auth(client):
     assert r.status_code in (401, 403)
     r2 = client.get("/campaigns")
     assert r2.status_code in (401, 403)
+
+
+def test_create_campaign_rejects_source_not_allowed_by_db(client, auth_headers):
+    """source_provider outside ck_campaigns_source_provider → 422, not a 500."""
+    r = client.post(
+        "/campaigns",
+        json={"name": f"bad-src-{uuid.uuid4().hex[:8]}", "source_provider": "youtube"},
+        headers=auth_headers,
+    )
+    assert r.status_code == 422, r.text
