@@ -27,6 +27,32 @@ TIKTOK_RE = re.compile(r"tiktok\.com/@[^/]+/video/(\d+)", re.I)
 DROPBOX_FOLDER_RE = re.compile(r"dropbox\.com/scl/fo/([a-zA-Z0-9_-]+)", re.I)
 DROPBOX_FILE_RE = re.compile(r"dropbox\.com/(?:scl/fi|s)/([a-zA-Z0-9_-]+)", re.I)
 
+# Social pages that are references (sounds/audio pages, short-links, profiles,
+# posts we cannot download) rather than source footage. A campaign whose only
+# links are these has nothing to ingest -> fail cleanly as "social_only".
+_SOCIAL_DOMAINS = (
+    "instagram.com",
+    "tiktok.com",
+    "twitter.com",
+    "x.com",
+    "facebook.com",
+    "fb.watch",
+    "threads.net",
+    "snapchat.com",
+)
+
+
+def _is_social(url: str) -> bool:
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    if any(host == d or host.endswith("." + d) for d in _SOCIAL_DOMAINS):
+        return True
+    # YouTube sound/audio pages (youtube.com/source/<id>/shorts) are not footage.
+    return host.endswith("youtube.com") and urlparse(url).path.lower().startswith("/source/")
+
+
 _SKIP_HOST_HINTS = (
     "mediasilo.com",
     "we.tl",
@@ -63,6 +89,8 @@ def classify(url: str) -> str:
         return "unsupported"
     if "youtube.com/@" in u or "youtube.com/channel" in u:
         return "profile"
+    if _is_social(url):
+        return "social"
     return "unknown"
 
 
@@ -168,7 +196,7 @@ def _resolved(
 def expand_url(url: str) -> tuple[list[dict], str | None]:
     """Return (assets, error_kind_or_none). error only if this URL should fail the campaign when it is the only source."""
     kind = classify(url)
-    if kind in {"brief_doc", "profile", "invalid"}:
+    if kind in {"brief_doc", "profile", "invalid", "social"}:
         return [], None
     if kind == "unsupported":
         return [], "unsupported_source"
@@ -244,11 +272,13 @@ def expand_all(urls: list[str]) -> tuple[list[dict], list[str]]:
     seen: set[str] = set()
     errors: list[str] = []
     had_ingest_attempt = False
+    social_seen = False
     for url in urls:
-        assets, err = expand_url(url)
         kind = classify(url)
-        if kind in {"brief_doc", "profile", "invalid"}:
+        if kind in {"brief_doc", "profile", "invalid", "social"}:
+            social_seen = social_seen or kind in {"social", "profile"}
             continue
+        assets, err = expand_url(url)
         had_ingest_attempt = True
         if err and err.startswith("gog:"):
             errors.append(err)
@@ -265,5 +295,5 @@ def expand_all(urls: list[str]) -> tuple[list[dict], list[str]]:
             if len(found) >= MAX_FILES:
                 return found, errors
     if not had_ingest_attempt and not found:
-        errors.append("no_ingestible_urls")
+        errors.append("social_only" if social_seen else "no_ingestible_urls")
     return found, errors

@@ -66,26 +66,32 @@ def main() -> int:
         if args.campaign_id:
             camps = q.filter(Campaign.id == args.campaign_id).all()
         else:
+            # No SQL LIMIT here: terminal failed_resolve / already-resolved
+            # campaigns are skipped below and must not eat --limit slots,
+            # otherwise they starve newer briefed campaigns (ordered by id).
             camps = (
                 q.filter(Campaign.status.in_(("briefed", "failed_resolve", "assets_resolved")))
                 .order_by(Campaign.id.asc())
-                .limit(args.limit)
                 .all()
             )
         print(f"asset_resolver_tick scanned={len(camps)} dry_run={args.dry_run}")
+        processed = skipped = 0
         for c in camps:
+            if processed >= args.limit:
+                break
             meta = dict(c.source_metadata or {})
             prev = (meta.get("resolve_error") or {}).get("kind")
             if c.status == "failed_resolve" and prev not in _RETRYABLE and not args.campaign_id:
-                print(f"campaign={c.id} skip stuck failed_resolve kind={prev}")
+                skipped += 1
                 continue
             existing = db.query(Asset).filter(Asset.campaign_id == c.id).all()
             if c.status == "assets_resolved" and any(
                 (a.extra_metadata or {}).get("kind") not in {"drive_folder", "brand_asset", "brief_doc"}
                 for a in existing
             ):
-                print(f"campaign={c.id} skip already has files")
+                skipped += 1
                 continue
+            processed += 1
             urls = _candidate_urls(c)
             print(f"campaign={c.id} urls={len(urls)}")
             items, errors = expand_all(urls)
@@ -122,9 +128,18 @@ def main() -> int:
                 created += 1
             if new_assets == 0:
                 gog_fail = any(str(e).startswith("gog:") for e in errors)
-                kind = "gog" if gog_fail else (
-                    "unsupported_source" if errors else "no_videos"
-                )
+                if gog_fail:
+                    kind = "gog"
+                elif errors == ["social_only"]:
+                    # Only social/reference links (IG audio, TikTok, YT sound pages,
+                    # profiles): nothing to download. Terminal, never retried.
+                    kind = "social_only"
+                elif errors:
+                    kind = "unsupported_source"
+                else:
+                    kind = "no_videos"
+                if kind == "social_only":
+                    errors = ["social_only: only social/reference links, no Drive/Dropbox/direct video source"]
                 print(f"campaign={c.id} new_files=0 errors={errors[:3]} -> failed_resolve/{kind}")
                 if not args.dry_run:
                     c.status = "failed_resolve"
@@ -142,7 +157,7 @@ def main() -> int:
                 db.commit()
                 resolved += 1
             print(f"campaign={c.id} new_files={new_assets} -> assets_resolved")
-        print(f"asset_resolver_tick created={created} resolved={resolved}")
+        print(f"asset_resolver_tick processed={processed} skipped_terminal={skipped} created={created} resolved={resolved}")
         return 0
     except Exception as e:
         db.rollback()
