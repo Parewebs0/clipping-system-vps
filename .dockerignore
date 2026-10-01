@@ -1,0 +1,8 @@
+.git
+.env
+pgdata
+logs
+gog/config
+gog/share
+**/__pycache__
+.pytest_cache

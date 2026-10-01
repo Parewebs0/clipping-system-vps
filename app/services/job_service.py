@@ -30,14 +30,6 @@ class InvalidTransition(Exception):
 logger = logging.getLogger(__name__)
 
 
-# State transition dispatch is imported lazily inside complete_job()
-# and fail_job() to avoid the circular import:
-#   job_service -> job_state_transitions -> job_service (create_job)
-# Wired 2026-09-07 to fix Bug #2 (VPS, not Worker): the Worker reports
-# success but the next step in the pipeline (transcribe/render/qa)
-# was never created.
-
-
 class JobNotFound(Exception):
     pass
 
@@ -47,7 +39,6 @@ class WorkerMismatch(Exception):
 
 
 def _backoff_seconds(attempts: int) -> int:
-    """Simple exponential backoff: 30, 60, 120, 240 ..."""
     return 30 * (2 ** max(0, attempts - 1))
 
 
@@ -75,7 +66,6 @@ def create_job(
     db.add(job)
     db.commit()
     db.refresh(job)
-
     return job
 
 
@@ -104,7 +94,6 @@ def list_jobs(
 
 
 def _recover_expired_leases(db: Session, now: datetime) -> int:
-    """Reset jobs whose lease expired back to pending. Returns count."""
     stmt = (
         update(Job)
         .where(
@@ -123,18 +112,9 @@ def _recover_expired_leases(db: Session, now: datetime) -> int:
 
 
 def claim_next_job(db: Session, *, worker_id: str) -> Optional[Job]:
-    """
-    Atomically claim the next available job for this worker.
-    1. Recovers expired leases back to pending.
-    2. SELECT ... FOR UPDATE SKIP LOCKED on the highest-priority pending job.
-    3. Marks it as assigned with a fresh lease.
-    Returns the claimed job or None if no job is available.
-    """
     now = datetime.now(timezone.utc)
     lease_expires = now + timedelta(seconds=LEASE_DURATION_SECONDS)
-
     _recover_expired_leases(db, now)
-
     claim_q = (
         select(Job)
         .where(
@@ -149,7 +129,6 @@ def claim_next_job(db: Session, *, worker_id: str) -> Optional[Job]:
     if job is None:
         db.commit()
         return None
-
     job.status = JobStatus.ASSIGNED.value
     job.worker_id = worker_id
     job.started_at = now
@@ -160,7 +139,6 @@ def claim_next_job(db: Session, *, worker_id: str) -> Optional[Job]:
 
 
 def start_processing(db: Session, job_id: UUID, *, worker_id: str) -> Job:
-    """Worker marks a claimed job as actively processing (extends lease)."""
     job = db.get(Job, job_id)
     if job is None:
         raise JobNotFound()
@@ -189,10 +167,6 @@ def complete_job(db: Session, job_id: UUID, *, worker_id: str, result: dict) -> 
     job.lease_until = None
     db.commit()
     db.refresh(job)
-
-    # Fire the state transition handler for this job_type. Lazy import
-    # to avoid circular dep with job_state_transitions. Failures here
-    # MUST NOT roll back the completion — log and move on.
     try:
         from app.services.job_state_transitions import (
             on_download_completed,
@@ -200,11 +174,13 @@ def complete_job(db: Session, job_id: UUID, *, worker_id: str, result: dict) -> 
             on_render_completed,
             on_transcribe_completed,
         )
+        from app.services.publish_hooks import on_publish_completed
         handlers = {
             "download": on_download_completed,
             "transcribe": on_transcribe_completed,
             "render": on_render_completed,
             "qa": on_qa_completed,
+            "publish": on_publish_completed,
         }
         handler = handlers.get(job.job_type)
         if handler:
@@ -218,40 +194,29 @@ def complete_job(db: Session, job_id: UUID, *, worker_id: str, result: dict) -> 
 
 
 def fail_job(db: Session, job_id: UUID, *, worker_id: str, error_message: str) -> Job:
-    """
-    Mark job as failed.
-    - If attempts < max_attempts: increment attempts, return to PENDING with backoff.
-    - Otherwise: terminal FAILED state.
-    """
     job = db.get(Job, job_id)
     if job is None:
         raise JobNotFound()
     _ensure_transition(JobStatus(job.status), JobStatus.FAILED)
     if job.worker_id != worker_id:
         raise WorkerMismatch()
-
     now = datetime.now(timezone.utc)
     job.attempts = job.attempts + 1
-
     if job.attempts < job.max_attempts:
-        # Retry: transient failed -> pending with backoff
         job.status = JobStatus.PENDING.value
         job.error_message = error_message
         job.available_at = now + timedelta(seconds=_backoff_seconds(job.attempts))
         job.worker_id = None
         job.lease_until = None
     else:
-        # Terminal failure
         job.status = JobStatus.FAILED.value
         job.error_message = error_message
         job.lease_until = None
-
     db.commit()
     db.refresh(job)
-
-    # Only invoke on_job_failed for terminal failures (after retries exhausted)
     if job.status == JobStatus.FAILED.value:
         try:
+            from app.services.job_state_transitions import on_job_failed
             on_job_failed(db, job)
         except Exception as e:  # noqa: BLE001
             logger.exception(
@@ -261,11 +226,6 @@ def fail_job(db: Session, job_id: UUID, *, worker_id: str, error_message: str) -
 
 
 def heartbeat(db: Session, job_id: UUID, *, worker_id: str) -> Job:
-    """
-    Renew lease_until for a job claimed by worker_id.
-    Allowed only when job is in assigned or processing state.
-    Lightweight: just updates lease_until, no state transition.
-    """
     job = db.get(Job, job_id)
     if job is None:
         raise JobNotFound()
@@ -282,7 +242,6 @@ def heartbeat(db: Session, job_id: UUID, *, worker_id: str) -> Job:
 
 
 def cancel_job(db: Session, job_id: UUID) -> Job:
-    """Cancel a pending or assigned job."""
     job = db.get(Job, job_id)
     if job is None:
         raise JobNotFound()
