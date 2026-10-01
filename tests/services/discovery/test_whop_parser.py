@@ -119,5 +119,65 @@ class TestWhopParser(unittest.TestCase):
         self.assertEqual(out.asset_links[1], "https://drive.google.com/file/d/bbb")
 
 
+class TestWhopDetailClosedSignals(unittest.TestCase):
+    """fetch_detail must drop campaigns whose detail page says they are closed."""
+
+    def setUp(self):
+        self.provider = WhopProvider(
+            tenant_url="https://b4e0vdqv6zgqeqj4pfgm.apps.whop.com/discover"
+        )
+
+    def _run(self, html_text):
+        from app.services.discovery.models import DiscoveredCampaign
+        c = DiscoveredCampaign(
+            name="Test Campaign",
+            provider="whop",
+            external_id="exp_TEST/camp_TEST",
+            detail_url="https://whop.com/experiences/exp_TEST/campaigns/camp_TEST",
+            raw={},
+        )
+        with mock.patch.object(self.provider, "_fetch", return_value=html_text):
+            return self.provider.fetch_detail(c)
+
+    def test_visible_badge_submissions_closed(self):
+        html = '<div class="badge">Submissions <span>closed</span></div>'
+        self.assertTrue(WhopProvider._detail_signals_closed(html))
+        self.assertIsNone(self._run(html))
+
+    def test_no_longer_accepting_and_campaign_ended(self):
+        self.assertTrue(WhopProvider._detail_signals_closed(
+            "<p>This campaign is no longer accepting submissions.</p>"))
+        self.assertTrue(WhopProvider._detail_signals_closed(
+            "<p>This campaign has ended</p>"))
+
+    def test_embedded_json_flag(self):
+        self.assertTrue(WhopProvider._detail_signals_closed(
+            '<script>{"id":"x","submissionsClosed":true}</script>'))
+        self.assertTrue(WhopProvider._detail_signals_closed(
+            '<script>{"acceptingSubmissions": false}</script>'))
+
+    def test_escaped_rsc_payload(self):
+        rsc = (
+            '<script>self.__next_f.push([1,"{\\"id\\":\\"x\\",'
+            '\\"submissionsClosed\\":true}"])</script>'
+        )
+        self.assertTrue(WhopProvider._detail_signals_closed(rsc))
+
+    def test_open_campaign_not_flagged(self):
+        for html in (
+            DETAIL_HTML_OFFICIAL,
+            DETAIL_HTML_REAL_ASSETS,
+            DETAIL_HTML_NO_ASSETS,
+            '<script>{"submissionsClosed":false,"status":"active"}</script>',
+            # generic status markers on payouts/posts must NOT drop the campaign
+            '<script>{"payouts":[{"status":"completed"}]}</script>',
+            "<p>Submissions open until Friday</p>",
+            "",
+            None,
+        ):
+            self.assertFalse(WhopProvider._detail_signals_closed(html), html)
+        self.assertIsNotNone(self._run(DETAIL_HTML_REAL_ASSETS))
+
+
 if __name__ == "__main__":
     unittest.main()
