@@ -55,7 +55,7 @@ def _create_campaign(name: str | None = None):
             text(
                 """
                 INSERT INTO campaigns (name, status, source_provider, spec)
-                VALUES (:n, 'draft', 'manual', '{}'::jsonb)
+                VALUES (:n, 'discovered', 'manual', '{}'::jsonb)
                 """
             ),
             {"n": n},
@@ -123,8 +123,10 @@ def test_overview_shape(enabled_client, auth_headers):
 
 
 def test_campaigns_list_includes_all_statuses(enabled_client, auth_headers):
-    # Seed one campaign of each status we know is in the CHECK constraint.
-    statuses = ["draft", "ready", "active", "paused", "completed", "archived"]
+    # Seed one campaign of each status allowed by ck_campaigns_status
+    # (pipeline v2 values; legacy draft/ready/... were dropped in 0012).
+    from app.models.campaign import CAMPAIGN_STATUS_VALUES
+    statuses = list(CAMPAIGN_STATUS_VALUES)
     created_ids = []
     for st in statuses:
         n = f"mc-{st}-{uuid.uuid4().hex[:6]}"

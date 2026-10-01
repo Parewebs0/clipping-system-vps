@@ -29,7 +29,7 @@ def test_create_campaign_success(client, auth_headers):
     )
     assert r.status_code == 201, r.text
     data = r.json()
-    assert data["status"] == "draft"
+    assert data["status"] == "discovered"  # pipeline v2 entry state
     assert data["source_provider"] == "manual"  # default
     assert data["spec"]["format"] == "9:16"
     assert data["spec"]["captions_required"] is True
@@ -125,9 +125,9 @@ def test_list_campaigns_filter_by_status(client, auth_headers):
     name = f"flt-{uuid.uuid4().hex[:8]}"
     r = client.post("/campaigns", json=_payload(name=name), headers=auth_headers)
     cid = r.json()["id"]
-    r1 = client.get("/campaigns?status=ready", headers=auth_headers)
+    r1 = client.get("/campaigns?status=scored", headers=auth_headers)
     assert all(c["id"] != cid for c in r1.json())
-    r2 = client.get("/campaigns?status=draft", headers=auth_headers)
+    r2 = client.get("/campaigns?status=discovered", headers=auth_headers)
     assert any(c["id"] == cid for c in r2.json())
 
 
@@ -137,11 +137,11 @@ def test_update_campaign_status(client, auth_headers):
     cid = r.json()["id"]
     u = client.patch(
         f"/campaigns/{cid}",
-        json={"status": "ready"},
+        json={"status": "scored"},
         headers=auth_headers,
     )
-    assert u.status_code == 200
-    assert u.json()["status"] == "ready"
+    assert u.status_code == 200, u.text
+    assert u.json()["status"] == "scored"
 
 
 def test_update_campaign_invalid_status(client, auth_headers):

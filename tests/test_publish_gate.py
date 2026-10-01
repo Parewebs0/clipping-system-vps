@@ -19,7 +19,7 @@ def _make_clip(**overrides):
     try:
         c = Campaign(
             name=f"test_pub_{uuid.uuid4().hex[:8]}",
-            status=CampaignStatus.READY.value,
+            status=CampaignStatus.SCORED.value,
             source_provider="whop",
             source_url=f"https://whop.com/{uuid.uuid4()}",
             source_metadata={},
