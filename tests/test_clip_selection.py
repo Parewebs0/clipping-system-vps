@@ -48,7 +48,7 @@ def _seed_transcribed(db) -> tuple[Any, Any]:
 
     c = Campaign(
         name=f"cs-camp-{uuid.uuid4().hex[:6]}",
-        source_provider="youtube",
+        source_provider="whop",
         source_instructions=(
             "Make 20-60s clips in english with captions."
         ),
