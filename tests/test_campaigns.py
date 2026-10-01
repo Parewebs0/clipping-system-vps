@@ -29,7 +29,7 @@ def test_create_campaign_success(client, auth_headers):
     )
     assert r.status_code == 201, r.text
     data = r.json()
-    assert data["status"] == "draft"
+    assert data["status"] == "discovered"  # pipeline v2 entry state
     assert data["source_provider"] == "manual"  # default
     assert data["spec"]["format"] == "9:16"
     assert data["spec"]["captions_required"] is True
@@ -49,7 +49,7 @@ def test_create_campaign_with_source(client, auth_headers):
         "/campaigns",
         json=_payload(
             name=f"src-{uuid.uuid4().hex[:8]}",
-            source_provider="youtube",
+            source_provider="whop",
             source_id="dQw4w9WgXcQ",
             source_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
             source_metadata={"channel": "test", "duration_s": 213},
@@ -58,7 +58,7 @@ def test_create_campaign_with_source(client, auth_headers):
     )
     assert r.status_code == 201, r.text
     data = r.json()
-    assert data["source_provider"] == "youtube"
+    assert data["source_provider"] == "whop"
     assert data["source_id"] == "dQw4w9WgXcQ"
     assert data["source_url"] == "https://youtube.com/watch?v=dQw4w9WgXcQ"
     assert data["source_metadata"]["channel"] == "test"
@@ -81,22 +81,22 @@ def test_filter_by_source_provider(client, auth_headers):
     name_t = f"tw-{uuid.uuid4().hex[:8]}"
     client.post(
         "/campaigns",
-        json=_payload(name=name_y, source_provider="youtube"),
+        json=_payload(name=name_y, source_provider="whop"),
         headers=auth_headers,
     )
     client.post(
         "/campaigns",
-        json=_payload(name=name_t, source_provider="twitter"),
+        json=_payload(name=name_t, source_provider="manual"),
         headers=auth_headers,
     )
 
-    r_y = client.get("/campaigns?source_provider=youtube", headers=auth_headers)
+    r_y = client.get("/campaigns?source_provider=whop", headers=auth_headers)
     assert r_y.status_code == 200
     names_y = [c["name"] for c in r_y.json()]
     assert name_y in names_y
     assert name_t not in names_y
 
-    r_t = client.get("/campaigns?source_provider=twitter", headers=auth_headers)
+    r_t = client.get("/campaigns?source_provider=manual", headers=auth_headers)
     names_t = [c["name"] for c in r_t.json()]
     assert name_t in names_t
     assert name_y not in names_t
@@ -125,9 +125,9 @@ def test_list_campaigns_filter_by_status(client, auth_headers):
     name = f"flt-{uuid.uuid4().hex[:8]}"
     r = client.post("/campaigns", json=_payload(name=name), headers=auth_headers)
     cid = r.json()["id"]
-    r1 = client.get("/campaigns?status=ready", headers=auth_headers)
+    r1 = client.get("/campaigns?status=scored", headers=auth_headers)
     assert all(c["id"] != cid for c in r1.json())
-    r2 = client.get("/campaigns?status=draft", headers=auth_headers)
+    r2 = client.get("/campaigns?status=discovered", headers=auth_headers)
     assert any(c["id"] == cid for c in r2.json())
 
 
@@ -137,11 +137,11 @@ def test_update_campaign_status(client, auth_headers):
     cid = r.json()["id"]
     u = client.patch(
         f"/campaigns/{cid}",
-        json={"status": "ready"},
+        json={"status": "scored"},
         headers=auth_headers,
     )
-    assert u.status_code == 200
-    assert u.json()["status"] == "ready"
+    assert u.status_code == 200, u.text
+    assert u.json()["status"] == "scored"
 
 
 def test_update_campaign_invalid_status(client, auth_headers):
@@ -183,7 +183,7 @@ def test_update_campaign_source_metadata_merges(client, auth_headers):
         "/campaigns",
         json=_payload(
             name=name,
-            source_provider="youtube",
+            source_provider="whop",
             source_metadata={"channel": "x", "sub_count": 100},
         ),
         headers=auth_headers,

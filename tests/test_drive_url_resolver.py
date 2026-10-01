@@ -13,7 +13,9 @@ These cover the four families of Drive URLs that Whop campaigns hand us in
                            (incl. localized /drive/u/<N>/folders/<ID>)
                            -> rejected (None): must be enumerated, not downloaded
   4. Google Docs/Sheets:   docs.google.com/document/d/<ID>/edit?usp=sharing
-                           -> rejected (None): not a video, can't be downloaded
+                           -> passed through unchanged: since 40871a3 Docs are
+                              campaign briefs (classify_link -> 'docs'/'googlesheets',
+                              handled by brief_extractor), not Drive files.
 
 Non-Drive URLs are passed through unchanged.
 """
@@ -24,6 +26,7 @@ import pytest
 
 from app.services.discovery.asset_resolver import (
     classify_link,
+    is_brief_kind,
     rewrite_drive_url,
 )
 
@@ -108,37 +111,45 @@ class TestFolderRejection:
         assert rewrite_drive_url(url) is None
 
 
-# ------------------ 3. docs.google.com -> rejected -----------------------
+# ------------- 3. docs.google.com -> passed through (briefs) --------------
 
 
-class TestDocsGoogleRejection:
+class TestDocsGooglePassThrough:
+    """rewrite_drive_url only touches drive.google.com. docs.google.com URLs are
+    returned unchanged so the resolver can store them as briefs (40871a3)."""
+
     def test_document_editor(self):
         url = (
             "https://docs.google.com/document/d/"
             "1FtFgAlk_JZqAM3jJzPJZMooXgLuKF-q3wPdOU7OcP5E/edit?usp=sharing"
         )
-        assert rewrite_drive_url(url) is None
+        assert rewrite_drive_url(url) == url
+        assert classify_link(url) == "docs"
+        assert is_brief_kind(classify_link(url), url)
 
     def test_spreadsheet_editor(self):
         url = (
             "https://docs.google.com/spreadsheets/d/"
             "1abc_DEF-234567890abcdefghijkl/edit"
         )
-        assert rewrite_drive_url(url) is None
+        assert rewrite_drive_url(url) == url
+        assert classify_link(url) == "googlesheets"
 
     def test_presentation_editor(self):
         url = (
             "https://docs.google.com/presentation/d/"
             "1abc_DEF-2344567890abcdefghijkl/edit?usp=sharing"
         )
-        assert rewrite_drive_url(url) is None
+        assert rewrite_drive_url(url) == url
+        assert classify_link(url) == "docs"
 
     def test_forms_editor(self):
         url = (
             "https://docs.google.com/forms/d/"
             "1abc_DEF-2344567890abcdefghijkl/edit"
         )
-        assert rewrite_drive_url(url) is None
+        assert rewrite_drive_url(url) == url
+        assert classify_link(url) == "docs"
 
 
 # ------------------- 4. Non-Drive URLs -> pass-through --------------------

@@ -42,7 +42,7 @@ def db():
 
 
 def _seed(client, auth_headers, *, instructions="Make 30-60s clips in english.",
-          provider="youtube", transcript_text="hello world",
+          provider="whop", transcript_text="hello world",
           duration_seconds=300.0) -> Tuple[int, str]:
     """Create a campaign + asset (transcribed). Returns (campaign_id, asset_id)."""
     r = client.post("/campaigns", json={
@@ -101,7 +101,7 @@ def test_approve_creates_render_job(db):
 
     c = Campaign(
         name=f"lc-{uuid.uuid4().hex[:6]}",
-        source_provider="youtube",
+        source_provider="whop",
         source_instructions="Make 30-60s clips in english.",
     )
     db.add(c)
@@ -156,7 +156,7 @@ def test_approve_out_of_window_rejects(db):
 
     c = Campaign(
         name=f"lc-{uuid.uuid4().hex[:6]}",
-        source_provider="youtube",
+        source_provider="whop",
         source_instructions="Make 30-60s clips in english.",
     )
     db.add(c)
@@ -200,7 +200,7 @@ def test_approve_excluded_keyword_rejects(db):
 
     c = Campaign(
         name=f"lc-{uuid.uuid4().hex[:6]}",
-        source_provider="youtube",
+        source_provider="whop",
         source_instructions="Make 30-60s clips. Exclude: spoiler.",
     )
     db.add(c)
@@ -241,7 +241,7 @@ def test_double_approve_is_idempotent(db):
 
     c = Campaign(
         name=f"lc-{uuid.uuid4().hex[:6]}",
-        source_provider="youtube",
+        source_provider="whop",
         source_instructions="Make 30-60s clips in english.",
     )
     db.add(c)
@@ -284,7 +284,7 @@ def test_reject_marks_with_reason(db):
     from app.models.candidate import Candidate, CandidateStatus
     from app.services.candidate_lifecycle import reject_candidate
 
-    c = Campaign(name=f"lc-{uuid.uuid4().hex[:6]}", source_provider="youtube")
+    c = Campaign(name=f"lc-{uuid.uuid4().hex[:6]}", source_provider="whop")
     db.add(c)
     db.commit()
     a = Asset(
@@ -321,7 +321,7 @@ def test_reject_already_rendered_raises(db):
     from app.models.candidate import Candidate, CandidateStatus
     from app.services.candidate_lifecycle import reject_candidate
 
-    c = Campaign(name=f"lc-{uuid.uuid4().hex[:6]}", source_provider="youtube")
+    c = Campaign(name=f"lc-{uuid.uuid4().hex[:6]}", source_provider="whop")
     db.add(c)
     db.commit()
     a = Asset(

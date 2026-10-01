@@ -5,7 +5,8 @@ import uuid
 def _campaign_payload(name=None):
     return {
         "name": name or f"asset-camp-{uuid.uuid4().hex[:8]}",
-        "source_provider": "youtube",
+        # campaigns.source_provider is restricted to whop|manual (migration 0010)
+        "source_provider": "whop",
     }
 
 
@@ -60,7 +61,7 @@ def test_create_asset_source_provider_inherited_from_campaign(client, auth_heade
     payload["source_provider"] = None  # explicit None
     r = client.post("/assets", json=payload, headers=auth_headers)
     assert r.status_code == 201, r.text
-    assert r.json()["source_provider"] == "youtube"  # inherited
+    assert r.json()["source_provider"] == "whop"  # inherited from campaign
 
 
 def test_bulk_create_assets(client, auth_headers):
