@@ -39,7 +39,7 @@
 |---|---|
 | `whop_discovery.py` | `WHOP_TENANT_URL`, `WHOP_API_BASE`, `WHOP_API_TIMEOUT_S`; opcional `DISCOVERY_MAX_ACTIVE` |
 | `brief_reader_tick.py`, `grok_clip_decider_tick.py` | `XAI_API_KEY`, `XAI_API_BASE`, `XAI_MODEL`; salida a `docs.google.com` (briefs públicos) |
-| `drive_resolver_tick.py` | binario `gog` (v0.40.0, en la imagen `/usr/local/bin/gog`), `GOG_KEYRING_PASSWORD`, config/keyring de gog montados en `/root/.config/gogcli` y `/root/.local/share/gogcli` (host: `./gog/config`, `./gog/share`, fuera de git) |
+| `drive_resolver_tick.py` | binario `gog` (v0.40.0, descargado en el `docker build` desde la release oficial `openclaw/gogcli` con checksum sha256; `/usr/local/bin/gog`; versión vía build ARG `GOG_VERSION`), `GOG_KEYRING_PASSWORD`, config/keyring de gog montados en `/root/.config/gogcli` y `/root/.local/share/gogcli` (host: `./gog/config`, `./gog/share`, fuera de git) |
 | `campaign_scorer_tick.py`, `download_enqueue_tick.py` | solo BD |
 | `publish_enqueue_tick.py` | `PUBLISH_DRY_RUN` (default `1`); el Worker hace la subida real |
 | Todos | `CLIPPING_DB_*` (desde `.env`, montado read-only) |
@@ -79,6 +79,7 @@ Los scripts además escriben sus propios logs en `/opt/clipping-system/logs/` (m
 - Re-leer un brief: `... brief_reader_tick.py --campaign-id N`; re-resolver: `... drive_resolver_tick.py --campaign-id N`.
 - Re-autorizar Google Drive (si 3b falla con `invalid_grant`): `docker exec -it clipping-system-vps-api-1 gog auth add <email> --services drive,docs --manual`.
 - Migraciones: `docker exec clipping-system-vps-api-1 alembic upgrade head`.
+- Exposición de la API: compose publica `${API_BIND_ADDR:-0.0.0.0}:8080`. En el mini PC poner `API_BIND_ADDR=100.70.150.107` (IP Tailscale) en `.env` para no exponerla en la LAN; nunca `127.0.0.1` (el worker Windows entra por Tailscale). Aplicar con `docker compose up -d api`. Ojo: si Docker arranca antes que Tailscale tras un reboot, el bind a la IP Tailscale falla hasta que `tailscaled` esté arriba (revisar `docker compose ps` tras reiniciar).
 
 ## Gaps conocidos
 

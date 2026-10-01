@@ -21,7 +21,9 @@ services:
     environment:
       CLIPPING_DB_HOST: postgres
     ports:
-      - "8080:8080"
+      # Default 0.0.0.0 = all interfaces (Windows worker reaches it via Tailscale).
+      # On the mini PC set API_BIND_ADDR=<Tailscale IP> in .env to keep it off the LAN.
+      - "${API_BIND_ADDR:-0.0.0.0}:8080:8080"
     volumes:
       - ./.env:/opt/clipping-system/.env:ro
       - ./logs:/opt/clipping-system/logs
