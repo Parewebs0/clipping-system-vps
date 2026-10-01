@@ -28,7 +28,8 @@ def create_campaign(db: Session, payload: CampaignCreate) -> Campaign:
     spec_dict = payload.spec.model_dump() if payload.spec else {}
     campaign = Campaign(
         name=payload.name,
-        status=CampaignStatus.DRAFT.value,
+        # Entry state of pipeline v2 (legacy 'draft' was dropped in 0012).
+        status=CampaignStatus.DISCOVERED.value,
         source_provider=payload.source_provider,
         source_id=payload.source_id,
         source_url=payload.source_url,

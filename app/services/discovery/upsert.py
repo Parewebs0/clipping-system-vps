@@ -196,7 +196,7 @@ def upsert_campaign(
 
     c = Campaign(
         name=name,
-        status=status or CampaignStatus.DRAFT.value,
+        status=status or CampaignStatus.DISCOVERED.value,
         source_provider=discovered.provider,
         source_url=discovered.detail_url,
         source_metadata=metadata,
