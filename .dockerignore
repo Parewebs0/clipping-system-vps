@@ -2,7 +2,7 @@
 .env
 pgdata
 logs
-gog/config
-gog/share
+# gog binary + config/keyring: binary is downloaded at build, config is bind-mounted
+gog
 **/__pycache__
 .pytest_cache
