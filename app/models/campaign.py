@@ -60,7 +60,7 @@ class Campaign(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
     status: Mapped[str] = mapped_column(
-        String(32), nullable=False, server_default="draft"
+        String(32), nullable=False, server_default=CampaignStatus.DISCOVERED.value
     )
 
     # Source/provider info — campaigns can come from various websites
