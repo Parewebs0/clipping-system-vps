@@ -374,6 +374,20 @@
         "title": "AssetUpdate",
         "type": "object"
       },
+      "Body_upload_logo_campaigns__campaign_id__rules_logo_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_logo_campaigns__campaign_id__rules_logo_post",
+        "type": "object"
+      },
       "CampaignCreate": {
         "properties": {
           "name": {
@@ -1239,6 +1253,17 @@
               }
             ],
             "title": "Gate"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
           },
           "pending_count": {
             "default": 0,
@@ -6140,6 +6165,64 @@
         ]
       }
     },
+    "/campaigns/{campaign_id}/rules/logo": {
+      "post": {
+        "description": "Store a campaign logo and confirm only ``human:logo_file`` (#55).\n\nThe file is kept on this server. ``rules_overrides.logo_url`` is the\nworker route, not a public URL.",
+        "operationId": "upload_logo_campaigns__campaign_id__rules_logo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_logo_campaigns__campaign_id__rules_logo_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRulesetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Logo",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
     "/campaigns/{campaign_id}/ruleset": {
       "get": {
         "description": "Typed RuleSet v2 (#33) + workability blockers and confirmations (#37).",
@@ -8895,6 +8978,52 @@
           }
         ],
         "summary": "List All Workers",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
+    "/worker/campaigns/{campaign_id}/logo": {
+      "get": {
+        "description": "PNG logo for the worker. Bearer API_TOKEN, same as the rest of /worker (#55).",
+        "operationId": "campaign_logo_worker_campaigns__campaign_id__logo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Campaign Logo",
         "tags": [
           "workers"
         ]

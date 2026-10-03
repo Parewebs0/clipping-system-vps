@@ -14,6 +14,7 @@ import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.auth import require_bearer
@@ -70,6 +71,20 @@ def list_all_workers(
     _: bool = Depends(require_bearer),
 ) -> List[WorkerOut]:
     return [WorkerOut.model_validate(w) for w in list_workers(db)]
+
+
+@router.get("/campaigns/{campaign_id}/logo")
+def campaign_logo(
+    campaign_id: int,
+    _: bool = Depends(require_bearer),
+):
+    """PNG logo for the worker. Bearer API_TOKEN, same as the rest of /worker (#55)."""
+    from app.services.logo_store import logo_file_path
+
+    path = logo_file_path(campaign_id)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Logo not found")
+    return FileResponse(path, media_type="image/png", filename=f"{campaign_id}.png")
 
 
 @router.get("/{worker_id}", response_model=WorkerOut)

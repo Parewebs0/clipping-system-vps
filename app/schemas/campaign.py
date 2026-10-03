@@ -192,3 +192,4 @@ class CampaignRulesetOut(BaseModel):
     pending_count: int = 0
     gate: Optional[Dict[str, Any]] = None
     compliance: Optional[Dict[str, Any]] = None
+    logo_url: Optional[str] = None

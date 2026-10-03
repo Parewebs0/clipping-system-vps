@@ -297,6 +297,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaign_id}/rules/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Logo
+         * @description Store a campaign logo and confirm only ``human:logo_file`` (#55).
+         *
+         *     The file is kept on this server. ``rules_overrides.logo_url`` is the
+         *     worker route, not a public URL.
+         */
+        post: operations["upload_logo_campaigns__campaign_id__rules_logo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaign_id}/ruleset": {
         parameters: {
             query?: never;
@@ -1093,6 +1116,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/worker/campaigns/{campaign_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaign Logo
+         * @description PNG logo for the worker. Bearer API_TOKEN, same as the rest of /worker (#55).
+         */
+        get: operations["campaign_logo_worker_campaigns__campaign_id__logo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/worker/heartbeat": {
         parameters: {
             query?: never;
@@ -1353,6 +1396,11 @@ export interface components {
             sha256?: string | null;
             /** Status */
             status?: string | null;
+        };
+        /** Body_upload_logo_campaigns__campaign_id__rules_logo_post */
+        Body_upload_logo_campaigns__campaign_id__rules_logo_post: {
+            /** File */
+            file: string;
         };
         /** CampaignCreate */
         CampaignCreate: {
@@ -1624,6 +1672,8 @@ export interface components {
             gate?: {
                 [key: string]: unknown;
             } | null;
+            /** Logo Url */
+            logo_url?: string | null;
             /**
              * Pending Count
              * @default 0
@@ -3483,6 +3533,41 @@ export interface operations {
             };
         };
     };
+    upload_logo_campaigns__campaign_id__rules_logo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_logo_campaigns__campaign_id__rules_logo_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignRulesetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_ruleset_campaigns__campaign_id__ruleset_get: {
         parameters: {
             query?: never;
@@ -4942,6 +5027,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkerOut"][];
+                };
+            };
+        };
+    };
+    campaign_logo_worker_campaigns__campaign_id__logo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
