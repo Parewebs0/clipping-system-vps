@@ -76,7 +76,7 @@ def main() -> int:
         fetch_google_doc_text,
         heuristic_flags,
     )
-    from app.services.campaign_score import score_campaign
+    from app.services.campaign_score import campaign_rate_usd, campaign_remaining_usd, score_campaign
 
     db = SessionLocal()
     try:
@@ -211,8 +211,8 @@ def main() -> int:
 
             preview = score_campaign(
                 real_assets=0 if unsupported else 1,
-                cpm=float(discovered.get("cpm_usd_per_1k") or 0),
-                prize=float(discovered.get("prize_pool_usd") or 0),
+                cpm=campaign_rate_usd(meta),
+                prize=campaign_remaining_usd(meta),
                 verified=bool(discovered.get("organization_verified")),
                 rules=rules,
                 content_kinds=rules.get("content_source_kinds"),

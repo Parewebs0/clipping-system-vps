@@ -4,7 +4,7 @@ The pipeline v2 ticks own the *forward* transitions:
 
     discovered --3a--> briefed | failed_brief
     briefed / failed_resolve(gog) --3b--> assets_resolved | failed_resolve
-    assets_resolved --3c--> scored | blocked_no_assets
+    assets_resolved --3c--> scored | blocked_no_assets | blocked_low_score
     scored --7--> (download jobs enqueued)
 
 A human (Mission Control / API) may only:
@@ -35,6 +35,7 @@ MANUAL_TRANSITIONS: dict[str, tuple[str, ...]] = {
     S.ASSETS_RESOLVED.value: (S.BRIEFED.value, S.DISCOVERED.value, ARCHIVED),
     S.SCORED.value: (S.ASSETS_RESOLVED.value, S.BLOCKED_NO_ASSETS.value, ARCHIVED),
     S.BLOCKED_NO_ASSETS.value: (S.ASSETS_RESOLVED.value, S.BRIEFED.value, ARCHIVED),
+    S.BLOCKED_LOW_SCORE.value: (S.ASSETS_RESOLVED.value, S.BRIEFED.value, ARCHIVED),
     S.FAILED_BRIEF.value: (S.DISCOVERED.value, ARCHIVED),
     S.FAILED_RESOLVE.value: (S.BRIEFED.value, S.DISCOVERED.value, ARCHIVED),
     ARCHIVED: (S.DISCOVERED.value,),
@@ -50,6 +51,7 @@ CONSUMED_BY: dict[str, Optional[str]] = {
     S.ASSETS_RESOLVED.value: "campaign_scorer_tick (3c)",
     S.SCORED.value: "download_enqueue_tick (7)",
     S.BLOCKED_NO_ASSETS.value: None,
+    S.BLOCKED_LOW_SCORE.value: None,
     S.FAILED_BRIEF.value: None,
     S.FAILED_RESOLVE.value: "drive_resolver_tick (3b, solo kind=gog)",
     ARCHIVED: None,
@@ -63,6 +65,7 @@ EFFECT: dict[str, str] = {
     S.ASSETS_RESOLVED.value: "El scorer (3c) recalculará el score con los assets actuales.",
     S.BLOCKED_NO_ASSETS.value: "Aparcada: download_enqueue_tick deja de encolar descargas nuevas (los jobs ya encolados siguen).",
     PARKED: "Aparcada (cerrada, agotada o no apta en origen): ningún tick la procesa y no cuenta para el límite de discovery.",
+    S.BLOCKED_LOW_SCORE.value: "Aparcada por puntuación baja (tiene assets): no se encolan descargas. Motivo en score.block_reason.",
     ARCHIVED: "Sale del pipeline: ningún tick la procesa y no cuenta para el límite de campañas activas de discovery. Los jobs ya encolados no se cancelan.",
 }
 

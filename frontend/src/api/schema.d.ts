@@ -1349,7 +1349,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "failed_brief" | "failed_resolve" | "archived" | "parked";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1427,7 +1427,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "failed_brief" | "failed_resolve" | "archived" | "parked";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1543,7 +1543,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "failed_brief" | "failed_resolve" | "archived" | "parked";
         };
         /**
          * CampaignSpec

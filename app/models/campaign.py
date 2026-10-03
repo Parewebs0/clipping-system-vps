@@ -51,6 +51,7 @@ class CampaignStatus(str, enum.Enum):
     ASSETS_RESOLVED = "assets_resolved" # paso 3b: drive-resolver expanded folders
     SCORED = "scored"                   # paso 3c: campaign-scorer wrote score
     BLOCKED_NO_ASSETS = "blocked_no_assets"  # paso 3c: 0 real assets
+    BLOCKED_LOW_SCORE = "blocked_low_score"  # paso 3c: has assets, score/rate/host not enough (0019)
     FAILED_BRIEF = "failed_brief"       # paso 3a: brief unreadable
     FAILED_RESOLVE = "failed_resolve"   # paso 3b: drive access denied
     ARCHIVED = "archived"               # manual (Mission Control): out of the pipeline (0017)

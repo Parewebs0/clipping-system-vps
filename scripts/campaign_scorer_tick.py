@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Paso 3c — campaign scorer. Deterministic. No LLM."""
+"""Paso 3c — campaign scorer. Deterministic. No LLM.
+
+#25: rate on the publish platform (YouTube) + remaining budget; result is
+`scored`, `blocked_no_assets` (0 real assets) or `blocked_low_score` (has
+assets but score/rate/host not good enough; reason in score.block_reason).
+"""
 from __future__ import annotations
 
 import argparse
@@ -46,26 +51,6 @@ def _size_of(asset) -> int:
     return 0
 
 
-def _cpm_usd(meta: dict) -> float:
-    discovered = (meta or {}).get("discovered") or {}
-    if discovered.get("cpm_usd_per_1k"):
-        try:
-            return float(discovered["cpm_usd_per_1k"])
-        except (TypeError, ValueError):
-            pass
-    payouts = discovered.get("payouts") or []
-    best = 0.0
-    for p in payouts:
-        if not isinstance(p, dict):
-            continue
-        cents = p.get("rate_cents") or 0
-        try:
-            best = max(best, float(cents) / 100.0)
-        except (TypeError, ValueError):
-            pass
-    return best
-
-
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=5)
@@ -75,7 +60,7 @@ def main() -> int:
     from app.db.database import SessionLocal
     from app.models.campaign import Campaign
     from app.models.asset import Asset
-    from app.services.campaign_score import MIN_SCORE_TO_RUN, score_campaign
+    from app.services.campaign_score import campaign_rate_usd, campaign_remaining_usd, score_campaign
 
     db = SessionLocal()
     changed = 0
@@ -95,11 +80,8 @@ def main() -> int:
             meta = dict(c.source_metadata or {})
             discovered = dict(meta.get("discovered") or {})
             rules = dict(meta.get("rules") or {})
-            cpm = _cpm_usd(meta)
-            try:
-                prize = float(discovered.get("prize_pool_usd") or 0)
-            except (TypeError, ValueError):
-                prize = 0.0
+            cpm = campaign_rate_usd(meta)
+            prize = campaign_remaining_usd(meta)
             verified = bool(discovered.get("organization_verified"))
             scored = score_campaign(
                 real_assets=len(real),
@@ -113,13 +95,14 @@ def main() -> int:
             score = scored["value"]
             if not real:
                 new_status = "blocked_no_assets"
-            elif score < MIN_SCORE_TO_RUN or not scored["eligible"]:
-                new_status = "blocked_no_assets"
+            elif not scored["eligible"]:
+                new_status = "blocked_low_score"
             else:
                 new_status = "scored"
             print(
                 f"campaign={c.id} real_assets={len(real)} cpm={cpm} "
-                f"prize={prize} score={score} pen={scored['penalties']} -> {new_status}"
+                f"remaining={prize} score={score} pen={scored['penalties']} "
+                f"reason={scored['block_reason']} -> {new_status}"
             )
             if args.dry_run:
                 continue
@@ -136,7 +119,9 @@ def main() -> int:
                 "value": score,
                 "real_assets": len(real),
                 "cpm_usd": cpm,
-                "prize_pool_usd": prize,
+                "rate_usd": cpm,
+                "remaining_usd": prize,
+                "block_reason": scored["block_reason"],
                 "breakdown": scored,
             }
             c.source_metadata = meta
