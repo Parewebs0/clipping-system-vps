@@ -152,3 +152,46 @@ def test_llm_to_ruleset_tolerates_bad_sections():
                                 SourceBundle(guidelines="x"))
     assert errors and errors[0].startswith("duration")
     assert rs.copy_rules.mentions_by_platform == {"youtube": ["@a"]}
+
+
+def test_reclassify_prohibitions_are_not_unsupported():
+    """#39: 'No clips of Kanye' is a prohibition (always satisfiable), not unsupported."""
+    from app.services.rules.extract import reclassify
+    from app.services.rules.schema import AccountRequirement
+
+    ev = lambda q: [Evidence(quote=q, source="guidelines", verified=True)]  # noqa: E731
+    rs = RuleSet()
+    rs.unsupported = [
+        UnsupportedRule(text="No clips of Kanye", reason="content restriction", evidence=ev("No clips of Kanye")),
+        UnsupportedRule(text="old split-screen gameplay videos", reason="retired",
+                        evidence=ev("Don't post the old split-screen gameplay content")),
+        UnsupportedRule(text="You are not expected to create full videos from scratch.", evidence=ev("You are not expected to create full videos from scratch.")),
+        UnsupportedRule(text="video export", reason="Format: Native photo slideshows (not a video export).",
+                        evidence=ev("Format: Native photo slideshows (not a video export).")),
+        UnsupportedRule(text="Videos posted after Sept 25 must use the new official links", reason="sound link",
+                        evidence=ev("Videos posted on or after September 25 must use the new official links")),
+    ]
+    rs.copy_rules.mentions_by_platform = {"tiktok": ["@boxabl"]}
+    rs.account_requirements = [
+        AccountRequirement(kind="tagging", text="Tag @boxabl", evidence=ev("Tag @boxabl")),
+        AccountRequirement(kind="ftc_compliance", text="make your post FTC compliant", evidence=ev("FTC")),
+        AccountRequirement(kind="bio", text="No required bio line for this campaign."),
+        AccountRequirement(kind="audience", text="40%+ T1"),
+    ]
+    rs = reclassify(rs)
+    assert [u.text for u in rs.unsupported] == ["video export", "Videos posted after Sept 25 must use the new official links"]
+    assert [m.text for m in rs.manual_checks] == ["Prohibido: No clips of Kanye", "Prohibido: old split-screen gameplay videos"]
+    assert [a.kind for a in rs.account_requirements] == ["audience"]
+    keys = [b["rule"] for b in blocking_items(assign_enforcement(rs)) if b["kind"] == "human"]
+    assert keys == ["account:audience"]
+
+
+def test_golden_18_after_reclassify_only_human_blockers():
+    """#39 golden: #18 (Boxabl) must not carry unsupported items from prohibitions."""
+    from app.services.rules.extract import reclassify
+
+    rs = RuleSet()
+    rs.unsupported = [UnsupportedRule(text="No story boosting", evidence=[Evidence(quote="No story boosting", source="guidelines", verified=True)])]
+    rs.pre_approval.required = True
+    rs = assign_enforcement(reclassify(rs))
+    assert {b["kind"] for b in blocking_items(rs)} == {"human"}
