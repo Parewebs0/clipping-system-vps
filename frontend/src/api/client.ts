@@ -58,8 +58,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (!res.ok) {
     const detail = (body as { detail?: unknown } | undefined)?.detail ?? body
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       throw new ApiError(res.status, 'Token ausente o inválido', detail)
+    }
+    if (res.status === 403) {
+      // API_WRITE_TOKEN configured and this token is read-only for campaign writes
+      throw new ApiError(res.status, typeof detail === 'string' ? `Sin permiso de escritura: ${detail}` : 'Token ausente o sin permiso', detail)
     }
     throw new ApiError(res.status, detailToMessage(detail, `HTTP ${res.status}`), detail)
   }
