@@ -215,6 +215,10 @@ def approve_candidate(
         "language": spec.language,
         "ruleset_version": spec.extra.get("ruleset_version"),
     }
+    # #41: captions / logo / on-screen text from the RuleSet (worker render_spec v2).
+    from app.services.rules.render_spec import build_render_spec
+
+    render_payload.update(build_render_spec(campaign, asset, candidate))
 
     try:
         render_job = create_job(

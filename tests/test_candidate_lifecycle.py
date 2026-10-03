@@ -145,6 +145,10 @@ def test_approve_creates_render_job(db):
     assert job.payload["start_time"] == 10.0
     assert job.payload["end_time"] == 40.0
     assert job.payload["format"]  # not empty
+    # #41: worker render_spec v2 keys
+    for k in ("captions", "watermark", "on_screen_text", "render_spec"):
+        assert k in job.payload
+    assert job.payload["render_spec"]["version"] == 2
 
 
 def test_approve_out_of_window_rejects(db):
