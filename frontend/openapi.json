@@ -542,7 +542,8 @@
               "scored",
               "blocked_no_assets",
               "failed_brief",
-              "failed_resolve"
+              "failed_resolve",
+              "archived"
             ],
             "title": "Status",
             "type": "string"
@@ -817,7 +818,8 @@
               "scored",
               "blocked_no_assets",
               "failed_brief",
-              "failed_resolve"
+              "failed_resolve",
+              "archived"
             ],
             "title": "Status",
             "type": "string"
@@ -1152,7 +1154,8 @@
               "scored",
               "blocked_no_assets",
               "failed_brief",
-              "failed_resolve"
+              "failed_resolve",
+              "archived"
             ],
             "title": "Status",
             "type": "string"
@@ -1263,7 +1266,158 @@
         "title": "CampaignSpec",
         "type": "object"
       },
+      "CampaignSpecPatch": {
+        "additionalProperties": false,
+        "description": "Partial spec update: only the fields sent are changed; `extra` is merged\nkey by key so the scorer's data (spec.extra.score, score_breakdown, ...)\nsurvives an edit from the dashboard.",
+        "properties": {
+          "captions_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captions Required"
+          },
+          "duration_max": {
+            "anyOf": [
+              {
+                "maximum": 3600.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Max"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "maximum": 3600.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "exclude_keywords": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Keywords"
+          },
+          "extra": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "keywords": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keywords"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "watermark_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Watermark Url"
+          }
+        },
+        "title": "CampaignSpecPatch",
+        "type": "object"
+      },
+      "CampaignStatusChange": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CampaignStatusChange",
+        "type": "object"
+      },
       "CampaignUpdate": {
+        "additionalProperties": false,
+        "description": "PATCH /campaigns/{id}. Every field optional; unknown fields -> 422.\n\n* `status` goes through the manual state machine\n  (app/services/campaign_transitions.py): unknown -> 400, not allowed -> 409.\n* `source_url` / `source_id` are only editable on `manual` campaigns:\n  for `whop` campaigns source_url is the discovery dedup key.\n* `source_provider` is never editable (identity of the origin).\n* `source_metadata` is merged on top of the existing dict.\n* Explicit `null` clears nullable text fields (source_url, source_id,\n  source_instructions).",
         "properties": {
           "name": {
             "anyOf": [
@@ -1278,9 +1432,22 @@
             ],
             "title": "Name"
           },
+          "source_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
           "source_instructions": {
             "anyOf": [
               {
+                "maxLength": 20000,
                 "type": "string"
               },
               {
@@ -1301,10 +1468,22 @@
             ],
             "title": "Source Metadata"
           },
+          "source_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
           "spec": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CampaignSpec"
+                "$ref": "#/components/schemas/CampaignSpecPatch"
               },
               {
                 "type": "null"
@@ -1321,6 +1500,18 @@
               }
             ],
             "title": "Status"
+          },
+          "status_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Reason"
           }
         },
         "title": "CampaignUpdate",
@@ -3693,6 +3884,76 @@
         "title": "SocialAccountOut",
         "type": "object"
       },
+      "StatusMachineOut": {
+        "properties": {
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/StatusMachineState"
+            },
+            "title": "Statuses",
+            "type": "array"
+          },
+          "transitions": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Transitions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "statuses",
+          "transitions"
+        ],
+        "title": "StatusMachineOut",
+        "type": "object"
+      },
+      "StatusMachineState": {
+        "properties": {
+          "consumed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consumed By"
+          },
+          "effect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effect"
+          },
+          "manual_targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Manual Targets",
+            "type": "array"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "manual_targets"
+        ],
+        "title": "StatusMachineState",
+        "type": "object"
+      },
       "SystemInfoIn": {
         "description": "System info sent during worker registration.",
         "properties": {
@@ -5002,7 +5263,73 @@
         ]
       }
     },
+    "/campaigns/status-machine": {
+      "get": {
+        "description": "Manual transitions allowed from each status (single source of truth:\napp/services/campaign_transitions.py). Forward steps belong to the ticks.",
+        "operationId": "status_machine_campaigns_status_machine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusMachineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Status Machine",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
     "/campaigns/{campaign_id}": {
+      "delete": {
+        "description": "Hard delete, only for `archived` campaigns without active jobs.\nCascades to assets, candidates, clips and clip publications.",
+        "operationId": "delete_campaigns__campaign_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete",
+        "tags": [
+          "campaigns"
+        ]
+      },
       "get": {
         "operationId": "get_one_campaigns__campaign_id__get",
         "parameters": [
@@ -5049,6 +5376,7 @@
         ]
       },
       "patch": {
+        "description": "Partial update (see CampaignUpdate). 400 unknown status, 409 duplicate\nname / forbidden transition / non-editable field, 422 validation.",
         "operationId": "update_campaigns__campaign_id__patch",
         "parameters": [
           {
@@ -5149,6 +5477,64 @@
           }
         ],
         "summary": "Enqueue Pipeline",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
+    "/campaigns/{campaign_id}/status": {
+      "post": {
+        "description": "Manual status change validated against the state machine\n(GET /campaigns/status-machine). 409 if the transition is not allowed.",
+        "operationId": "set_status_campaigns__campaign_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignStatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Status",
         "tags": [
           "campaigns"
         ]

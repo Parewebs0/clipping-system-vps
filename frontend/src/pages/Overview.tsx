@@ -86,7 +86,7 @@ export function OverviewPage() {
               <CardDescription>Estados pipeline v2 (discovered → briefed → assets_resolved → scored) y terminales.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
                 {CAMPAIGN_STATUS_ORDER.map((s) => (
                   <Link key={s} to={`/campaigns?status=${s}`} className="hover:bg-muted rounded-lg border p-3 transition-colors">
                     <CampaignStatusBadge status={s} />

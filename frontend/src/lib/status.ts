@@ -23,6 +23,7 @@ export const CAMPAIGN_STATUS: Record<CampaignStatus, Meta> = {
   blocked_no_assets: { label: 'Bloqueada', tone: 'rose', help: '3c: score bajo, sin assets reales o host no soportado.' },
   failed_brief: { label: 'Fallo brief', tone: 'rose', help: '3a: brief ilegible o sin materiales.' },
   failed_resolve: { label: 'Fallo resolve', tone: 'rose', help: '3b: sin vídeos ingeribles / acceso denegado.' },
+  archived: { label: 'Archivada', tone: 'zinc', help: 'Manual: fuera del pipeline, ningún tick la procesa.' },
 }
 
 export const CAMPAIGN_STATUS_ORDER = Object.keys(CAMPAIGN_STATUS) as CampaignStatus[]
