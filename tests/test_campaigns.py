@@ -132,6 +132,9 @@ def test_list_campaigns_filter_by_status(client, auth_headers):
 
 
 def test_update_campaign_status(client, auth_headers):
+    """PATCH status goes through the manual state machine (issue #9):
+    forward jumps (discovered -> scored) are the ticks' job -> 409;
+    archiving is allowed."""
     name = f"upd-{uuid.uuid4().hex[:8]}"
     r = client.post("/campaigns", json=_payload(name=name), headers=auth_headers)
     cid = r.json()["id"]
@@ -140,8 +143,14 @@ def test_update_campaign_status(client, auth_headers):
         json={"status": "scored"},
         headers=auth_headers,
     )
+    assert u.status_code == 409, u.text
+    u = client.patch(
+        f"/campaigns/{cid}",
+        json={"status": "archived"},
+        headers=auth_headers,
+    )
     assert u.status_code == 200, u.text
-    assert u.json()["status"] == "scored"
+    assert u.json()["status"] == "archived"
 
 
 def test_update_campaign_invalid_status(client, auth_headers):
