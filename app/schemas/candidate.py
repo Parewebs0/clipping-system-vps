@@ -54,3 +54,19 @@ class CandidateOut(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class CandidateApproveOut(BaseModel):
+    """Result of POST /candidates/{id}/approve.
+
+    ``status`` is ``approved`` (render job created or already existing,
+    ``idempotent``), ``rejected`` (failed re-validation against the current
+    campaign rules, see ``reason``) or ``error`` (render job creation failed;
+    the candidate stays pending).
+    """
+
+    candidate_id: str
+    status: str
+    render_job_id: Optional[str] = None
+    reason: Optional[str] = None
+    idempotent: bool = False

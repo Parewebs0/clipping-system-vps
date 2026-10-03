@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CandidatesPanel } from '@/components/candidates/CandidatesPanel'
 import { fmtDate, fmtUsd } from '@/lib/format'
 import { campaignStatusMeta, errorHint } from '@/lib/status'
 import { whopSummary } from '@/lib/whop'
@@ -168,6 +169,7 @@ export function CampaignDetailPage() {
               <TabsTrigger value="summary">Resumen</TabsTrigger>
               <TabsTrigger value="assets">Assets ({data.assets.length})</TabsTrigger>
               <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+              <TabsTrigger value="candidates">Candidatos</TabsTrigger>
               <TabsTrigger value="clips">Clips ({data.clips.length})</TabsTrigger>
               <TabsTrigger value="jobs">Jobs activos ({data.active_jobs.length})</TabsTrigger>
               <TabsTrigger value="rules">Reglas y score</TabsTrigger>
@@ -188,6 +190,9 @@ export function CampaignDetailPage() {
               <Card className="py-0">
                 <CardContent className="px-0">{pipeline.isLoading ? <LoadingBlock /> : <PipelineTable data={pipeline.data} />}</CardContent>
               </Card>
+            </TabsContent>
+            <TabsContent value="candidates" className="mt-4">
+              <CandidatesPanel campaignId={id} />
             </TabsContent>
             <TabsContent value="clips" className="mt-4">
               <Card className="py-0">

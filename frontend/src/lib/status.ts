@@ -1,4 +1,4 @@
-import type { AssetStatus, CampaignStatus, ClipQAStatus, ClipStatus, JobStatus } from '@/api/types'
+import type { AssetStatus, CampaignStatus, CandidateStatus, ClipQAStatus, ClipStatus, JobStatus } from '@/api/types'
 
 export type Tone = 'slate' | 'amber' | 'sky' | 'emerald' | 'rose' | 'violet' | 'zinc'
 
@@ -62,6 +62,17 @@ export const CLIP_STATUS: Record<ClipStatus, Meta> = {
   review: { label: 'review', tone: 'amber' },
   published: { label: 'published', tone: 'violet' },
 }
+
+// Mirrors app/models/candidate.py (CandidateStatus). Order = review tabs.
+export const CANDIDATE_STATUS: Record<CandidateStatus, Meta> = {
+  pending: { label: 'Pendiente', tone: 'amber', help: 'Paso 14: propuesto por el decider, sin revisar.' },
+  approved: { label: 'Aprobado', tone: 'emerald', help: 'Paso 15: job de render creado para el worker.' },
+  rejected: { label: 'Rechazado', tone: 'rose', help: 'Descartado (manual o por reglas de la campaña).' },
+  rendered: { label: 'Renderizado', tone: 'violet', help: 'Paso 17: clip materializado.' },
+  superseded: { label: 'Sustituido', tone: 'zinc', help: 'Otro candidato lo reemplazó.' },
+}
+
+export const CANDIDATE_STATUS_ORDER = Object.keys(CANDIDATE_STATUS) as CandidateStatus[]
 
 export function anyStatusMeta(s?: string | null): Meta {
   if (!s) return { label: '—', tone: 'zinc' }

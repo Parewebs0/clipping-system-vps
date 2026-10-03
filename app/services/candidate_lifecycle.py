@@ -34,6 +34,18 @@ from app.services.job_service import create_job
 logger = logging.getLogger(__name__)
 
 
+class CandidateStateError(ValueError):
+    """The candidate is in a state that does not allow the transition.
+
+    Subclass of ValueError for backwards compatibility; the API maps it to
+    409 (a plain ValueError still means "not found" -> 404).
+    """
+
+
+# States from which a manual/agent approval may proceed.
+APPROVABLE_STATES = frozenset({CandidateStatus.PENDING.value, CandidateStatus.APPROVED.value})
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -121,6 +133,11 @@ def approve_candidate(
                 "render_job_id": str(existing.id),
                 "idempotent": True,
             }
+
+    if candidate.status not in APPROVABLE_STATES:
+        raise CandidateStateError(
+            f"cannot approve candidate {candidate_id}: status is '{candidate.status}'"
+        )
 
     # --- Load related entities -------------------------------------------
     asset = db.get(Asset, candidate.asset_id)
@@ -237,8 +254,21 @@ def reject_candidate(
     if candidate is None:
         return None
     if candidate.status == CandidateStatus.RENDERED.value:
-        raise ValueError(
+        raise CandidateStateError(
             f"cannot reject candidate {candidate_id}: already rendered"
+        )
+    if candidate.status == CandidateStatus.SUPERSEDED.value:
+        raise CandidateStateError(
+            f"cannot reject candidate {candidate_id}: superseded"
+        )
+    if candidate.status == CandidateStatus.REJECTED.value:
+        return candidate  # idempotent: keep the original reason
+    if (
+        candidate.status == CandidateStatus.APPROVED.value
+        and _find_render_job_for_candidate(db, candidate_id) is not None
+    ):
+        raise CandidateStateError(
+            f"cannot reject candidate {candidate_id}: render job already created"
         )
     candidate.status = CandidateStatus.REJECTED.value
     meta = dict(candidate.extra_metadata or {})

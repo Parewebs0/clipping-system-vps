@@ -22,6 +22,7 @@ from app.auth import require_bearer
 from app.config import settings
 from app.db.database import SessionLocal
 from app.schemas.mission_control import (
+    CandidatesOut,
     CampaignDetailOut,
     CampaignListOut,
     CampaignRulesOut,
@@ -947,5 +948,146 @@ def clips_inventory(
             "count": len(items),
             "worker_file_base_url": settings.worker_file_base_url or None,
         }
+    finally:
+        db.close()
+
+
+# --- 8. Candidates (issue #17) ----------------------------------------------
+
+_EXCERPT_MAX_LINES = 12
+_EXCERPT_MAX_CHARS = 1200
+
+
+def _transcript_excerpt(segments: Any, start: float, end: float) -> List[Dict[str, Any]]:
+    """Transcript lines overlapping [start, end] (preview of the clip)."""
+    out: List[Dict[str, Any]] = []
+    if not isinstance(segments, list):
+        return out
+    chars = 0
+    for s in segments:
+        if not isinstance(s, dict):
+            continue
+        s0, s1 = _num(s.get("start")), _num(s.get("end"))
+        txt = str(s.get("text") or "").strip()
+        if s0 is None or s1 is None or not txt:
+            continue
+        if s1 <= start or s0 >= end:
+            continue
+        out.append({"start": s0, "end": s1, "text": txt})
+        chars += len(txt)
+        if len(out) >= _EXCERPT_MAX_LINES or chars >= _EXCERPT_MAX_CHARS:
+            break
+    return out
+
+
+@router.get("/candidates", response_model=CandidatesOut)
+def candidates_list(
+    _a: bool = Depends(_enabled_or_404),
+    _b: bool = Depends(require_bearer),
+    campaign_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None, max_length=32),
+    limit: int = Query(200, ge=1),
+):
+    """Clip candidates (step 13-14) with preview metadata for manual review.
+
+    Read-only: approve/reject live in /candidates/{id}/approve|reject
+    (write token). Pending candidates first, then by score.
+    """
+    db = _get_db()
+    try:
+        params: Dict[str, Any] = {"lim": _clamp_limit(limit, default=200)}
+        base = "1=1"
+        if campaign_id is not None:
+            base += " AND cd.campaign_id = :cid"
+            params["cid"] = campaign_id
+        where = base
+        if status:
+            where += " AND cd.status = :st"
+            params["st"] = status
+        rows = db.execute(
+            text(
+                f"""
+                SELECT cd.id, cd.campaign_id, cd.asset_id, cd.start_time, cd.end_time,
+                       cd.score, cd.reasoning, cd.extra_metadata, cd.status,
+                       cd.created_at, cd.updated_at,
+                       c.name AS campaign_name,
+                       a.source_url AS asset_source_url,
+                       a.extra_metadata->>'title' AS asset_title,
+                       a.duration_seconds AS asset_duration,
+                       a.status AS asset_status,
+                       j.status AS render_job_status,
+                       cl.id AS clip_id
+                FROM candidates cd
+                LEFT JOIN campaigns c ON c.id = cd.campaign_id
+                LEFT JOIN assets a ON a.id = cd.asset_id
+                LEFT JOIN jobs j ON j.id::text = cd.extra_metadata->>'render_job_id'
+                LEFT JOIN LATERAL (
+                    SELECT id FROM clips WHERE clips.candidate_id = cd.id
+                    ORDER BY created_at DESC LIMIT 1
+                ) cl ON TRUE
+                WHERE {where}
+                ORDER BY (cd.status = 'pending') DESC, cd.score DESC NULLS LAST,
+                         cd.created_at DESC
+                LIMIT :lim
+                """
+            ),
+            params,
+        ).all()
+        counts = {
+            r.status: int(r.n)
+            for r in db.execute(
+                text(f"SELECT cd.status, count(*) AS n FROM candidates cd WHERE {base} GROUP BY 1"),
+                params,
+            ).all()
+        }
+        asset_ids = list({r.asset_id for r in rows})
+        segments: Dict[Any, Any] = {}
+        if asset_ids:
+            for a in db.execute(
+                text(
+                    "SELECT id, extra_metadata->'transcription'->'segments' AS segs "
+                    "FROM assets WHERE id = ANY(:ids)"
+                ),
+                {"ids": asset_ids},
+            ).all():
+                segments[a.id] = a.segs
+        items = []
+        for r in rows:
+            meta = r.extra_metadata or {}
+            start, end = float(r.start_time), float(r.end_time)
+            items.append(
+                {
+                    "id": str(r.id),
+                    "campaign_id": r.campaign_id,
+                    "campaign_name": r.campaign_name,
+                    "asset_id": str(r.asset_id),
+                    "asset_source_url": r.asset_source_url,
+                    "asset_title": r.asset_title,
+                    "asset_duration_seconds": r.asset_duration,
+                    "asset_status": r.asset_status,
+                    "start_time": start,
+                    "end_time": end,
+                    "duration_seconds": round(end - start, 2),
+                    "score": r.score,
+                    "reasoning": r.reasoning,
+                    "title": meta.get("title") or None,
+                    "caption": meta.get("caption") or None,
+                    "source": meta.get("source"),
+                    "kind": meta.get("kind"),
+                    "status": r.status,
+                    "approved_at": meta.get("approved_at"),
+                    "rejected_at": meta.get("rejected_at"),
+                    "rejected_reason": meta.get("rejected_reason"),
+                    "render_job_id": meta.get("render_job_id"),
+                    "render_job_status": r.render_job_status,
+                    "clip_id": str(r.clip_id) if r.clip_id else None,
+                    "transcript_excerpt": _transcript_excerpt(
+                        segments.get(r.asset_id), start, end
+                    ),
+                    "created_at": _iso(r.created_at),
+                    "updated_at": _iso(r.updated_at),
+                }
+            )
+        return {"items": items, "count": len(items), "counts_by_status": counts}
     finally:
         db.close()

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 from app.models.asset import ASSET_STATUS_VALUES
+from app.models.candidate import CANDIDATE_STATUS_VALUES
 from app.models.campaign import ALLOWED_CAMPAIGN_SOURCES, CAMPAIGN_STATUS_VALUES
 from app.models.clip import CLIP_QA_STATUS_VALUES, CLIP_STATUS_VALUES
 from app.models.job import JOB_STATUS_VALUES
@@ -24,6 +25,7 @@ AssetStatusT = Literal[ASSET_STATUS_VALUES]  # type: ignore[valid-type]
 ClipQAStatusT = Literal[CLIP_QA_STATUS_VALUES]  # type: ignore[valid-type]
 ClipStatusT = Literal[CLIP_STATUS_VALUES]  # type: ignore[valid-type]
 JobStatusT = Literal[JOB_STATUS_VALUES]  # type: ignore[valid-type]
+CandidateStatusT = Literal[CANDIDATE_STATUS_VALUES]  # type: ignore[valid-type]
 
 
 class PipelineError(BaseModel):
@@ -292,3 +294,47 @@ class ClipsOut(BaseModel):
     items: List[ClipInventoryItem]
     count: int
     worker_file_base_url: Optional[str] = None
+
+
+# --- Candidates (issue #17) -------------------------------------------------
+
+class TranscriptLine(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
+class CandidateItem(BaseModel):
+    id: str
+    campaign_id: int
+    campaign_name: Optional[str] = None
+    asset_id: str
+    asset_source_url: Optional[str] = None
+    asset_title: Optional[str] = None
+    asset_duration_seconds: Optional[float] = None
+    asset_status: Optional[AssetStatusT] = None
+    start_time: float
+    end_time: float
+    duration_seconds: float
+    score: Optional[float] = None
+    reasoning: Optional[str] = None
+    title: Optional[str] = None
+    caption: Optional[str] = None
+    source: Optional[str] = None
+    kind: Optional[str] = None
+    status: CandidateStatusT
+    approved_at: Optional[str] = None
+    rejected_at: Optional[str] = None
+    rejected_reason: Optional[str] = None
+    render_job_id: Optional[str] = None
+    render_job_status: Optional[JobStatusT] = None
+    clip_id: Optional[str] = None
+    transcript_excerpt: List[TranscriptLine] = Field(default_factory=list)
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class CandidatesOut(BaseModel):
+    items: List[CandidateItem]
+    count: int
+    counts_by_status: Dict[str, int]

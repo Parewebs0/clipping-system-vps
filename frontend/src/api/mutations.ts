@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { keys } from './queries'
-import type { CampaignCreate, CampaignOut, CampaignStatusChange, CampaignUpdate, StatusMachine } from './types'
+import type {
+  CampaignCreate,
+  CampaignOut,
+  CampaignStatusChange,
+  CampaignUpdate,
+  CandidateApproveOut,
+  CandidateOut,
+  StatusMachine,
+} from './types'
 
 export const useStatusMachine = () =>
   useQuery({
@@ -52,5 +60,33 @@ export function useCreateCampaign() {
   return useMutation({
     mutationFn: (body: CampaignCreate) => api<CampaignOut>('/campaigns', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => invalidate(),
+  })
+}
+
+// --- Candidates (issue #17): write token required when API_WRITE_TOKEN is set.
+function useInvalidateCandidates() {
+  const qc = useQueryClient()
+  return (campaignId: number) => {
+    qc.invalidateQueries({ queryKey: ['candidates'] })
+    qc.invalidateQueries({ queryKey: ['campaign', campaignId] })
+    qc.invalidateQueries({ queryKey: keys.overview })
+  }
+}
+
+export function useApproveCandidate() {
+  const invalidate = useInvalidateCandidates()
+  return useMutation({
+    mutationFn: ({ id }: { id: string; campaignId: number }) =>
+      api<CandidateApproveOut>(`/candidates/${id}/approve`, { method: 'POST' }),
+    onSuccess: (_d, v) => invalidate(v.campaignId),
+  })
+}
+
+export function useRejectCandidate() {
+  const invalidate = useInvalidateCandidates()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; campaignId: number; reason?: string }) =>
+      api<CandidateOut>(`/candidates/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason ?? null }) }),
+    onSuccess: (_d, v) => invalidate(v.campaignId),
   })
 }

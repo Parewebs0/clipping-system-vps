@@ -9,6 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { CampaignDetailPage } from '@/pages/CampaignDetail'
 import { CampaignsPage } from '@/pages/Campaigns'
 import { ClipsPage } from '@/pages/Clips'
+import { CandidatesPage } from '@/pages/Candidates'
 import { JobsPage } from '@/pages/Jobs'
 import { OverviewPage } from '@/pages/Overview'
 import { VideosPage } from '@/pages/Videos'
@@ -35,6 +36,7 @@ const router = createHashRouter([
       { path: 'campaigns/:id', element: <CampaignDetailPage /> },
       { path: 'jobs', element: <JobsPage /> },
       { path: 'videos', element: <VideosPage /> },
+      { path: 'candidates', element: <CandidatesPage /> },
       { path: 'clips', element: <ClipsPage /> },
       { path: '*', element: <Navigate to="/overview" replace /> },
     ],

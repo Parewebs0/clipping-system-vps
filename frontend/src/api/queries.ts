@@ -4,6 +4,7 @@ import type {
   CampaignDetail,
   CampaignList,
   CampaignRules,
+  Candidates,
   Clips,
   JobRecent,
   Overview,
@@ -22,6 +23,7 @@ export const keys = {
   jobs: (f: { job_type?: string; status?: string }) => ['jobs', f] as const,
   videos: ['videos'] as const,
   clips: (f: { qa_status?: string; campaign_id?: number }) => ['clips', f] as const,
+  candidates: (f: { status?: string; campaign_id?: number }) => ['candidates', f] as const,
 }
 
 export const useOverview = () =>
@@ -74,4 +76,10 @@ export const useClips = (f: { qa_status?: string; campaign_id?: number }) =>
   useQuery({
     queryKey: keys.clips(f),
     queryFn: () => api<Clips>(`/mission-control/clips${qs({ limit: 500, ...f })}`),
+  })
+
+export const useCandidates = (f: { status?: string; campaign_id?: number }) =>
+  useQuery({
+    queryKey: keys.candidates(f),
+    queryFn: () => api<Candidates>(`/mission-control/candidates${qs({ limit: 500, ...f })}`),
   })
