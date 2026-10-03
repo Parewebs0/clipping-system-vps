@@ -27,14 +27,24 @@ Transcript segments (start,end,text):
 """
 
 
-def _hook_end(raw) -> float | None:
-    """Optional decider field. Non-numeric values are dropped, never invented."""
+def _hook_end(raw, duration: float | None = None) -> float | None:
+    """Optional decider field. Non-numeric, <= 0, or past the clip is dropped (#65)."""
     if raw is None or raw == "":
         return None
     try:
-        return round(float(raw), 2)
+        value = round(float(raw), 2)
     except (TypeError, ValueError):
         return None
+    if value <= 0:
+        return None
+    if duration is not None:
+        try:
+            limit = float(duration)
+        except (TypeError, ValueError):
+            return None
+        if value > limit:
+            return None
+    return value
 
 
 def main() -> int:
@@ -109,7 +119,7 @@ def main() -> int:
                     "caption": caption,
                     "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
                 }
-                hook_end = _hook_end(clip.get("hook_end"))
+                hook_end = _hook_end(clip.get("hook_end"), end - start)
                 if hook_end is not None:
                     extra["hook_end"] = hook_end
                 c = Candidate(

@@ -27,6 +27,8 @@ services:
     volumes:
       - ./.env:/opt/clipping-system/.env:ro
       - ./logs:/opt/clipping-system/logs
+      # Logos live in ./storage/logos. Without this mount a rebuild drops them (#65).
+      - ./storage:/opt/clipping-system/storage
       - ./gog/config:/root/.config/gogcli
       - ./gog/share:/root/.local/share/gogcli
     depends_on:

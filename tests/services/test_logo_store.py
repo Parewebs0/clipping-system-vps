@@ -4,7 +4,8 @@ import io
 
 import pytest
 
-from app.services.logo_store import PNG_MAGIC, LogoError, rasterize_logo
+from app.config import settings
+from app.services.logo_store import PNG_MAGIC, LogoError, ensure_logo_dir, rasterize_logo, store_logo_png
 
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -41,6 +42,15 @@ def test_svg_converts_when_cairo_is_installed():
         "mark.svg",
     )
     assert png.startswith(PNG_MAGIC)
+
+
+def test_logo_dir_is_created(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "logo_dir", str(tmp_path / "logos"))
+    created = ensure_logo_dir()
+    assert created.is_dir()
+    store_logo_png(7, _PNG)
+    assert (created / "7.png").read_bytes() == _PNG
+    assert not (created / ".7.png.tmp").exists()
 
 
 def test_svg_without_cairo_is_a_logo_error(monkeypatch):
