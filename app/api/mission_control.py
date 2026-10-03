@@ -21,6 +21,16 @@ from sqlalchemy.orm import Session
 from app.auth import require_bearer
 from app.config import settings
 from app.db.database import SessionLocal
+from app.schemas.mission_control import (
+    CampaignDetailOut,
+    CampaignListOut,
+    CampaignRulesOut,
+    ClipsOut,
+    JobRecentOut,
+    OverviewOut,
+    PipelineOut,
+    VideosOut,
+)
 
 
 router = APIRouter(prefix="/mission-control", tags=["mission-control"])
@@ -61,6 +71,104 @@ def _clamp_limit(n: int, default: int = 100, maximum: int = 500) -> int:
     return min(n, maximum)
 
 
+def _num(v: Any) -> Optional[float]:
+    """Best-effort float for JSONB values written by different ticks."""
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _norm_error(err: Any) -> Optional[Dict[str, Any]]:
+    """briefing_error / resolve_error -> {kind, message, at} (or None).
+
+    3a writes {kind, message, at}; 3b writes {kind, message} (no `at`);
+    very old rows hold a bare string.
+    """
+    if isinstance(err, dict):
+        return {
+            "kind": err.get("kind"),
+            "message": err.get("message"),
+            "at": err.get("at"),
+        }
+    if err:
+        return {"kind": "legacy_string", "message": str(err), "at": None}
+    return None
+
+
+def _score_fields(sm: Dict[str, Any]) -> Dict[str, Any]:
+    """Score written by campaign_scorer_tick (3c) in source_metadata.score:
+
+        {value, real_assets, cpm_usd, prize_pool_usd,
+         breakdown: {value, base, penalties, penalty_total, min_to_run, eligible}}
+
+    Older code looked for score.total / score.priority / flat priority_score,
+    which no tick writes; they are kept only as fallbacks.
+    """
+    score_obj = sm.get("score") if isinstance(sm.get("score"), dict) else {}
+    breakdown = score_obj.get("breakdown") if isinstance(score_obj.get("breakdown"), dict) else None
+    value = score_obj.get("value")
+    if value is None:
+        value = score_obj.get("total")
+    if value is None:
+        value = sm.get("priority_score")
+    tier = sm.get("priority_tier")
+    if tier is None:
+        tier = score_obj.get("priority")
+    return {
+        "priority_score": _num(value),
+        "priority_tier": _num(tier),
+        "priority_tie_break": score_obj.get("tie_break"),
+        "priority_breakdown": breakdown,
+        "priority_rank_reason": score_obj.get("rank_reason"),
+        "score_eligible": (breakdown or {}).get("eligible"),
+        "score_min_to_run": _num((breakdown or {}).get("min_to_run")),
+    }
+
+
+def _llm_summary(db: Session, where: str = "1=1", params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Aggregate llm_usage rows (migration 0015). `where` is a static SQL
+    fragment built in this module only (never user input)."""
+    params = params or {}
+    rows = db.execute(
+        text(
+            f"""
+            SELECT stage, COUNT(*) AS calls,
+                   COUNT(*) FILTER (WHERE NOT ok) AS errors,
+                   COALESCE(SUM(total_tokens), 0) AS total_tokens,
+                   COALESCE(SUM(cost_usd), 0) AS cost_usd,
+                   MAX(created_at) AS last_at
+            FROM llm_usage
+            WHERE {where}
+            GROUP BY stage
+            ORDER BY stage
+            """
+        ),
+        params,
+    ).all()
+    by_stage = [
+        {
+            "stage": r.stage,
+            "calls": int(r.calls),
+            "errors": int(r.errors),
+            "total_tokens": int(r.total_tokens),
+            "cost_usd": float(r.cost_usd),
+        }
+        for r in rows
+    ]
+    last = max((r.last_at for r in rows if r.last_at is not None), default=None)
+    return {
+        "calls": sum(b["calls"] for b in by_stage),
+        "errors": sum(b["errors"] for b in by_stage),
+        "total_tokens": sum(b["total_tokens"] for b in by_stage),
+        "cost_usd": round(sum(b["cost_usd"] for b in by_stage), 6),
+        "by_stage": by_stage,
+        "last_call_at": _iso(last),
+    }
+
+
 def _campaign_name_for_job(db: Session, payload: dict) -> Optional[str]:
     """Look up campaign name from a job's payload['campaign_id'] (best effort)."""
     cid = payload.get("campaign_id") if isinstance(payload, dict) else None
@@ -79,7 +187,7 @@ def _campaign_name_for_job(db: Session, payload: dict) -> Optional[str]:
 
 # --- 1. Overview ------------------------------------------------------------
 
-@router.get("/overview")
+@router.get("/overview", response_model=OverviewOut)
 def overview(
     _a: bool = Depends(_enabled_or_404),
     _b: bool = Depends(require_bearer),
@@ -180,6 +288,8 @@ def overview(
             "clips_by_qa_status": clips_by_qa_status,
             "clips_by_status": clips_by_status,
             "recent_errors": recent_errors_list,
+            "llm_usage_24h": _llm_summary(db, "created_at >= NOW() - INTERVAL '24 hours'"),
+            "llm_usage_total": _llm_summary(db),
             "worker_file_base_url": settings.worker_file_base_url or None,
         }
     finally:
@@ -188,7 +298,7 @@ def overview(
 
 # --- 2. Campaigns list (enriched) ------------------------------------------
 
-@router.get("/campaigns")
+@router.get("/campaigns", response_model=CampaignListOut)
 def campaigns_list(
     _a: bool = Depends(_enabled_or_404),
     _b: bool = Depends(require_bearer),
@@ -231,15 +341,6 @@ def campaigns_list(
             # que el cron nunca escribía. Mantenemos las keys planas como
             # fallback por si en el futuro alguien rellena esos campos, pero la
             # fuente de verdad es el sub-objeto `score`.
-            score_obj = sm.get("score") if isinstance(sm.get("score"), dict) else {}
-            priority_score = sm.get("priority_score")
-            if priority_score is None:
-                priority_score = score_obj.get("total")
-            priority_tier = sm.get("priority_tier")
-            if priority_tier is None and score_obj.get("priority") is not None:
-                # El score_obj.priority ya viene clamp(1..10); lo dejamos como
-                # número. La card lo pinta como "priority N/10".
-                priority_tier = score_obj.get("priority")
             items.append(
                 {
                     "id": r.id,
@@ -257,11 +358,9 @@ def campaigns_list(
                     "clips_approved": r.clips_approved,
                     "clips_approved_qa": r.clips_approved_qa,
                     "clips_published": r.clips_published,
-                    "priority_score": priority_score,
-                    "priority_tier": priority_tier,
-                    "priority_tie_break": score_obj.get("tie_break"),
-                    "priority_breakdown": score_obj.get("breakdown"),
-                    "priority_rank_reason": score_obj.get("rank_reason"),
+                    **_score_fields(sm),
+                    "briefing_error": _norm_error(sm.get("briefing_error")),
+                    "resolve_error": _norm_error(sm.get("resolve_error")),
                     "created_at": _iso(r.created_at),
                     "updated_at": _iso(r.updated_at),
                 }
@@ -273,7 +372,7 @@ def campaigns_list(
 
 # --- 3. Campaign detail (drill-down) ---------------------------------------
 
-@router.get("/campaigns/{campaign_id}")
+@router.get("/campaigns/{campaign_id}", response_model=CampaignDetailOut)
 def campaign_detail(
     campaign_id: int,
     _a: bool = Depends(_enabled_or_404),
@@ -302,20 +401,8 @@ def campaign_detail(
         # Errores persistidos por el brief-reader / resolver. Forma estable:
         #   { "kind": "<short_tag>", "message": "<human>", "at": "<iso>" }
         # (Los registros viejos pueden tener solo string suelto; lo soportamos.)
-        briefing_error = sm.get("briefing_error")
-        if isinstance(briefing_error, dict):
-            briefing_error_out = briefing_error
-        elif briefing_error:
-            briefing_error_out = {"kind": "legacy_string", "message": str(briefing_error), "at": None}
-        else:
-            briefing_error_out = None
-        resolve_error = sm.get("resolve_error")
-        if isinstance(resolve_error, dict):
-            resolve_error_out = resolve_error
-        elif resolve_error:
-            resolve_error_out = {"kind": "legacy_string", "message": str(resolve_error), "at": None}
-        else:
-            resolve_error_out = None
+        briefing_error_out = _norm_error(sm.get("briefing_error"))
+        resolve_error_out = _norm_error(sm.get("resolve_error"))
         campaign = {
             "id": c.id,
             "name": c.name,
@@ -341,7 +428,8 @@ def campaign_detail(
                 """
                 SELECT id, source_url, source_provider, asset_type, status,
                        local_path, file_size, duration_seconds, sha256,
-                       mime_type, downloaded_at, transcribed_at, created_at
+                       mime_type, extra_metadata, downloaded_at, transcribed_at,
+                       created_at
                 FROM assets
                 WHERE campaign_id = :id
                 ORDER BY created_at ASC
@@ -361,6 +449,7 @@ def campaign_detail(
                 "duration_seconds": a.duration_seconds,
                 "sha256": a.sha256,
                 "mime_type": a.mime_type,
+                "extra_metadata": a.extra_metadata or {},
                 "downloaded_at": _iso(a.downloaded_at),
                 "transcribed_at": _iso(a.transcribed_at),
                 "created_at": _iso(a.created_at),
@@ -408,8 +497,9 @@ def campaign_detail(
             text(
                 """
                 SELECT id, asset_id, file_path, duration_seconds, file_size,
-                       qa_status, qa_result, status,
-                       created_at, qa_at, published_at
+                       qa_status, qa_result, status, location, final_path_worker,
+                       created_at, updated_at, qa_at, published_at,
+                       publish_approved_at
                 FROM clips
                 WHERE campaign_id = :id
                 ORDER BY created_at DESC
@@ -428,9 +518,13 @@ def campaign_detail(
                 "qa_status": cl.qa_status,
                 "qa_result": cl.qa_result,
                 "status": cl.status,
+                "location": cl.location,
+                "final_path_worker": cl.final_path_worker,
                 "created_at": _iso(cl.created_at),
+                "updated_at": _iso(cl.updated_at),
                 "qa_at": _iso(cl.qa_at),
                 "published_at": _iso(cl.published_at),
+                "publish_approved_at": _iso(cl.publish_approved_at),
             }
             for cl in cl_rows
         ]
@@ -440,6 +534,7 @@ def campaign_detail(
             "assets": assets,
             "active_jobs": active_jobs,
             "clips": clips,
+            "llm_usage": _llm_summary(db, "campaign_id = :cid", {"cid": campaign_id}),
             "worker_file_base_url": settings.worker_file_base_url or None,
         }
     finally:
@@ -448,7 +543,7 @@ def campaign_detail(
 
 # --- 3b. Campaign rules (read-only, saneado para UI) ---------------------
 
-@router.get("/campaigns/{campaign_id}/rules")
+@router.get("/campaigns/{campaign_id}/rules", response_model=CampaignRulesOut)
 def campaign_rules(
     campaign_id: int,
     _a: bool = Depends(_enabled_or_404),
@@ -490,7 +585,7 @@ def campaign_rules(
 
         # Links de assets que dijo el briefing que había (Drive, YouTube, etc.)
         # — distinto de los assets ya resueltos en BD.
-        asset_links_brief = sm.get("asset_links_brief") or []
+        asset_links_brief = sm.get("asset_links_brief") or sm.get("reference_materials") or []
         asset_links_raw = discovered.get("asset_links") or sm.get("asset_links") or []
 
         # Normalizar asset_links_raw a una lista de strings simples
@@ -515,7 +610,13 @@ def campaign_rules(
                     drive_ids.append(m.group(1))
 
         # Componentes de prioridad (cómo se calculó el score)
-        priority_components = sm.get("priority_components") or {}
+        # Cómo se calculó el score: el scorer (3c) escribe score.breakdown;
+        # priority_components es una clave legacy que ningún tick escribe.
+        score_f = _score_fields(sm)
+        priority_components = sm.get("priority_components") or score_f["priority_breakdown"] or {}
+        score_obj = sm.get("score") if isinstance(sm.get("score"), dict) else None
+        score_preview = sm.get("score_preview") if isinstance(sm.get("score_preview"), dict) else None
+        brief_docs = sm.get("brief_docs") if isinstance(sm.get("brief_docs"), list) else []
 
         # Specs — el "spec" canónico. Si está vacío, marcamos explícito.
         spec = row.spec or {}
@@ -533,23 +634,29 @@ def campaign_rules(
             "card_text": card_text,
             "discovered": {
                 "name": discovered.get("name"),
-                "external_id": discovered.get("external_id"),
+                "external_id": (
+                    str(discovered["external_id"])
+                    if discovered.get("external_id") is not None else None
+                ),
                 "detail_url": discovered.get("detail_url"),
-                "cpm_usd_per_1k": discovered.get("cpm_usd_per_1k"),
-                "prize_pool_usd": discovered.get("prize_pool_usd"),
+                "cpm_usd_per_1k": _num(discovered.get("cpm_usd_per_1k")),
+                "prize_pool_usd": _num(discovered.get("prize_pool_usd")),
                 "joined": discovered.get("joined"),
             },
             "asset_links_brief": asset_links_brief,
             "asset_links_raw": asset_links_normalized,
             "asset_links_count": len(asset_links_normalized),
             "drive_ids": drive_ids,
-            "priority_tier": sm.get("priority_tier"),
-            "priority_score": sm.get("priority_score"),
+            "brief_docs": brief_docs,
+            "score": score_obj,
+            "score_preview": score_preview,
+            "priority_tier": score_f["priority_tier"],
+            "priority_score": score_f["priority_score"],
             "priority_components": priority_components,
             "briefed_at": sm.get("briefed_at"),
             "joined": sm.get("joined"),
-            "cpm_usd_per_1k": sm.get("cpm_usd_per_1k"),
-            "prize_pool_usd": sm.get("prize_pool_usd"),
+            "cpm_usd_per_1k": _num(sm.get("cpm_usd_per_1k")),
+            "prize_pool_usd": _num(sm.get("prize_pool_usd")),
         }
     finally:
         db.close()
@@ -557,7 +664,7 @@ def campaign_rules(
 
 # --- 4. Jobs recent ---------------------------------------------------------
 
-@router.get("/jobs/recent")
+@router.get("/jobs/recent", response_model=JobRecentOut)
 def jobs_recent(
     _a: bool = Depends(_enabled_or_404),
     _b: bool = Depends(require_bearer),
@@ -630,7 +737,7 @@ def jobs_recent(
 
 # --- 5. Pipeline view for one campaign --------------------------------------
 
-@router.get("/pipeline/{campaign_id}")
+@router.get("/pipeline/{campaign_id}", response_model=PipelineOut)
 def pipeline_view(
     campaign_id: int,
     _a: bool = Depends(_enabled_or_404),
@@ -717,7 +824,7 @@ def pipeline_view(
 
 # --- 6. Videos inventory ----------------------------------------------------
 
-@router.get("/videos")
+@router.get("/videos", response_model=VideosOut)
 def videos_inventory(
     _a: bool = Depends(_enabled_or_404),
     _b: bool = Depends(require_bearer),
@@ -769,7 +876,7 @@ def videos_inventory(
 
 # --- 7. Clips inventory -----------------------------------------------------
 
-@router.get("/clips")
+@router.get("/clips", response_model=ClipsOut)
 def clips_inventory(
     _a: bool = Depends(_enabled_or_404),
     _b: bool = Depends(require_bearer),
@@ -794,7 +901,9 @@ def clips_inventory(
                        cl.render_job_id, cl.qa_job_id,
                        cl.file_path, cl.duration_seconds, cl.file_size,
                        cl.qa_status, cl.qa_result, cl.status,
-                       cl.created_at, cl.qa_at, cl.published_at,
+                       cl.location, cl.final_path_worker,
+                       cl.created_at, cl.updated_at, cl.qa_at, cl.published_at,
+                       cl.publish_approved_at,
                        c.name AS campaign_name,
                        a.source_url AS asset_source_url
                 FROM clips cl
@@ -823,9 +932,13 @@ def clips_inventory(
                 "qa_status": r.qa_status,
                 "qa_result": r.qa_result,
                 "status": r.status,
+                "location": r.location,
+                "final_path_worker": r.final_path_worker,
                 "created_at": _iso(r.created_at),
+                "updated_at": _iso(r.updated_at),
                 "qa_at": _iso(r.qa_at),
                 "published_at": _iso(r.published_at),
+                "publish_approved_at": _iso(r.publish_approved_at),
             }
             for r in rows
         ]
