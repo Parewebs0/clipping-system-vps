@@ -95,6 +95,61 @@ def test_exact_caption():
     assert ko[0]["status"] == "fail"
 
 
+def test_x_is_not_applicable_and_does_not_fail():
+    rs = _rs()
+    rs.platforms = ["youtube", "x", "tiktok"]
+    r = _verify(rs)
+    xs = [c for c in r["checks"] if c["rule"] == "copy.platform.x"]
+    assert len(xs) == 1 and xs[0]["status"] == "n/a"
+    assert r["status"] == "pass"
+    assert "copy.platform.x" not in r["failed"]
+
+
+def test_hook_end_passes_fails_or_stays_review():
+    rs = _rs()
+    rs.hook.required = True
+    rs.hook.max_seconds = 2.0
+    base = dict(result=GOOD_RESULT, required={"width": 1080, "height": 1920}, duration_window=(15, 45),
+                clip_duration=30.0, tx_language="en", copies={"youtube": GOOD_COPY})
+    absent = verify(rs, hook_end=None, **base)
+    assert "hook" in absent["review"] and "hook" not in absent["failed"]
+    ok = verify(rs, hook_end=1.9, **base)
+    assert "hook" not in ok["review"] and "hook" not in ok["failed"]
+    late = verify(rs, hook_end=2.2, **base)
+    assert "hook" in late["failed"]
+    # edit is never auto-passed
+    rs.edit.required = True
+    still = verify(rs, hook_end=1.0, **base)
+    assert "edit" in still["review"]
+
+
+def test_frame_checks_override_metadata_when_present():
+    rs = _rs()
+    bad = {**GOOD_RESULT, "applied": {**GOOD_RESULT["applied"], "frame_checks": {
+        "logo_visible": False, "captions_visible": True, "samples": [{"what": "logo", "t": 1.0}],
+    }}}
+    r = _verify(rs, result=bad)
+    assert "logo" in r["failed"] and "captions" not in r["failed"]
+    hidden = {**GOOD_RESULT, "applied": {**GOOD_RESULT["applied"], "frame_checks": {"captions_visible": False, "samples": []}}}
+    r = _verify(rs, result=hidden)
+    assert "captions" in r["failed"] and "logo" not in r["failed"]
+
+
+def test_as_cta_logo_must_cover_the_last_three_seconds():
+    rs = _rs()
+    rs.logo.as_cta = True
+    short = {**GOOD_RESULT, "applied": {**GOOD_RESULT["applied"], "watermark": {
+        "applied": True, "position": "top_right", "start": 0.0, "end": 3.0,
+    }}}
+    r = _verify(rs, result=short)
+    assert "logo" in r["failed"]
+    full = {**GOOD_RESULT, "applied": {**GOOD_RESULT["applied"], "watermark": {
+        "applied": True, "position": "top_right", "start": None, "end": None,
+    }}}
+    r = _verify(rs, result=full)
+    assert "logo" not in r["failed"]
+
+
 def test_human_checks_listed_as_review_not_blocking():
     from app.services.rules.schema import ManualCheck
 

@@ -147,10 +147,16 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
         out.append(_c("audio.original_only", "fail" if extra_audio else "pass", "audio original, sin música añadida",
                       {"extra_track": extra_audio}, "render_spec v2: el worker no mezcla pistas (applied.audio_track)"))
     cap = applied.get("captions") or {}
+    frames = applied.get("frame_checks") if isinstance(applied.get("frame_checks"), dict) else None
     if rs.captions.required or required.get("captions"):
         ok = bool(cap.get("applied")) and (cap.get("events") or 0) > 0
-        out.append(_c("captions", "pass" if ok else "fail", "subtítulos quemados", cap.get("events"),
-                      "metadatos del render: eventos ASS generados desde la transcripción"))
+        how_cap = "metadatos del render: eventos ASS generados desde la transcripción"
+        if ok and frames is not None and "captions_visible" in frames and not frames.get("captions_visible"):
+            ok = False
+            how_cap = "muestreo de frames del clip renderizado (frame_checks.captions_visible)"
+        out.append(_c("captions", "pass" if ok else "fail", "subtítulos quemados",
+                      {"events": cap.get("events"), "captions_visible": None if frames is None else frames.get("captions_visible")},
+                      how_cap))
     dictionary = list(rs.captions.brand_dictionary or required.get("brand_dictionary") or [])
     if dictionary and cap.get("text"):
         bad = []
@@ -165,11 +171,25 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
     if rs.logo.required or required.get("logo"):
         ok = bool(wm.get("applied"))
         pos_ok = not ok or wm.get("position") == rs.logo.position
+        detail = "" if ok else "sin fichero/URL de logo (confirmar con URL en la nota)"
+        how_logo = "metadatos del render: overlay de logo"
+        if ok and pos_ok and rs.logo.as_cta and dur is not None:
+            dur_f = float(dur)
+            ws = 0.0 if wm.get("start") is None else float(wm.get("start"))
+            we = dur_f if wm.get("end") is None else float(wm.get("end"))
+            if not (ws <= max(0.0, dur_f - 3.0) + 0.05 and we + 0.05 >= dur_f):
+                ok = False
+                detail = "el logo no cubre los últimos 3s del end card"
+        if ok and pos_ok and frames is not None and "logo_visible" in frames and not frames.get("logo_visible"):
+            ok = False
+            detail = "muestreo de frames: logo no visible"
+            how_logo = "muestreo de frames del clip renderizado (frame_checks.logo_visible)"
         out.append(_c("logo", "pass" if ok and pos_ok else "fail",
-                      {"position": rs.logo.position, "timing": rs.logo.timing},
-                      {"applied": ok, "position": wm.get("position"), "start": wm.get("start"), "end": wm.get("end")},
-                      "metadatos del render: overlay de logo",
-                      "" if ok else "sin fichero/URL de logo (confirmar con URL en la nota)"))
+                      {"position": rs.logo.position, "timing": rs.logo.timing, "as_cta": rs.logo.as_cta},
+                      {"applied": bool(wm.get("applied")), "position": wm.get("position"),
+                       "start": wm.get("start"), "end": wm.get("end"),
+                       "logo_visible": None if frames is None else frames.get("logo_visible")},
+                      how_logo, detail))
     ost = applied.get("on_screen_text") or {}
     must = list(rs.on_screen_text.must_include or required.get("on_screen_must_include") or [])
     if rs.on_screen_text.required or must:
@@ -188,10 +208,18 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
     return out
 
 
-def human_checks(rs: RuleSet) -> list[dict]:
+def human_checks(rs: RuleSet, hook_end: Optional[float] = None) -> list[dict]:
     out = []
     if rs.hook.required:
-        out.append(_c("hook", "review", rs.hook.max_seconds, None, "humano al aprobar el publish", rs.hook.note or ""))
+        # No hook_end from the decider → stay a human review. Never invent a pass (#56).
+        if hook_end is None or rs.hook.max_seconds is None:
+            out.append(_c("hook", "review", rs.hook.max_seconds, hook_end, "humano al aprobar el publish", rs.hook.note or ""))
+        else:
+            limit = float(rs.hook.max_seconds)
+            ok = float(hook_end) <= limit + 0.05
+            out.append(_c("hook", "pass" if ok else "fail", limit, hook_end,
+                          "hook_end del decider <= hook.max_seconds",
+                          "" if ok else f"hook_end {hook_end} > {limit}s"))
     if rs.edit.required:
         out.append(_c("edit", "review", rs.edit.allowed_edits, None, "humano al aprobar el publish"))
     if rs.copy_rules.pinned_comment:
@@ -213,7 +241,7 @@ def burned_text(result: dict) -> str:
 
 def verify(rs: RuleSet, *, result: dict, required: dict, duration_window: tuple[float, float],
            clip_duration: Optional[float], tx_language: Optional[str], copies: dict[str, tuple[str, str]],
-           overlay_text: Optional[str] = None) -> dict:
+           overlay_text: Optional[str] = None, hook_end: Optional[float] = None) -> dict:
     if overlay_text is None:
         overlay_text = burned_text(result)
     checks = check_render(rs, result=result, required=required, duration_window=duration_window,
@@ -222,7 +250,10 @@ def verify(rs: RuleSet, *, result: dict, required: dict, duration_window: tuple[
         for c in check_copy(rs, platform, title, description, overlay_text):
             c["platform"] = platform
             checks.append(c)
-    checks += human_checks(rs)
+    if any(str(p).lower() == "x" for p in (rs.platforms or [])):
+        checks.append(_c("copy.platform.x", "n/a", None, None,
+                         "X queda fuera de alcance (#54); no bloquea YouTube, TikTok ni Instagram"))
+    checks += human_checks(rs, hook_end=hook_end)
     failed = [c for c in checks if c["status"] == "fail"]
     return {
         "status": "fail" if failed else "pass",
@@ -235,13 +266,23 @@ def verify(rs: RuleSet, *, result: dict, required: dict, duration_window: tuple[
     }
 
 
+def _hook_end(meta: dict) -> Optional[float]:
+    raw = (meta or {}).get("hook_end")
+    if raw is None or raw == "":
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def verify_clip(db, clip) -> dict:
     """Load everything for `clip`, verify, store on the clip (no commit)."""
     from app.models.asset import Asset
     from app.models.campaign import Campaign
     from app.models.candidate import Candidate
     from app.models.job import Job
-    from app.services.publish_copy import platform_copy
+    from app.services.publish_copy import copy_platforms, platform_copy
     from app.services.rules.runtime import duration_window
 
     campaign = db.get(Campaign, clip.campaign_id)
@@ -254,13 +295,14 @@ def verify_clip(db, clip) -> dict:
     tx = ((asset.extra_metadata or {}).get("transcription") or {}) if asset else {}
     cand = db.get(Candidate, clip.candidate_id) if clip.candidate_id else None
     copies = {}
-    for p in PLATFORMS:
+    for p in copy_platforms(rs.platforms):
         title, description, _tags = platform_copy(campaign, clip, cand, p)
         copies[p] = (title, description)
+    hook_end = _hook_end((cand.extra_metadata if cand is not None else None) or {})
     report = verify(rs, result=result, required=required,
                     duration_window=duration_window(campaign) if campaign else (15.0, 45.0),
                     clip_duration=clip.duration_seconds, tx_language=tx.get("language"),
-                    copies=copies)
+                    copies=copies, hook_end=hook_end)
     clip.compliance_status = report["status"]
     clip.compliance_report = report
     return report
