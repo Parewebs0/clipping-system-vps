@@ -1,0 +1,395 @@
+{
+ "copy": {
+  "ftc": {
+   "note": null,
+   "scope": "clip",
+   "tokens": [],
+   "evidence": [],
+   "own_line": false,
+   "required": false,
+   "enforcement": "auto",
+   "first_after_text": false
+  },
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Every post caption must mention Boxabl (Casita, foldable home, or factory) — never leave it blank or unrelated.",
+    "source": "guidelines",
+    "verified": true
+   },
+   {
+    "quote": "Tag @boxabl on TikTok, Instagram Reels, and YouTube Shorts. On X, use a tracking URL instead of a tag.",
+    "source": "guidelines",
+    "verified": true
+   }
+  ],
+  "hashtags": {
+   "note": null,
+   "scope": "clip",
+   "ordered": [],
+   "evidence": [],
+   "position": "anywhere",
+   "required": false,
+   "max_extra": null,
+   "enforcement": "auto"
+  },
+  "required": true,
+  "enforcement": "auto",
+  "exact_caption": null,
+  "pinned_comment": null,
+  "must_mention_any": [
+   "Boxabl",
+   "Casita",
+   "foldable home",
+   "factory"
+  ],
+  "mentions_by_platform": {
+   "tiktok": [
+    "@boxabl"
+   ],
+   "youtube": [
+    "@boxabl"
+   ],
+   "instagram": [
+    "@boxabl"
+   ]
+  }
+ },
+ "edit": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Don't post raw rips — footage must be edited (cuts, b-roll, overlays).",
+    "source": "guidelines",
+    "verified": true
+   },
+   {
+    "quote": "requirement.noRepostedContent/rules.noReposts=True",
+    "source": "structured",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "human",
+  "allowed_edits": [
+   "cuts",
+   "b-roll",
+   "overlays"
+  ]
+ },
+ "hook": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Hook viewers in the first 2 seconds with a strong visual or recognizable face — no slow intros or logos.",
+    "source": "guidelines",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "human",
+  "max_seconds": 2.0
+ },
+ "logo": {
+  "url": null,
+  "note": "logo required but no logo file URL: provide the file or confirm how it is met",
+  "scope": "campaign",
+  "as_cta": false,
+  "timing": "full",
+  "cta_text": null,
+  "evidence": [
+   {
+    "quote": "requirement.brandLogo/rules.branding.logoRequired=True",
+    "source": "structured",
+    "verified": true
+   }
+  ],
+  "position": "top_right",
+  "required": true,
+  "enforcement": "human",
+  "min_seconds": null
+ },
+ "meta": {
+  "docs": [
+   {
+    "ok": true,
+    "url": "https://docs.google.com/document/d/1u3SlQ9j-XmO3j6PPQpnt9_5ZdF3XuDn85RYOH2LKd3o/edit?tab=t.0",
+    "chars": 1194,
+    "error": null
+   }
+  ],
+  "chunks": 1,
+  "extracted_at": "2026-10-03T11:29:08.051068+00:00",
+  "source_chars": 3402,
+  "validation_errors": []
+ },
+ "audio": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto",
+  "original_only": false,
+  "no_added_music": false,
+  "music_recommended": false,
+  "must_use_provided_sound": false
+ },
+ "aspect": {
+  "note": null,
+  "ratio": "9:16",
+  "scope": "clip",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto"
+ },
+ "source": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Clip only from the pre-approved BOXABL Content To Clip footage (factory tours/walkthroughs featuring creators like Enes Yilmazer, Orkun Isitmak, Elon Musk, Airrack, Faze Rug, etc).",
+    "source": "guidelines",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "auto",
+  "allowed_urls": [
+   "https://drive.google.com/drive/folders/14hsa8iKW0kFY9yAZBTsTUvxr_lgoGelk?usp=sharing",
+   "https://youtu.be/8JMrfSFQdpo?si=0n_dm811sqljNSd1",
+   "https://youtu.be/eS-fnedN2yI?si=tqePyWkrVdp89_fc",
+   "https://youtu.be/uu5aORByttg?si=cP3o5NdR3vADAvYG",
+   "https://youtu.be/0Cdqs2Q1Vis?si=gQaS5BDgScKJGDzv",
+   "https://youtu.be/7rX5cPQrx_s?si=P2aRoWi0TBM7V-cS",
+   "https://youtu.be/5Lo54Lx7MCU?si=v4MZZrD-1mg_hN-U",
+   "https://youtu.be/KrahQlLAz44?si=urXWlv8wzQWWfajM",
+   "https://youtu.be/3plLxp_7Jlo?si=KN7C9bbv7UqgQzAU",
+   "https://www.youtube.com/@BOXABL/videos",
+   "https://youtu.be/JbS_VhA0rRo?si=mcv8qG-AreMoaE2K",
+   "https://youtu.be/IBV7eIH3Bdw?si=ckj0kxXGsdAePfIi",
+   "https://youtu.be/b9erzF6LHKI?si=8r4LeXcUIxdVF8ou",
+   "https://youtu.be/9ThVUNGj3To?si=cHsKwhmRlAiFHutM",
+   "https://youtu.be/rUArr8SWyf8?si=bKM8XtJGUACiFi11",
+   "https://youtu.be/Cz9cwL_fqTI?si=xV7KbTfE2yrSE4QI",
+   "https://drive.google.com/file/d/1OnH2B5N-TaGyHqPdmT0uxdCeA-38FXry/view?usp=sharing"
+  ],
+  "only_provided": true
+ },
+ "version": 2,
+ "captions": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Use bold text overlays/captions so the story works on mute.",
+    "source": "guidelines",
+    "verified": true
+   },
+   {
+    "quote": "Auto-captions must spell \"BOXABL\" correctly or the clip is rejected.",
+    "source": "guidelines",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "auto",
+  "brand_dictionary": [
+   "BOXABL"
+  ]
+ },
+ "coverage": {
+  "ignored": 1,
+  "uncovered": [],
+  "evidence_total": 19,
+  "normative_lines": 13,
+  "evidence_verified": 19,
+  "covered_first_pass": 11,
+  "mapped_second_pass": 1,
+  "unsupported_second_pass": 0
+ },
+ "duration": {
+  "note": null,
+  "max_s": 45.0,
+  "min_s": 15.0,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "default 15-45s (brief silent)",
+    "source": "default",
+    "verified": true
+   }
+  ],
+  "required": false,
+  "enforcement": "auto"
+ },
+ "language": {
+  "code": null,
+  "note": null,
+  "scope": "clip",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto"
+ },
+ "platforms": [
+  "instagram",
+  "tiktok",
+  "x",
+  "youtube"
+ ],
+ "unsupported": [
+  {
+   "text": "No clips of Kanye",
+   "reason": "instant rejection",
+   "blocking": true,
+   "evidence": [
+    {
+     "quote": "No clips of Kanye — instant rejection.",
+     "source": "guidelines",
+     "verified": true
+    }
+   ]
+  },
+  {
+   "text": "No story boosting",
+   "reason": "explicitly prohibited",
+   "blocking": true,
+   "evidence": [
+    {
+     "quote": "No story boosting.",
+     "source": "guidelines",
+     "verified": true
+    }
+   ]
+  }
+ ],
+ "pre_approval": {
+  "note": null,
+  "scope": "campaign",
+  "evidence": [
+   {
+    "quote": "requirement.preApproval=True",
+    "source": "structured",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "human"
+ },
+ "prohibitions": {
+  "note": null,
+  "scope": "clip",
+  "terms": [
+   "Kanye"
+  ],
+  "topics": [
+   "mocking or negativity toward Boxabl, the product, or featured talent",
+   "Boxabl stock or its trading ticker"
+  ],
+  "evidence": [
+   {
+    "quote": "No clips of Kanye — instant rejection.",
+    "source": "guidelines",
+    "verified": true
+   },
+   {
+    "quote": "Positive vibes only — no mocking or negativity toward Boxabl, the product, or featured talent (including Post Malone, Elon, etc).",
+    "source": "guidelines",
+    "verified": true
+   },
+   {
+    "quote": "Do not mention Boxabl stock or its trading ticker in any caption or post.",
+    "source": "guidelines",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "human"
+ },
+ "manual_checks": [
+  {
+   "note": null,
+   "text": "Always show the WHOLE Boxabl home, not just one feature",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "Always show the WHOLE Boxabl home, not just one feature — think car review, show the whole car first.",
+     "source": "guidelines",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "Vary your clips — don't repost the same moment repeatedly",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "Vary your clips — don't repost the same moment repeatedly.",
+     "source": "guidelines",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  }
+ ],
+ "on_screen_text": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Make it clear it's a BOXABL home — say it out loud or put \"BOXABL\" on screen.",
+    "source": "guidelines",
+    "verified": true
+   }
+  ],
+  "guidance": "Make it clear it's a BOXABL home — say it out loud or put \"BOXABL\" on screen.",
+  "required": true,
+  "enforcement": "auto",
+  "must_include": [
+   "BOXABL"
+  ]
+ },
+ "content_source_urls": [
+  "https://drive.google.com/drive/folders/14hsa8iKW0kFY9yAZBTsTUvxr_lgoGelk?usp=sharing",
+  "https://youtu.be/8JMrfSFQdpo?si=0n_dm811sqljNSd1",
+  "https://youtu.be/eS-fnedN2yI?si=tqePyWkrVdp89_fc",
+  "https://youtu.be/uu5aORByttg?si=cP3o5NdR3vADAvYG",
+  "https://youtu.be/0Cdqs2Q1Vis?si=gQaS5BDgScKJGDzv",
+  "https://youtu.be/7rX5cPQrx_s?si=P2aRoWi0TBM7V-cS",
+  "https://youtu.be/5Lo54Lx7MCU?si=v4MZZrD-1mg_hN-U",
+  "https://youtu.be/KrahQlLAz44?si=urXWlv8wzQWWfajM",
+  "https://youtu.be/3plLxp_7Jlo?si=KN7C9bbv7UqgQzAU",
+  "https://www.youtube.com/@BOXABL/videos",
+  "https://youtu.be/JbS_VhA0rRo?si=mcv8qG-AreMoaE2K",
+  "https://youtu.be/IBV7eIH3Bdw?si=ckj0kxXGsdAePfIi",
+  "https://youtu.be/b9erzF6LHKI?si=8r4LeXcUIxdVF8ou",
+  "https://youtu.be/9ThVUNGj3To?si=cHsKwhmRlAiFHutM",
+  "https://youtu.be/rUArr8SWyf8?si=bKM8XtJGUACiFi11",
+  "https://youtu.be/Cz9cwL_fqTI?si=xV7KbTfE2yrSE4QI",
+  "https://drive.google.com/file/d/1OnH2B5N-TaGyHqPdmT0uxdCeA-38FXry/view?usp=sharing",
+  "https://drive.google.com/drive/folders/18g8x37vc9ULLBpN96wtTrct1cd3_aUmK"
+ ],
+ "account_requirements": [
+  {
+   "kind": "tagging",
+   "note": null,
+   "text": "Optional: tag founder/CEO Galiano Tiramani (@GalianoTiramani on X or @box_pusher on Instagram).",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Optional: tag founder/CEO Galiano Tiramani (@GalianoTiramani on X or @box_pusher on Instagram).",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  }
+ ]
+}
