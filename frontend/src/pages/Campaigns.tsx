@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useCampaigns } from '@/api/queries'
+import { CreateCampaignDialog } from '@/components/campaign/CreateCampaignDialog'
 import { PageHeader } from '@/components/common/PageHeader'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/common/States'
 import { CampaignStatusBadge, ScoreBadge, ToneBadge } from '@/components/common/StatusBadge'
@@ -14,7 +15,7 @@ import { CAMPAIGN_STATUS_ORDER, campaignStatusMeta } from '@/lib/status'
 import { filterCampaigns } from '@/lib/campaigns'
 import { whopSummary } from '@/lib/whop'
 
-export function CampaignsPage({ actions }: { actions?: React.ReactNode }) {
+export function CampaignsPage() {
   const { data, error, isLoading } = useCampaigns()
   const [params, setParams] = useSearchParams()
   const status = params.get('status') ?? 'all'
@@ -32,7 +33,7 @@ export function CampaignsPage({ actions }: { actions?: React.ReactNode }) {
 
   return (
     <>
-      <PageHeader eyebrow="Plataforma" title="Campañas" description={data ? `${data.count} campañas` : undefined} actions={actions} />
+      <PageHeader eyebrow="Plataforma" title="Campañas" description={data ? `${data.count} campañas` : undefined} actions={<CreateCampaignDialog />} />
       {isLoading && <LoadingBlock rows={8} />}
       {error && <ErrorBlock error={error} />}
       {data && (

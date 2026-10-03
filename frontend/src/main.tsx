@@ -46,7 +46,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="bottom-right" />
       </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
