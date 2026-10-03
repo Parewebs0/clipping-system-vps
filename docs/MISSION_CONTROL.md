@@ -29,3 +29,13 @@ npm run typecheck && npm run lint && npm test && npm run build
 ## Páginas
 Overview · Campañas (filtro por estado, búsqueda) · Detalle (resumen Whop, errores 3a/3b con acción sugerida,
 coste LLM, tabs Assets / Pipeline / Clips / Jobs activos / Reglas y score / Metadata) · Jobs · Vídeos · Clips.
+
+## Escritura (issue #10)
+- **Editar** (Sheet, react-hook-form + zod; `src/lib/campaignForm.ts` replica la validación Pydantic): nombre,
+  URL/Source ID (solo `manual`), instrucciones, spec (duración min ≤ max, formato, idioma, subtítulos, watermark,
+  keywords). Solo se envían los campos cambiados (`PATCH /campaigns/{id}`).
+- **Cambiar estado**: menú con las transiciones de `GET /campaigns/status-machine` + `AlertDialog` con el efecto
+  en el pipeline y motivo opcional (`POST /campaigns/{id}/status`). Pestaña *Historial* con `status_history`.
+- **Borrar**: solo campañas archivadas, confirmando con el nombre (`DELETE /campaigns/{id}`).
+- **Nueva campaña manual** (`source_provider=manual`) desde la lista.
+- Feedback con toasts (sonner) e invalidación de queries (lista, detalle, overview).

@@ -3,7 +3,11 @@ import { AlertTriangle, ArrowLeft, Coins } from 'lucide-react'
 import { useCampaign, usePipeline } from '@/api/queries'
 import type { CampaignDetail, PipelineError } from '@/api/types'
 import { ActiveJobsTable, AssetsTable, ClipsTable, PipelineTable } from '@/components/campaign/Tables'
+import { DeleteCampaignButton } from '@/components/campaign/DeleteCampaignButton'
+import { EditCampaignSheet } from '@/components/campaign/EditCampaignSheet'
 import { RulesPanel } from '@/components/campaign/RulesPanel'
+import { StatusActions } from '@/components/campaign/StatusActions'
+import { StatusHistory } from '@/components/campaign/StatusHistory'
 import { ExtLink, JsonBlock, KV } from '@/components/common/Misc'
 import { PageHeader } from '@/components/common/PageHeader'
 import { ErrorBlock, LoadingBlock } from '@/components/common/States'
@@ -119,7 +123,7 @@ function Summary({ d }: { d: CampaignDetail }) {
   )
 }
 
-export function CampaignDetailPage({ renderActions }: { renderActions?: (d: CampaignDetail) => React.ReactNode }) {
+export function CampaignDetailPage() {
   const id = Number(useParams().id)
   const { data, error, isLoading } = useCampaign(id)
   const pipeline = usePipeline(id, !!data)
@@ -147,7 +151,13 @@ export function CampaignDetailPage({ renderActions }: { renderActions?: (d: Camp
                 <span className="text-xs">actualizada {fmtDate(c.updated_at)}</span>
               </span>
             }
-            actions={renderActions?.(data)}
+            actions={
+              <>
+                <EditCampaignSheet campaign={c} />
+                <StatusActions campaign={c} />
+                <DeleteCampaignButton campaign={c} />
+              </>
+            }
           />
           <div className="mb-6 space-y-3">
             <ErrorPanel title="Brief-reader (3a)" err={c.briefing_error} />
@@ -161,6 +171,7 @@ export function CampaignDetailPage({ renderActions }: { renderActions?: (d: Camp
               <TabsTrigger value="clips">Clips ({data.clips.length})</TabsTrigger>
               <TabsTrigger value="jobs">Jobs activos ({data.active_jobs.length})</TabsTrigger>
               <TabsTrigger value="rules">Reglas y score</TabsTrigger>
+              <TabsTrigger value="history">Historial</TabsTrigger>
               <TabsTrigger value="raw">Metadata</TabsTrigger>
             </TabsList>
             <TabsContent value="summary" className="mt-4">
@@ -194,6 +205,9 @@ export function CampaignDetailPage({ renderActions }: { renderActions?: (d: Camp
             </TabsContent>
             <TabsContent value="rules" className="mt-4">
               <RulesPanel campaignId={id} />
+            </TabsContent>
+            <TabsContent value="history" className="mt-4">
+              <StatusHistory sourceMetadata={c.source_metadata} />
             </TabsContent>
             <TabsContent value="raw" className="mt-4 grid gap-4 lg:grid-cols-2">
               <Card>
