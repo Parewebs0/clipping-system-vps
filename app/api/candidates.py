@@ -9,9 +9,14 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.auth import require_bearer
+from app.auth import require_bearer, require_write_bearer
 from app.db.database import get_db
-from app.schemas.candidate import CandidateCreate, CandidateOut, CandidateUpdate
+from app.schemas.candidate import (
+    CandidateApproveOut,
+    CandidateCreate,
+    CandidateOut,
+    CandidateUpdate,
+)
 from app.services.candidate_service import (
     bulk_create_candidates,
     create_candidate,
@@ -88,20 +93,22 @@ def get_one(
     return c
 
 
-@router.post("/{candidate_id}/approve")
+@router.post("/{candidate_id}/approve", response_model=CandidateApproveOut)
 def approve_candidate_endpoint(
     candidate_id: uuid.UUID,
     db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
+    _: bool = Depends(require_write_bearer),
 ):
     """Validate and approve a candidate (Step 14 -> 15).
 
     Auto-creates a RENDER job if validation passes.
     Returns a summary dict with status, render_job_id, etc.
     """
-    from app.services.candidate_lifecycle import approve_candidate
+    from app.services.candidate_lifecycle import CandidateStateError, approve_candidate
     try:
         result = approve_candidate(db, candidate_id)
+    except CandidateStateError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return result
@@ -112,11 +119,14 @@ def reject_candidate_endpoint(
     candidate_id: uuid.UUID,
     payload: RejectPayload = Body(default_factory=RejectPayload),
     db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
+    _: bool = Depends(require_write_bearer),
 ):
     """Manually reject a candidate (Step 14)."""
-    from app.services.candidate_lifecycle import reject_candidate
-    cand = reject_candidate(db, candidate_id, reason=payload.reason)
+    from app.services.candidate_lifecycle import CandidateStateError, reject_candidate
+    try:
+        cand = reject_candidate(db, candidate_id, reason=payload.reason)
+    except CandidateStateError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     if cand is None:
         raise HTTPException(status_code=404, detail="Candidate not found")
     return cand

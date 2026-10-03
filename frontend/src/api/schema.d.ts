@@ -825,6 +825,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mission-control/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Candidates List
+         * @description Clip candidates (step 13-14) with preview metadata for manual review.
+         *
+         *     Read-only: approve/reject live in /candidates/{id}/approve|reject
+         *     (write token). Pending candidates first, then by score.
+         */
+        get: operations["candidates_list_mission_control_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mission-control/clips": {
         parameters: {
             query?: never;
@@ -1618,6 +1641,30 @@ export interface components {
             /** Status Reason */
             status_reason?: string | null;
         };
+        /**
+         * CandidateApproveOut
+         * @description Result of POST /candidates/{id}/approve.
+         *
+         *     ``status`` is ``approved`` (render job created or already existing,
+         *     ``idempotent``), ``rejected`` (failed re-validation against the current
+         *     campaign rules, see ``reason``) or ``error`` (render job creation failed;
+         *     the candidate stays pending).
+         */
+        CandidateApproveOut: {
+            /** Candidate Id */
+            candidate_id: string;
+            /**
+             * Idempotent
+             * @default false
+             */
+            idempotent: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Render Job Id */
+            render_job_id?: string | null;
+            /** Status */
+            status: string;
+        };
         /** CandidateCreate */
         CandidateCreate: {
             /**
@@ -1639,6 +1686,66 @@ export interface components {
             score?: number | null;
             /** Start Time */
             start_time: number;
+        };
+        /** CandidateItem */
+        CandidateItem: {
+            /** Approved At */
+            approved_at?: string | null;
+            /** Asset Duration Seconds */
+            asset_duration_seconds?: number | null;
+            /** Asset Id */
+            asset_id: string;
+            /** Asset Source Url */
+            asset_source_url?: string | null;
+            /** Asset Status */
+            asset_status?: ("pending" | "downloaded" | "transcribed" | "failed") | null;
+            /** Asset Title */
+            asset_title?: string | null;
+            /** Campaign Id */
+            campaign_id: number;
+            /** Campaign Name */
+            campaign_name?: string | null;
+            /** Caption */
+            caption?: string | null;
+            /** Clip Id */
+            clip_id?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** End Time */
+            end_time: number;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind?: string | null;
+            /** Reasoning */
+            reasoning?: string | null;
+            /** Rejected At */
+            rejected_at?: string | null;
+            /** Rejected Reason */
+            rejected_reason?: string | null;
+            /** Render Job Id */
+            render_job_id?: string | null;
+            /** Render Job Status */
+            render_job_status?: ("pending" | "assigned" | "processing" | "completed" | "failed" | "cancelled") | null;
+            /** Score */
+            score?: number | null;
+            /** Source */
+            source?: string | null;
+            /** Start Time */
+            start_time: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected" | "rendered" | "superseded";
+            /** Title */
+            title?: string | null;
+            /** Transcript Excerpt */
+            transcript_excerpt?: components["schemas"]["TranscriptLine"][];
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** CandidateOut */
         CandidateOut: {
@@ -1691,6 +1798,17 @@ export interface components {
             score?: number | null;
             /** Status */
             status?: string | null;
+        };
+        /** CandidatesOut */
+        CandidatesOut: {
+            /** Count */
+            count: number;
+            /** Counts By Status */
+            counts_by_status: {
+                [key: string]: number;
+            };
+            /** Items */
+            items: components["schemas"]["CandidateItem"][];
         };
         /** ClipCreate */
         ClipCreate: {
@@ -2453,6 +2571,15 @@ export interface components {
              * @default false
              */
             whisperx: boolean;
+        };
+        /** TranscriptLine */
+        TranscriptLine: {
+            /** End */
+            end: number;
+            /** Start */
+            start: number;
+            /** Text */
+            text: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -3448,7 +3575,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CandidateApproveOut"];
                 };
             };
             /** @description Validation Error */
@@ -4266,6 +4393,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CampaignRulesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    candidates_list_mission_control_candidates_get: {
+        parameters: {
+            query?: {
+                campaign_id?: number | null;
+                status?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidatesOut"];
                 };
             };
             /** @description Validation Error */
