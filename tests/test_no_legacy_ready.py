@@ -25,8 +25,12 @@ def _tuple_constant(script: str, name: str) -> tuple[str, ...]:
     raise AssertionError(f"{name} not found in {script}")
 
 
-def test_download_enqueue_only_scored():
-    assert _tuple_constant("download_enqueue_tick.py", "SCORED_STATUSES") == ("scored",)
+def test_download_enqueue_only_workable():
+    from app.services.campaign_transitions import WORKABLE_STATUSES
+
+    assert WORKABLE_STATUSES == ("scored",)
+    src = (ROOT / "scripts" / "download_enqueue_tick.py").read_text()
+    assert "Campaign.status.in_(WORKABLE_STATUSES)" in src
 
 
 def test_discovery_active_statuses_are_valid():

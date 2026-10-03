@@ -161,3 +161,8 @@ def lock_if_status(db, campaign: Campaign, statuses) -> bool:
     """
     db.refresh(campaign, with_for_update=True)
     return campaign.status in set(statuses)
+
+
+# Statuses whose assets may be downloaded / rendered (#31). Single source of
+# truth for the download tick and the workability gate.
+WORKABLE_STATUSES: tuple[str, ...] = (S.SCORED.value,)
