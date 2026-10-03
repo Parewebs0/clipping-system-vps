@@ -20,10 +20,21 @@ Rules: duration_min={dmin}, duration_max={dmax} seconds. Format 9:16.
 Campaign rules (must be respected):
 {brief}
 Return JSON:
-{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","title":"max 80 chars hook","caption":"2-3 lines for YouTube description, no prices, no [whop]","on_screen_text":"short overlay text or empty"}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","title":"max 80 chars hook","caption":"2-3 lines for YouTube description, no prices, no [whop]","on_screen_text":"short overlay text or empty","hook_end":1.5}}]}}
+hook_end is optional: seconds from the clip start where the hook ends. Omit the key when you are not sure. Do not guess.
 Prefer complete phrases. Do not exceed duration_max. Stay inside video_duration={duration}.
 Transcript segments (start,end,text):
 """
+
+
+def _hook_end(raw) -> float | None:
+    """Optional decider field. Non-numeric values are dropped, never invented."""
+    if raw is None or raw == "":
+        return None
+    try:
+        return round(float(raw), 2)
+    except (TypeError, ValueError):
+        return None
 
 
 def main() -> int:
@@ -91,6 +102,16 @@ def main() -> int:
                     end = start + dmax
                 title = str(clip.get("title") or "")[:100]
                 caption = str(clip.get("caption") or clip.get("reason") or "")[:800]
+                extra = {
+                    "source": "grok_clip_decider",
+                    "kind": "speech",
+                    "title": title,
+                    "caption": caption,
+                    "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
+                }
+                hook_end = _hook_end(clip.get("hook_end"))
+                if hook_end is not None:
+                    extra["hook_end"] = hook_end
                 c = Candidate(
                     campaign_id=asset.campaign_id,
                     asset_id=asset.id,
@@ -98,13 +119,7 @@ def main() -> int:
                     end_time=round(end, 2),
                     score=0.7,
                     reasoning=str(clip.get("reason") or "grok")[:500],
-                    extra_metadata={
-                        "source": "grok_clip_decider",
-                        "kind": "speech",
-                        "title": title,
-                        "caption": caption,
-                        "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
-                    },
+                    extra_metadata=extra,
                     status="pending",
                 )
                 db.add(c)
