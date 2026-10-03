@@ -15,22 +15,17 @@
      "verified": true
     },
     {
-     "quote": "Must appear alone on its own separate line",
+     "quote": "#Ad #Advertisement #Sponsored",
      "source": "doc",
      "verified": true
     },
     {
-     "quote": "Must be the first hashtag or element after the post text",
+     "quote": "• Must appear alone on its own separate line",
      "source": "doc",
      "verified": true
     },
     {
-     "quote": "Must not be buried in a paragraph, it must be clear and conspicuous",
-     "source": "doc",
-     "verified": true
-    },
-    {
-     "quote": "Must be in the same font, font size, and color as the rest of the caption",
+     "quote": "• Must be the first hashtag or element after the post text",
      "source": "doc",
      "verified": true
     }
@@ -44,22 +39,42 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "Use this exact caption, word for word:",
+    "quote": "• Use this exact caption, word for word:",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Add the platform tag right after the caption text.",
+    "quote": "Experience a 50-year story, extreme combat, and thrill of show business in STRANGER THAN HEAVEN on January 15, 2027, coming to Xbox Series X, Xbox Game Pass, Xbox Cloud, Xbox on PC, PlayStation 5, and Steam. Pre-order now.",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Tag the correct account in your caption for each platform:",
+    "quote": "• Tag the correct account in your caption for each platform:",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "✔ TikTok: @sth_game",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "✔ Instagram: @sth_game",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "✔ YouTube Shorts: @SEGA_West",
     "source": "doc",
     "verified": true
    },
    {
     "quote": "Do not shorten, reword, or add claims to the caption.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Add the platform tag right after the caption text.",
     "source": "doc",
     "verified": true
    },
@@ -133,17 +148,17 @@
   "cta_text": null,
   "evidence": [
    {
-    "quote": "LOGO WATERMARK (REQUIRED)",
+    "quote": "• Download the official logo PNG and place it on every clip:",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Download the official logo PNG and place it on every clip:",
+    "quote": "https://drive.google.com/file/d/14mlwFoPPLWTftO5BnLVrP4NtIfUFHFmQ/view?usp=sharing",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "The logo must be clearly visible and not stretched, recolored, or covered.",
+    "quote": "• The logo must be clearly visible and not stretched, recolored, or covered.",
     "source": "doc",
     "verified": true
    }
@@ -163,7 +178,7 @@
    }
   ],
   "chunks": 1,
-  "extracted_at": "2026-10-03T11:28:29.102325+00:00",
+  "extracted_at": "2026-10-03T11:36:42.365119+00:00",
   "source_chars": 6861,
   "validation_errors": []
  },
@@ -172,12 +187,12 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "Only use the audio that comes with the clips in the official content folder",
+    "quote": "❌ No background music of any kind",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "No background music of any kind",
+    "quote": "✔ Only use the audio that comes with the clips in the official content folder",
     "source": "doc",
     "verified": true
    }
@@ -202,17 +217,12 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "Download clips from the official STRANGER THAN HEAVEN content folder.",
-    "source": "description",
-    "verified": true
-   },
-   {
-    "quote": "Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
+    "quote": "⚠️ Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Use ONLY footage and audio from the official content folder",
+    "quote": "✔ Use ONLY footage and audio from the official content folder",
     "source": "doc",
     "verified": true
    }
@@ -234,13 +244,13 @@
   "brand_dictionary": []
  },
  "coverage": {
-  "ignored": 11,
+  "ignored": 13,
   "uncovered": [],
-  "evidence_total": 57,
+  "evidence_total": 58,
   "normative_lines": 71,
-  "evidence_verified": 56,
-  "covered_first_pass": 42,
-  "mapped_second_pass": 18,
+  "evidence_verified": 58,
+  "covered_first_pass": 43,
+  "mapped_second_pass": 15,
   "unsupported_second_pass": 0
  },
  "duration": {
@@ -250,7 +260,7 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "Video must be AT LEAST 10 seconds long",
+    "quote": "✔ Video must be AT LEAST 10 seconds long",
     "source": "doc",
     "verified": true
    }
@@ -264,7 +274,7 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "English content only",
+    "quote": "✔ English content only",
     "source": "doc",
     "verified": true
    }
@@ -279,39 +289,17 @@
  ],
  "unsupported": [
   {
-   "text": "NSFW, violent, or controversial content",
-   "reason": "banned immediately",
-   "blocking": true,
-   "evidence": [
-    {
-     "quote": "No NSFW content",
-     "source": "doc",
-     "verified": true
-    },
-    {
-     "quote": "No racism, homophobic or sexual content (you will be banned immediately for this)",
-     "source": "doc",
-     "verified": true
-    }
-   ]
-  },
-  {
    "text": "Only official footage, hosted on unsupported host (https://f.io/Uqz4Au1N)",
    "reason": "asset resolver cannot ingest this host",
    "blocking": true,
    "evidence": [
     {
-     "quote": "Download clips from the official STRANGER THAN HEAVEN content folder.",
-     "source": "description",
-     "verified": true
-    },
-    {
-     "quote": "Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
+     "quote": "⚠️ Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
      "source": "doc",
      "verified": true
     },
     {
-     "quote": "Use ONLY footage and audio from the official content folder",
+     "quote": "✔ Use ONLY footage and audio from the official content folder",
      "source": "doc",
      "verified": true
     }
@@ -329,67 +317,87 @@
   "note": null,
   "scope": "clip",
   "terms": [
+   "background music",
    "homophobic content",
    "political content",
+   "sexually suggestive content",
+   "misrepresenting the content",
    "NSFW",
-   "violent content",
-   "controversial content",
-   "rage bait",
-   "hate bait",
    "exaggerated or over-the-top hype claims",
    "false or made-up information"
   ],
   "topics": [
-   "racism",
-   "sexual content",
+   "homophobic content",
+   "political content",
    "content mentioning race or gender",
-   "exaggerated hooks",
-   "false claims",
-   "misrepresenting content"
+   "sexually suggestive content",
+   "NSFW content",
+   "racism",
+   "exaggerated or over-the-top hooks",
+   "false or unverified claims",
+   "rage bait or hate bait",
+   "low-quality or lazy uploads",
+   "violent or controversial content",
+   "stealing/reposting other creators' content"
   ],
   "evidence": [
    {
-    "quote": "No NSFW content",
+    "quote": "❌ No background music of any kind",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "No racism, homophobic or sexual content",
+    "quote": "❌ Homophobic content",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "No political content",
-    "source": "llm",
-    "verified": false
-   },
-   {
-    "quote": "Content mentioning race or gender",
+    "quote": "❌ Political content",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Sexually suggestive content",
+    "quote": "❌ Content mentioning race or gender",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Exaggerated or over-the-top hooks",
+    "quote": "❌ Sexually suggestive content",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "False or unverified claims",
+    "quote": "❌ Exaggerated or over-the-top hooks",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Misrepresenting the content",
+    "quote": "❌ False or unverified claims in captions or on-screen text",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Rage bait or hate bait",
+    "quote": "❌ Misrepresenting the content",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "❌ Rage bait or hate bait",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "❌ Low-quality or lazy uploads",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "❌ NSFW, violent, or controversial content",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "❌ Directly stealing/reposting other creators' content as your own",
     "source": "doc",
     "verified": true
    },
@@ -414,7 +422,7 @@
    "scope": "clip",
    "evidence": [
     {
-     "quote": "High-quality posts only, no blurry or low-effort content",
+     "quote": "✔ High-quality posts only, no blurry or low-effort content",
      "source": "doc",
      "verified": true
     }
@@ -424,11 +432,11 @@
   },
   {
    "note": null,
-   "text": "Text must be clear and readable",
+   "text": "No NSFW content",
    "scope": "clip",
    "evidence": [
     {
-     "quote": "Text must be clear and readable.",
+     "quote": "✔ No NSFW content",
      "source": "doc",
      "verified": true
     }
@@ -452,11 +460,11 @@
   },
   {
    "note": null,
-   "text": "❌ Low-quality or lazy uploads",
+   "text": "Must not be buried in a paragraph, it must be clear and conspicuous",
    "scope": "clip",
    "evidence": [
     {
-     "quote": "❌ Low-quality or lazy uploads",
+     "quote": "Must not be buried in a paragraph, it must be clear and conspicuous",
      "source": "doc",
      "verified": true
     }
@@ -466,11 +474,11 @@
   },
   {
    "note": null,
-   "text": "❌ Bait posting: posting random viral content just to farm views. Posts must be relevant to the campaign",
+   "text": "Text must be clear and readable. Aesthetic fonts are fine as long as legible.",
    "scope": "clip",
    "evidence": [
     {
-     "quote": "❌ Bait posting: posting random viral content just to farm views. Posts must be relevant to the campaign",
+     "quote": "Text must be clear and readable. Aesthetic fonts are fine as long as legible.",
      "source": "doc",
      "verified": true
     }
@@ -491,6 +499,25 @@
    ],
    "required": true,
    "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "Prohibido: Only official footage, hosted on unsupported host (https://f.io/Uqz4Au1N)",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "⚠️ Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "✔ Use ONLY footage and audio from the official content folder",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
   }
  ],
  "on_screen_text": {
@@ -498,30 +525,32 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "ON-SCREEN TEXT (REQUIRED)",
+    "quote": "• Every post must include on-screen text.",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Every post must include on-screen text.",
+    "quote": "• Wording is flexible, but it must be based on what is shown in your clip.",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Wording is flexible, but it must be based on what is shown in your clip.",
+    "quote": "• Only mention features that actually appear in your clip.",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Only mention features that actually appear in your clip.",
+    "quote": "\"Why didn't anyone tell me you can also make original music in STRANGER THAN HEAVEN?\"",
     "source": "doc",
     "verified": true
    }
   ],
-  "guidance": "Wording is flexible, but it must be based on what is shown in your clip. Only mention features that actually appear in your clip. Text must be clear and readable.",
+  "guidance": "Wording is flexible, but it must be based on what is shown in your clip. Only mention features that actually appear in your clip.",
   "required": true,
   "enforcement": "auto",
-  "must_include": []
+  "must_include": [
+   "Why didn't anyone tell me you can also make original music in STRANGER THAN HEAVEN?"
+  ]
  },
  "content_source_urls": [
   "https://f.io/Uqz4Au1N",
@@ -531,11 +560,11 @@
   {
    "kind": "audience",
    "note": null,
-   "text": "Minimum 35% combined USA and Canada audience required on all posts. This can also be met if the post itself reaches 35%+ USA and Canada audience in its own analytics.",
+   "text": "Minimum 35% combined USA and Canada audience required on all posts",
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "Audience Requirement: Minimum 35% combined USA and Canada audience required on all posts.",
+     "quote": "⚠️ Audience Requirement: Minimum 35% combined USA and Canada audience required on all posts. This can also be met if the post itself reaches 35%+ USA and Canada audience in its own analytics.",
      "source": "doc",
      "verified": true
     }
@@ -550,7 +579,7 @@
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "Minimum 0.20% engagement rate (1,000 views = minimum 2 likes)",
+     "quote": "✔ Minimum 0.20% engagement rate (1,000 views = minimum 2 likes)",
      "source": "doc",
      "verified": true
     }
@@ -565,7 +594,7 @@
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "Likes must be visible, hidden likes = automatic rejection",
+     "quote": "✔ Likes must be visible, hidden likes = automatic rejection",
      "source": "doc",
      "verified": true
     }
@@ -580,7 +609,12 @@
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "Post must stay live for 30 days minimum",
+     "quote": "✔ Post must stay live for 30 days minimum",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "❌ Removing the post before 30 days",
      "source": "doc",
      "verified": true
     }
@@ -589,13 +623,13 @@
    "enforcement": "human"
   },
   {
-   "kind": "tagging",
+   "kind": "posting_behaviour",
    "note": null,
-   "text": "✔ TikTok: @sth_game",
+   "text": "❌ Bait posting: posting random viral content just to farm views. Posts must be relevant to the campaign",
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "✔ TikTok: @sth_game",
+     "quote": "❌ Bait posting: posting random viral content just to farm views. Posts must be relevant to the campaign",
      "source": "doc",
      "verified": true
     }
@@ -604,52 +638,7 @@
    "enforcement": "human"
   },
   {
-   "kind": "tagging",
-   "note": null,
-   "text": "✔ Instagram: @sth_game",
-   "scope": "campaign",
-   "evidence": [
-    {
-     "quote": "✔ Instagram: @sth_game",
-     "source": "doc",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  },
-  {
-   "kind": "tagging",
-   "note": null,
-   "text": "✔ YouTube Shorts: @SEGA_West",
-   "scope": "campaign",
-   "evidence": [
-    {
-     "quote": "✔ YouTube Shorts: @SEGA_West",
-     "source": "doc",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  },
-  {
-   "kind": "ftc_compliance",
-   "note": null,
-   "text": "✔ By participating you agree to make your post FTC compliant",
-   "scope": "campaign",
-   "evidence": [
-    {
-     "quote": "✔ By participating you agree to make your post FTC compliant",
-     "source": "doc",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  },
-  {
-   "kind": "no_spam",
+   "kind": "posting_behaviour",
    "note": null,
    "text": "❌ Spam posting: do not copy the same video across multiple accounts. Post fresh content on each page",
    "scope": "campaign",
@@ -664,7 +653,7 @@
    "enforcement": "human"
   },
   {
-   "kind": "story_boosting",
+   "kind": "posting_behaviour",
    "note": null,
    "text": "❌ Story boosting: posting the content to your story to generate views. Story views do not count and will get you banned",
    "scope": "campaign",
@@ -679,7 +668,7 @@
    "enforcement": "human"
   },
   {
-   "kind": "no_paid_boost",
+   "kind": "posting_behaviour",
    "note": null,
    "text": "❌ Paid boosting or video promoting of any kind. Using TikTok/Instagram promote tools or paid ads will result in a permanent ban from Clipping Culture",
    "scope": "campaign",
@@ -694,7 +683,7 @@
    "enforcement": "human"
   },
   {
-   "kind": "post_limit",
+   "kind": "posting_behaviour",
    "note": null,
    "text": "❌ Posting the same video more than 5 times across your pages. Spread content out, don't oversaturate",
    "scope": "campaign",

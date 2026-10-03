@@ -31,6 +31,15 @@ def _alnum(s: str) -> str:
     return re.sub(r"[^0-9a-z]+", "", (s or "").lower())
 
 
+def _has(term: str, hay: str) -> bool:
+    return re.search(r"(?<!\w)" + re.escape(_norm(term)) + r"(?!\w)", hay) is not None
+
+
+def _find_tag(tag: str, hay: str) -> int:
+    m = re.search(r"(?<!\w)" + re.escape(tag.lower()) + r"(?!\w)", hay)
+    return m.start() if m else -1
+
+
 def _c(rule: str, status: str, expected: Any, actual: Any, how: str, detail: str = "") -> dict:
     return {"rule": rule, "status": status, "expected": expected, "actual": actual, "how": how, "detail": detail}
 
@@ -52,17 +61,18 @@ def check_copy(rs: RuleSet, platform: str, title: str, description: str, extra_t
     # mentions per platform
     need = cp.mentions_by_platform.get(platform) or []
     if need:
-        missing = [m for m in need if m.lower() not in low]
+        missing = [m for m in need if _find_tag(m, low) < 0]
         out.append(_c(f"copy.mentions.{platform}", "fail" if missing else "pass", need,
                       {"missing": missing}, how_copy + ": menciones exactas"))
     if cp.must_mention_any:
-        hit = [m for m in cp.must_mention_any if _norm(m) in low]
+        hit = [m for m in cp.must_mention_any if _has(m, low)]
         out.append(_c("copy.must_mention_any", "pass" if hit else "fail", cp.must_mention_any, hit,
                       how_copy + ": al menos una mención"))
     # hashtags order + position
     hs = cp.hashtags
     if hs.ordered:
-        found = [(low.find(h.lower()), h) for h in hs.ordered]
+        dlow = _norm(description)
+        found = [(_find_tag(h, dlow), h) for h in hs.ordered]
         missing = [h for i, h in found if i < 0]
         idx = [i for i, _ in found if i >= 0]
         in_order = idx == sorted(idx)
@@ -70,7 +80,7 @@ def check_copy(rs: RuleSet, platform: str, title: str, description: str, extra_t
         detail = "" if in_order else "orden distinto"
         if status == "pass" and hs.position == "after_text":
             first_tag = min(idx)
-            body = low[:first_tag]
+            body = dlow[:first_tag]
             if not re.search(r"[a-z0-9]", re.sub(r"#\w+|@\w+", "", body)):
                 status, detail = "fail", "hashtags antes del texto"
         if status == "pass" and hs.max_extra is not None:
@@ -131,6 +141,11 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
     res_ok = (probe.get("width"), probe.get("height")) == (w, h)
     out.append(_c("aspect", "pass" if res_ok else "fail", f"{w}x{h}", f"{probe.get('width')}x{probe.get('height')}", how_probe))
     out.append(_c("audio", "pass" if probe.get("has_audio") else "fail", True, bool(probe.get("has_audio")), how_probe))
+    if rs.audio.original_only or rs.audio.no_added_music:
+        # The worker render keeps the source audio and never mixes a music track.
+        extra_audio = bool(applied.get("audio_track"))
+        out.append(_c("audio.original_only", "fail" if extra_audio else "pass", "audio original, sin música añadida",
+                      {"extra_track": extra_audio}, "render_spec v2: el worker no mezcla pistas (applied.audio_track)"))
     cap = applied.get("captions") or {}
     if rs.captions.required or required.get("captions"):
         ok = bool(cap.get("applied")) and (cap.get("events") or 0) > 0
@@ -179,6 +194,9 @@ def human_checks(rs: RuleSet) -> list[dict]:
         out.append(_c("hook", "review", rs.hook.max_seconds, None, "humano al aprobar el publish", rs.hook.note or ""))
     if rs.edit.required:
         out.append(_c("edit", "review", rs.edit.allowed_edits, None, "humano al aprobar el publish"))
+    if rs.copy_rules.pinned_comment:
+        out.append(_c("copy.pinned_comment", "review", rs.copy_rules.pinned_comment, None,
+                      "humano: la API de YouTube no permite fijar comentarios"))
     for t in rs.prohibitions.topics:
         out.append(_c("prohibitions.topic", "review", t, None, "humano al aprobar el publish"))
     for m in rs.manual_checks:
@@ -186,9 +204,18 @@ def human_checks(rs: RuleSet) -> list[dict]:
     return out
 
 
+def burned_text(result: dict) -> str:
+    """Subtitles + on-screen text the worker burned into the clip."""
+    applied = (result or {}).get("applied") or {}
+    return " ".join([str((applied.get("captions") or {}).get("text") or "")]
+                    + [str(t.get("text", "")) for t in (applied.get("on_screen_text") or {}).get("texts") or []])
+
+
 def verify(rs: RuleSet, *, result: dict, required: dict, duration_window: tuple[float, float],
            clip_duration: Optional[float], tx_language: Optional[str], copies: dict[str, tuple[str, str]],
-           overlay_text: str = "") -> dict:
+           overlay_text: Optional[str] = None) -> dict:
+    if overlay_text is None:
+        overlay_text = burned_text(result)
     checks = check_render(rs, result=result, required=required, duration_window=duration_window,
                           clip_duration=clip_duration, tx_language=tx_language)
     for platform, (title, description) in copies.items():
@@ -230,13 +257,10 @@ def verify_clip(db, clip) -> dict:
     for p in PLATFORMS:
         title, description, _tags = platform_copy(campaign, clip, cand, p)
         copies[p] = (title, description)
-    applied = result.get("applied") or {}
-    overlay = " ".join([str((applied.get("captions") or {}).get("text") or "")]
-                       + [t.get("text", "") for t in (applied.get("on_screen_text") or {}).get("texts") or []])
     report = verify(rs, result=result, required=required,
                     duration_window=duration_window(campaign) if campaign else (15.0, 45.0),
                     clip_duration=clip.duration_seconds, tx_language=tx.get("language"),
-                    copies=copies, overlay_text=overlay)
+                    copies=copies)
     clip.compliance_status = report["status"]
     clip.compliance_report = report
     return report
