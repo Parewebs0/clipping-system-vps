@@ -31,7 +31,9 @@ def _candidate_urls(campaign) -> list[str]:
         if isinstance(u, str):
             urls.append(u)
     discovered = meta.get("discovered") or {}
-    for ref in discovered.get("reference_materials") or []:
+    detail = meta.get("detail") or {}
+    refs = list(discovered.get("reference_materials") or []) + list(detail.get("reference_material") or [])
+    for ref in refs:
         if isinstance(ref, dict) and ref.get("url"):
             urls.append(ref["url"])
         elif isinstance(ref, str):
@@ -57,7 +59,7 @@ def main() -> int:
     from app.models.asset import Asset
     from app.schemas.asset import AssetCreate
     from app.services.asset_service import create_asset
-    from app.services.asset_resolve import expand_all
+    from app.services.asset_resolve import RESOLVER_VERSION, expand_all
 
     db = SessionLocal()
     created = resolved = 0
@@ -80,8 +82,10 @@ def main() -> int:
             if processed >= args.limit:
                 break
             meta = dict(c.source_metadata or {})
-            prev = (meta.get("resolve_error") or {}).get("kind")
-            if c.status == "failed_resolve" and prev not in _RETRYABLE and not args.campaign_id:
+            prev_err = meta.get("resolve_error") or {}
+            prev = prev_err.get("kind")
+            stale = int(prev_err.get("resolver_version") or 1) < RESOLVER_VERSION
+            if c.status == "failed_resolve" and prev not in _RETRYABLE and not stale and not args.campaign_id:
                 skipped += 1
                 continue
             existing = db.query(Asset).filter(Asset.campaign_id == c.id).all()
@@ -119,7 +123,9 @@ def main() -> int:
                         extra_metadata={
                             "kind": item["kind"],
                             "name": item["name"],
+                            "size": item.get("size"),
                             "discovered_by": "asset_resolver_tick",
+                            "resolver_version": RESOLVER_VERSION,
                         },
                     ),
                 )
@@ -146,6 +152,7 @@ def main() -> int:
                     meta["resolve_error"] = {
                         "kind": kind,
                         "message": "; ".join(errors)[:300] if errors else "no ingestible videos",
+                        "resolver_version": RESOLVER_VERSION,
                     }
                     c.source_metadata = meta
                     db.commit()
