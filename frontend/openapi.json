@@ -542,6 +542,7 @@
               "scored",
               "blocked_no_assets",
               "blocked_low_score",
+              "needs_review",
               "failed_brief",
               "failed_resolve",
               "archived",
@@ -820,6 +821,7 @@
               "scored",
               "blocked_no_assets",
               "blocked_low_score",
+              "needs_review",
               "failed_brief",
               "failed_resolve",
               "archived",
@@ -1158,6 +1160,7 @@
               "scored",
               "blocked_no_assets",
               "blocked_low_score",
+              "needs_review",
               "failed_brief",
               "failed_resolve",
               "archived",
@@ -1184,6 +1187,72 @@
           "priority_components"
         ],
         "title": "CampaignRulesOut",
+        "type": "object"
+      },
+      "CampaignRulesetOut": {
+        "properties": {
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/RuleBlocker"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "campaign_id": {
+            "title": "Campaign Id",
+            "type": "integer"
+          },
+          "compliance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compliance"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate"
+          },
+          "pending_count": {
+            "default": 0,
+            "title": "Pending Count",
+            "type": "integer"
+          },
+          "ruleset": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ruleset"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "campaign_id",
+          "status"
+        ],
+        "title": "CampaignRulesetOut",
         "type": "object"
       },
       "CampaignSpec": {
@@ -4187,6 +4256,103 @@
         "title": "RejectPayload",
         "type": "object"
       },
+      "RuleBlocker": {
+        "properties": {
+          "confirmation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation"
+          },
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "text"
+        ],
+        "title": "RuleBlocker",
+        "type": "object"
+      },
+      "RulesConfirmIn": {
+        "additionalProperties": false,
+        "description": "#37: confirm human rule requirements by blocker key.",
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Keys",
+            "type": "array"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "RulesConfirmIn",
+        "type": "object"
+      },
       "SocialAccountOut": {
         "properties": {
           "auth_kind": {
@@ -5861,6 +6027,112 @@
           }
         ],
         "summary": "Enqueue Pipeline",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
+    "/campaigns/{campaign_id}/rules/confirm": {
+      "post": {
+        "description": "Confirm human requirements (account, pre-approval, logo file). When no\nblocker is left a `needs_review` campaign returns to its previous status.\n409 for unknown keys or unsupported rules (park/archive those).",
+        "operationId": "confirm_rules_campaigns__campaign_id__rules_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRulesetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Rules",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
+    "/campaigns/{campaign_id}/ruleset": {
+      "get": {
+        "description": "Typed RuleSet v2 (#33) + workability blockers and confirmations (#37).",
+        "operationId": "get_ruleset_campaigns__campaign_id__ruleset_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignRulesetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Ruleset",
         "tags": [
           "campaigns"
         ]

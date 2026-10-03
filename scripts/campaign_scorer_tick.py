@@ -131,6 +131,12 @@ def main() -> int:
             }
             c.source_metadata = meta
             c.status = new_status
+            if new_status == "scored":
+                # #37: unsupported rule / unconfirmed human requirement -> needs_review
+                from app.services.rules.gate import apply_gate
+
+                if apply_gate(c, actor="campaign_scorer_tick"):
+                    print(f"campaign={c.id} rules gate -> needs_review")
             changed += 1
         if not args.dry_run:
             db.commit()

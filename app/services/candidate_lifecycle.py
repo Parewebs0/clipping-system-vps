@@ -150,6 +150,15 @@ def approve_candidate(
             f"campaign {candidate.campaign_id} not found for candidate {candidate_id}"
         )
 
+    # --- #37 rules gate: no approval while rules are not workable ----------
+    from app.services.rules.gate import is_blocked
+
+    if campaign.status in ("needs_review", "parked", "archived") or is_blocked(campaign):
+        raise CandidateStateError(
+            f"cannot approve candidate {candidate_id}: campaign {campaign.id} is not workable "
+            f"(status '{campaign.status}', rules pending human review)"
+        )
+
     # --- Validate against current spec ----------------------------------
     spec = _build_spec_for_campaign(campaign)
     proposal = _build_proposal_from_candidate(candidate)

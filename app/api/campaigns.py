@@ -12,6 +12,8 @@ from app.auth import require_bearer, require_write_bearer
 from app.db.database import get_db
 from app.models.campaign import CampaignStatus
 from app.schemas.campaign import (
+    CampaignRulesetOut,
+    RulesConfirmIn,
     CampaignCreate,
     CampaignOut,
     CampaignStatusChange,
@@ -300,6 +302,10 @@ def enqueue_pipeline(
             status_code=409,
             detail=f"Campaign is in status='{c.status}', expected 'scored'",
         )
+    from app.services.rules.gate import pending as _rules_pending
+
+    if _rules_pending(c):
+        raise HTTPException(status_code=409, detail="Campaign has rules pending human review (#37)")
 
     # Pick the first PROCESSABLE asset for this campaign.
     # We must iterate because the first asset by created_at is usually a
@@ -479,3 +485,61 @@ def enqueue_all_ready(
             skipped += 1
 
     return {"scanned": len(ready), "enqueued": enqueued, "skipped": skipped}
+
+
+# --- #37 rules gate -----------------------------------------------------------
+
+def _ruleset_view(c) -> dict:
+    from app.services.rules.gate import blockers
+    from app.services.rules.schema import load_ruleset
+
+    meta = c.source_metadata or {}
+    rs = load_ruleset(meta)
+    items = blockers(c)
+    return {
+        "campaign_id": c.id,
+        "status": c.status,
+        "ruleset": rs.dump() if rs else None,
+        "blockers": items,
+        "pending_count": sum(1 for b in items if not b["confirmed"]),
+        "gate": meta.get("rules_gate"),
+        "compliance": meta.get("rules_compliance"),
+    }
+
+
+@router.get("/{campaign_id}/ruleset", response_model=CampaignRulesetOut)
+def get_ruleset(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_bearer),
+):
+    """Typed RuleSet v2 (#33) + workability blockers and confirmations (#37)."""
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return _ruleset_view(c)
+
+
+@router.post("/{campaign_id}/rules/confirm", response_model=CampaignRulesetOut)
+def confirm_rules(
+    campaign_id: int,
+    payload: RulesConfirmIn,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_write_bearer),
+):
+    """Confirm human requirements (account, pre-approval, logo file). When no
+    blocker is left a `needs_review` campaign returns to its previous status.
+    409 for unknown keys or unsupported rules (park/archive those)."""
+    from app.services.rules.gate import GateError, confirm
+
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    try:
+        confirm(c, payload.keys, payload.note, actor="api:rules_confirm")
+    except GateError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(e))
+    db.commit()
+    db.refresh(c)
+    return _ruleset_view(c)

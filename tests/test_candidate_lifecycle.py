@@ -398,3 +398,34 @@ def test_lifecycle_endpoints_require_auth(client):
     assert r.status_code in (401, 403)
     r2 = client.post(f"/candidates/{uuid.uuid4()}/reject")
     assert r2.status_code in (401, 403)
+
+
+@pytest.mark.parametrize("status,pending_rule", [("needs_review", False), ("scored", True), ("parked", False)])
+def test_approve_blocked_by_rules_gate(db, status, pending_rule):
+    """#37: no approval (no render) while the campaign's rules are not workable."""
+    from app.models.asset import Asset, AssetStatus
+    from app.models.campaign import Campaign
+    from app.models.candidate import Candidate, CandidateStatus
+    from app.models.job import Job
+    from app.services.candidate_lifecycle import CandidateStateError, approve_candidate
+    from app.services.rules.enforcement import assign_enforcement
+    from app.services.rules.schema import RuleSet
+
+    rs = RuleSet()
+    rs.pre_approval.required = pending_rule
+    c = Campaign(name=f"lc-{uuid.uuid4().hex[:6]}", source_provider="whop", status=status,
+                 source_metadata={"ruleset": assign_enforcement(rs).dump()})
+    db.add(c)
+    db.commit()
+    a = Asset(campaign_id=c.id, source_url="https://example.com/v", source_provider="youtube", source_id="x",
+              asset_type="video", status=AssetStatus.TRANSCRIBED.value, duration_seconds=300.0,
+              extra_metadata={"transcription": {"text": "hello"}})
+    db.add(a)
+    db.commit()
+    cand = Candidate(campaign_id=c.id, asset_id=a.id, start_time=10.0, end_time=40.0, score=0.8,
+                     reasoning="x", status=CandidateStatus.PENDING.value, extra_metadata={})
+    db.add(cand)
+    db.commit()
+    with pytest.raises(CandidateStateError, match="not workable"):
+        approve_candidate(db, cand.id)
+    assert db.query(Job).filter(Job.job_type == "render").count() == 0

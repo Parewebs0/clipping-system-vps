@@ -65,7 +65,7 @@ def test_status_machine_endpoint(client, auth_headers):
     r = client.get("/campaigns/status-machine", headers=auth_headers)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["transitions"]["scored"] == ["assets_resolved", "blocked_no_assets", "archived"]
+    assert body["transitions"]["scored"] == ["assets_resolved", "blocked_no_assets", "needs_review", "parked", "archived"]
     by_val = {s["value"]: s for s in body["statuses"]}
     assert by_val["discovered"]["consumed_by"].startswith("brief_reader_tick")
     assert by_val["archived"]["effect"]

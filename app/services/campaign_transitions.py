@@ -33,7 +33,10 @@ MANUAL_TRANSITIONS: dict[str, tuple[str, ...]] = {
     S.DISCOVERED.value: (ARCHIVED,),
     S.BRIEFED.value: (S.DISCOVERED.value, ARCHIVED),
     S.ASSETS_RESOLVED.value: (S.BRIEFED.value, S.DISCOVERED.value, ARCHIVED),
-    S.SCORED.value: (S.ASSETS_RESOLVED.value, S.BLOCKED_NO_ASSETS.value, ARCHIVED),
+    S.SCORED.value: (S.ASSETS_RESOLVED.value, S.BLOCKED_NO_ASSETS.value, S.NEEDS_REVIEW.value, PARKED, ARCHIVED),
+    # #37 rules gate: back to the flow is done by POST /campaigns/{id}/rules/confirm;
+    # a human can also re-read the brief, park or archive it.
+    S.NEEDS_REVIEW.value: (S.DISCOVERED.value, PARKED, ARCHIVED),
     S.BLOCKED_NO_ASSETS.value: (S.ASSETS_RESOLVED.value, S.BRIEFED.value, ARCHIVED),
     S.BLOCKED_LOW_SCORE.value: (S.ASSETS_RESOLVED.value, S.BRIEFED.value, ARCHIVED),
     S.FAILED_BRIEF.value: (S.DISCOVERED.value, ARCHIVED),
@@ -50,6 +53,7 @@ CONSUMED_BY: dict[str, Optional[str]] = {
     S.BRIEFED.value: "drive_resolver_tick (3b)",
     S.ASSETS_RESOLVED.value: "campaign_scorer_tick (3c)",
     S.SCORED.value: "download_enqueue_tick (7)",
+    S.NEEDS_REVIEW.value: "humano (confirmar reglas en el dashboard)",
     S.BLOCKED_NO_ASSETS.value: None,
     S.BLOCKED_LOW_SCORE.value: None,
     S.FAILED_BRIEF.value: None,
@@ -66,6 +70,7 @@ EFFECT: dict[str, str] = {
     S.BLOCKED_NO_ASSETS.value: "Aparcada: download_enqueue_tick deja de encolar descargas nuevas (los jobs ya encolados siguen).",
     PARKED: "Aparcada (cerrada, agotada o no apta en origen): ningún tick la procesa y no cuenta para el límite de discovery.",
     S.BLOCKED_LOW_SCORE.value: "Aparcada por puntuación baja (tiene assets): no se encolan descargas. Motivo en score.block_reason.",
+    S.NEEDS_REVIEW.value: "Revisión manual de reglas: no se descarga ni renderiza hasta que se confirmen los requisitos humanos (o se aparque si hay reglas no soportadas).",
     ARCHIVED: "Sale del pipeline: ningún tick la procesa y no cuenta para el límite de campañas activas de discovery. Los jobs ya encolados no se cancelan.",
 }
 

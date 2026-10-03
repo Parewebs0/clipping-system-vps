@@ -20,6 +20,7 @@ export const CAMPAIGN_STATUS: Record<CampaignStatus, Meta> = {
   briefed: { label: 'Brief leído', tone: 'amber', help: 'Paso 3a: reglas y enlaces extraídos; la recoge el resolver (3b).' },
   assets_resolved: { label: 'Assets resueltos', tone: 'sky', help: 'Paso 3b: assets creados; la recoge el scorer (3c).' },
   scored: { label: 'Puntuada', tone: 'emerald', help: 'Paso 3c: score ≥ umbral; download_enqueue encola descargas.' },
+  needs_review: { label: 'Revisión manual', tone: 'amber', help: 'Gate de reglas (#37): regla no soportada o requisito humano sin confirmar. No se descarga ni renderiza; confirma en «Reglas y score».' },
   blocked_no_assets: { label: 'Sin assets', tone: 'rose', help: '3c: 0 assets reales (solo carpetas, docs o perfiles).' },
   blocked_low_score: { label: 'Puntuación baja', tone: 'rose', help: '3c: tiene assets pero score < 50, tarifa de la plataforma de publicación < mínimo o host no soportado. Motivo en score.block_reason.' },
   failed_brief: { label: 'Fallo brief', tone: 'rose', help: '3a: brief ilegible o sin materiales.' },

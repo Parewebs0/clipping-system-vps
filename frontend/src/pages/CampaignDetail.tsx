@@ -6,6 +6,7 @@ import { ActiveJobsTable, AssetsTable, ClipsTable, PipelineTable } from '@/compo
 import { DeleteCampaignButton } from '@/components/campaign/DeleteCampaignButton'
 import { EditCampaignSheet } from '@/components/campaign/EditCampaignSheet'
 import { RulesPanel } from '@/components/campaign/RulesPanel'
+import { RulesetPanel } from '@/components/campaign/RulesetPanel'
 import { StatusActions } from '@/components/campaign/StatusActions'
 import { StatusHistory } from '@/components/campaign/StatusHistory'
 import { ExtLink, JsonBlock, KV } from '@/components/common/Misc'
@@ -208,7 +209,8 @@ export function CampaignDetailPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-            <TabsContent value="rules" className="mt-4">
+            <TabsContent value="rules" className="mt-4 space-y-4">
+              <RulesetPanel campaignId={id} />
               <RulesPanel campaignId={id} />
             </TabsContent>
             <TabsContent value="history" className="mt-4">

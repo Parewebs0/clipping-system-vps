@@ -8,6 +8,8 @@ import type {
   CampaignUpdate,
   CandidateApproveOut,
   CandidateOut,
+  CampaignRuleset,
+  RulesConfirmIn,
   StatusMachine,
 } from './types'
 
@@ -88,5 +90,15 @@ export function useRejectCandidate() {
     mutationFn: ({ id, reason }: { id: string; campaignId: number; reason?: string }) =>
       api<CandidateOut>(`/candidates/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason ?? null }) }),
     onSuccess: (_d, v) => invalidate(v.campaignId),
+  })
+}
+
+// --- #37 rules gate: confirm human requirements (write token).
+export function useConfirmRules(id: number) {
+  const invalidate = useInvalidateCampaign()
+  return useMutation({
+    mutationFn: (body: RulesConfirmIn) =>
+      api<CampaignRuleset>(`/campaigns/${id}/rules/confirm`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => invalidate(id),
   })
 }
