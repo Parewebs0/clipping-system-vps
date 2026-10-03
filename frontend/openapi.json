@@ -4379,6 +4379,11 @@
               }
             ],
             "title": "Note"
+          },
+          "waive_unsupported": {
+            "default": false,
+            "title": "Waive Unsupported",
+            "type": "boolean"
           }
         },
         "title": "RulesConfirmIn",

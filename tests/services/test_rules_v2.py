@@ -195,3 +195,29 @@ def test_golden_18_after_reclassify_only_human_blockers():
     rs.pre_approval.required = True
     rs = assign_enforcement(reclassify(rs))
     assert {b["kind"] for b in blocking_items(rs)} == {"human"}
+
+
+def test_reclassify_only_impossible_categories_stay_unsupported():
+    """#48: real cases from the second re-read (#6, #3, #8)."""
+    from app.services.rules.extract import reclassify
+
+    ev = lambda q: [Evidence(quote=q, source="doc", verified=True)]  # noqa: E731
+    rs = RuleSet()
+    rs.unsupported = [
+        UnsupportedRule(text="Clips need to highlight ForgeGUI features. An actual demo is required.",
+                        reason="requires actual demo footage usage",
+                        evidence=ev("Clips need to highlight ForgeGUI features. An actual demo is required.")),
+        UnsupportedRule(text="on-screen text", reason="requires adding text overlay",
+                        evidence=ev('Your post must include the following on-screen text: "AVAILABLE NOW"')),
+        UnsupportedRule(text="third-party downloader watermark", reason="Export cleanly",
+                        evidence=ev("Export cleanly, without watermarks from third-party downloader apps.")),
+        UnsupportedRule(text="Must use the provided sound", reason="sound", evidence=ev("Use the provided sound")),
+        UnsupportedRule(text="video export", reason="Format: Native photo slideshows (not a video export).",
+                        evidence=ev("Format: Native photo slideshows (not a video export).")),
+    ]
+    rs = reclassify(rs)
+    assert [u.text for u in rs.unsupported] == ["Must use the provided sound", "video export"]
+    assert rs.on_screen_text.required and rs.on_screen_text.must_include == ["AVAILABLE NOW"]
+    texts = [m.text for m in rs.manual_checks]
+    assert "Clips need to highlight ForgeGUI features. An actual demo is required." in texts
+    assert "Prohibido: third-party downloader watermark" in texts

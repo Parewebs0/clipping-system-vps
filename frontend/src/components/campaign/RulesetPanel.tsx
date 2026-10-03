@@ -76,14 +76,20 @@ function EnfBadge({ enf }: { enf?: string }) {
 }
 
 function BlockerRow({ b, checked, onToggle }: { b: RuleBlocker; checked: boolean; onToggle: () => void }) {
-  const selectable = b.kind === 'human' && !b.confirmed
+  const selectable = !b.confirmed
   return (
     <li className="flex items-start gap-3 border-b py-2 last:border-0">
       <input type="checkbox" className="mt-1" disabled={!selectable} checked={b.confirmed || checked} onChange={onToggle} aria-label={`confirmar ${b.key}`} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <ToneBadge tone={b.kind === 'unsupported' ? 'rose' : b.confirmed ? 'emerald' : 'amber'}>
-            {b.kind === 'unsupported' ? 'no soportada' : b.confirmed ? 'confirmado' : 'pendiente'}
+          <ToneBadge tone={b.confirmed ? 'emerald' : b.kind === 'unsupported' ? 'rose' : 'amber'}>
+            {b.confirmed
+              ? b.confirmation?.type === 'waiver'
+                ? 'dispensada'
+                : 'confirmado'
+              : b.kind === 'unsupported'
+                ? 'no soportada'
+                : 'pendiente'}
           </ToneBadge>
           {b.rule && <span className="font-mono text-xs">{b.rule}</span>}
           <span>{b.text}</span>
@@ -116,7 +122,10 @@ export function RulesetPanel({ campaignId }: { campaignId: number }) {
   const rs = (data.ruleset ?? null) as Dict | null
   const blockers = data.blockers ?? []
   const pendingHuman = blockers.filter((b) => b.kind === 'human' && !b.confirmed)
-  const unsupported = blockers.filter((b) => b.kind === 'unsupported')
+  const unsupported = blockers.filter((b) => b.kind === 'unsupported' && !b.confirmed)
+  const humanKeys = new Set(pendingHuman.map((b) => b.key))
+  const selHuman = [...sel].filter((k) => humanKeys.has(k))
+  const selUnsupported = [...sel].filter((k) => !humanKeys.has(k))
   const toggle = (k: string) =>
     setSel((s) => {
       const n = new Set(s)
@@ -124,9 +133,9 @@ export function RulesetPanel({ campaignId }: { campaignId: number }) {
       else n.add(k)
       return n
     })
-  const submit = async (keys: string[]) => {
+  const submit = async (keys: string[], waive = false) => {
     try {
-      const r = await confirm.mutateAsync({ keys, note: note.trim() || null })
+      const r = await confirm.mutateAsync({ keys, note: note.trim() || null, waive_unsupported: waive })
       setSel(new Set())
       setNote('')
       toast.success(r.pending_count === 0 ? `Reglas confirmadas: campaña en «${r.status}»` : `Confirmado; quedan ${r.pending_count} pendientes`)
@@ -148,7 +157,8 @@ export function RulesetPanel({ campaignId }: { campaignId: number }) {
           {blockers.length === 0 && <div className="text-muted-foreground text-sm">Sin bloqueantes: la campaña es trabajable de forma automática.</div>}
           {unsupported.length > 0 && (
             <div className="rounded-md border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800">
-              Hay {unsupported.length} regla(s) no soportada(s): no se pueden confirmar. Aparca o archiva la campaña (o espera a que el pipeline las soporte).
+              Hay {unsupported.length} regla(s) no soportada(s): el pipeline no puede cumplirlas. Aparca o archiva la campaña, o dispénsala con una nota si sabes
+              que se cumple igualmente.
             </div>
           )}
           <ul>
@@ -156,16 +166,27 @@ export function RulesetPanel({ campaignId }: { campaignId: number }) {
               <BlockerRow key={b.key} b={b} checked={sel.has(b.key)} onToggle={() => toggle(b.key)} />
             ))}
           </ul>
-          {pendingHuman.length > 0 && (
+          {(pendingHuman.length > 0 || unsupported.length > 0) && (
             <div className="space-y-2">
               <Textarea placeholder="Nota (opcional): p. ej. «bio actualizada en @cuenta»" value={note} onChange={(e) => setNote(e.target.value)} />
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={sel.size === 0 || confirm.isPending} onClick={() => submit([...sel])}>
-                  Confirmar seleccionados ({sel.size})
+                <Button size="sm" disabled={selHuman.length === 0 || confirm.isPending} onClick={() => submit(selHuman)}>
+                  Confirmar seleccionados ({selHuman.length})
                 </Button>
-                <Button size="sm" variant="outline" disabled={confirm.isPending} onClick={() => submit(pendingHuman.map((b) => b.key))}>
+                <Button size="sm" variant="outline" disabled={pendingHuman.length === 0 || confirm.isPending} onClick={() => submit(pendingHuman.map((b) => b.key))}>
                   Confirmar todos los requisitos humanos ({pendingHuman.length})
                 </Button>
+                {unsupported.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={selUnsupported.length === 0 || !note.trim() || confirm.isPending}
+                    onClick={() => submit(selUnsupported, true)}
+                    title="Requiere nota explicando por qué se cumple"
+                  >
+                    Dispensar no soportadas seleccionadas ({selUnsupported.length})
+                  </Button>
+                )}
               </div>
             </div>
           )}
