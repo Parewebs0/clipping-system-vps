@@ -20,7 +20,8 @@
 
 | # | Paso | Script / componente | Estado que consume → produce | Cron (mini PC) |
 |---|---|---|---|---|
-| 0/1 | Descubrir campañas Whop | `scripts/whop_discovery.py --max-active 3 --no-fetch-detail` | Whop API → `campaigns.status='discovered'` (solo si hay < 3 activas) | 08:15 y 20:15 Europe/Madrid |
+| 0/1 | Descubrir campañas Whop | `scripts/whop_discovery.py --max-active 3` | catálogo completo paginado → filtros duros `DISCOVERY_*` → ranking por valor esperado → detalle de la lista corta (clipping + active) → `campaigns.status='discovered'` (solo si hay < 3 activas). Fallo de red ⇒ exit 2 (#21) | 08:15 y 20:15 Europe/Madrid |
+| 0b | Aparcar cerradas / agotadas / no aptas | `scripts/campaign_closed_tick.py` | toda campaña Whop no archivada ni aparcada → `parked` si en origen está pausada, oculta, 404, ≥ 95 % gastado, < 250 $ restantes, no es clipping, no acepta YouTube o pide solicitud (#23). Refresca `economics`/`detail` | cada 2 h |
 | 3a | Brief reader (Grok) | `scripts/brief_reader_tick.py --limit 1` | `discovered` → `briefed` / `failed_brief` (rules, asset_links, score_preview) | cada 15 min |
 | 3b | Asset resolver (Drive vía `gog`, Dropbox file, URL directa) | `scripts/drive_resolver_tick.py --limit 25` (ver gap abajo) | `briefed` (+ reintento `failed_resolve` si fallo de gog) → `assets_resolved` / `failed_resolve`; crea assets | cada 8 min |
 | 3c | Scorer determinista | `scripts/campaign_scorer_tick.py --limit 5` | `assets_resolved` → `scored` / `blocked_no_assets` (score < 50, 0 assets reales o host no soportado) | cada 5 min |
@@ -37,7 +38,8 @@
 
 | Script | Necesita |
 |---|---|
-| `whop_discovery.py` | `WHOP_TENANT_URL`, `WHOP_API_BASE`, `WHOP_API_TIMEOUT_S`; opcional `DISCOVERY_MAX_ACTIVE` |
+| `whop_discovery.py` | `WHOP_TENANT_URL`, `WHOP_API_TIMEOUT_S`; opcionales `DISCOVERY_*` (ver `.env.example`) |
+| `campaign_closed_tick.py` | `WHOP_TENANT_URL`; opcionales `CLOSED_MAX_SPENT_PCT` (95), `CLOSED_MIN_REMAINING_USD` (250), `DISCOVERY_PLATFORM`, `DISCOVERY_CONTENT_TYPE` |
 | `brief_reader_tick.py`, `grok_clip_decider_tick.py` | `XAI_API_KEY`, `XAI_API_BASE`, `XAI_MODEL`; salida a `docs.google.com` (briefs públicos) |
 | `drive_resolver_tick.py` | binario `gog` (v0.40.0, descargado en el `docker build` desde la release oficial `openclaw/gogcli` con checksum sha256; `/usr/local/bin/gog`; versión vía build ARG `GOG_VERSION`), `GOG_KEYRING_PASSWORD`, config/keyring de gog montados en `/root/.config/gogcli` y `/root/.local/share/gogcli` (host: `./gog/config`, `./gog/share`, fuera de git) |
 | `campaign_scorer_tick.py`, `download_enqueue_tick.py` | solo BD |
@@ -52,7 +54,8 @@ con un guard `TZ=Europe/Madrid date +%H ∈ {08,20}` → siempre 08:15 y 20:15 h
 ```
 C=/home/jarvis/clipping-cron
 X=docker exec clipping-system-vps-api-1 python
-15 6,7,18,19 * * * H=$(TZ=Europe/Madrid date +\%H); { [ "$H" = 08 ] || [ "$H" = 20 ]; } && flock -n $C/locks/discovery.lock timeout 20m $X scripts/whop_discovery.py --max-active 3 --no-fetch-detail >> $C/logs/discovery.log 2>&1
+15 6,7,18,19 * * * H=$(TZ=Europe/Madrid date +\%H); { [ "$H" = 08 ] || [ "$H" = 20 ]; } && flock -n $C/locks/discovery.lock timeout 20m $X scripts/whop_discovery.py --max-active 3 >> $C/logs/discovery.log 2>&1
+0 */2 * * * flock -n $C/locks/closed.lock  timeout 15m $X scripts/campaign_closed_tick.py             >> $C/logs/closed.log 2>&1
 */15 * * * * flock -n $C/locks/brief.lock   timeout 12m $X scripts/brief_reader_tick.py --limit 1        >> $C/logs/brief_reader.log 2>&1
 */8  * * * * flock -n $C/locks/resolve.lock timeout 20m $X scripts/drive_resolver_tick.py --limit 25     >> $C/logs/drive_resolver.log 2>&1
 */5  * * * * flock -n $C/locks/score.lock   timeout 4m  $X scripts/campaign_scorer_tick.py --limit 5    >> $C/logs/scorer.log 2>&1
