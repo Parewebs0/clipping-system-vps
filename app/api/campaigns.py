@@ -536,7 +536,7 @@ def confirm_rules(
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     try:
-        confirm(c, payload.keys, payload.note, actor="api:rules_confirm")
+        confirm(c, payload.keys, payload.note, actor="api:rules_confirm", waive_unsupported=payload.waive_unsupported)
     except GateError as e:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(e))

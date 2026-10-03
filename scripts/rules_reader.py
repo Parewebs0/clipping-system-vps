@@ -3,6 +3,8 @@
 
     python scripts/rules_reader.py --campaign-id 18
     python scripts/rules_reader.py --all [--dry-run]
+    python scripts/rules_reader.py --all --reapply   # 0 LLM: re-run the deterministic
+                                                     # reclassify + enforcement on the stored RuleSet (#48)
 """
 from __future__ import annotations
 
@@ -27,7 +29,10 @@ def main(argv=None) -> int:
     g.add_argument("--all", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--show", action="store_true", help="print the full RuleSet JSON")
+    p.add_argument("--reapply", action="store_true", help="no LLM: reclassify + enforcement on the stored RuleSet")
     args = p.parse_args(argv)
+    if args.reapply:
+        return _reapply(args)
 
     from app.db.database import SessionLocal
     from app.models.campaign import Campaign
@@ -70,6 +75,40 @@ def main(argv=None) -> int:
             persist_rules(c, rs, bundle)
             db.commit()
         return rc
+    finally:
+        db.close()
+
+
+def _reapply(args) -> int:
+    from app.db.database import SessionLocal
+    from app.models.campaign import Campaign
+    from app.services.rules.enforcement import assign_enforcement, blocking_items, legacy_rules
+    from app.services.rules.extract import reclassify
+    from app.services.rules.schema import load_ruleset
+
+    db = SessionLocal()
+    try:
+        q = db.query(Campaign).order_by(Campaign.id.asc())
+        rows = q.filter(Campaign.id == args.campaign_id).all() if args.campaign_id else q.all()
+        for c in rows:
+            meta = dict(c.source_metadata or {})
+            rs = load_ruleset(meta)
+            if rs is None:
+                continue
+            rs = assign_enforcement(reclassify(rs))
+            blockers = blocking_items(rs)
+            print(json.dumps({"campaign": c.id, "status": c.status,
+                              "unsupported": [u.text for u in rs.unsupported],
+                              "account": len(rs.account_requirements), "manual_checks": len(rs.manual_checks),
+                              "blockers": [(b["kind"], b.get("rule")) for b in blockers]}, ensure_ascii=False))
+            if args.dry_run:
+                continue
+            meta["ruleset"] = rs.dump()
+            meta["rules_blockers"] = blockers
+            meta["rules"] = legacy_rules(rs)
+            c.source_metadata = meta
+            db.commit()
+        return 0
     finally:
         db.close()
 

@@ -268,7 +268,14 @@ def sanitize(rs: RuleSet) -> RuleSet:
 _NEGATIVE = re.compile(
     r"^\W*(no|not|don'?t|do not|never|avoid|without|stop|zero|using|adding|uploading|posting|reposting|"
     r"uso de|usar|sin|nada de|prohibid\w*|forbidden|prohibited|banned)\b", re.I)
-_NEG_CONTEXT = re.compile(r"\b(not allowed|prohibited|forbidden|banned|don'?t|do not|never|avoid|no permitid\w*|prohibid\w*)\b", re.I)
+_NEG_CONTEXT = re.compile(r"\b(not allowed|prohibited|forbidden|banned|don'?t|do not|never|avoid|without|no permitid\w*|prohibid\w*)\b", re.I)
+# #48: the only things this pipeline really cannot do.
+_IMPOSSIBLE = re.compile(
+    r"\b(sound|song|audio link|official links?|trending audio|music link|slideshow|photo|carousel|images? post|"
+    r"on camera|face cam|facecam|film yourself|record yourself|your (own )?voice|voice ?over|duet|stitch|"
+    r"green ?screen|live ?stream|go live|frame\.io|f\.io|mediasilo|unsupported host)\b", re.I)
+_ON_SCREEN = re.compile(r"on[- ]screen text|text overlay|overlay text", re.I)
+_QUOTED = re.compile(r"[\"“”]([^\"“”]{2,60})[\"“”]")
 _INFORMATIVE = re.compile(r"\b(not expected|not required|optional|no need|you do not need|you don'?t need|no required)\b", re.I)
 _COPY_KIND = re.compile(r"tag|mention|caption|hashtag|ftc|disclosure", re.I)
 
@@ -292,6 +299,19 @@ def reclassify(rs: RuleSet) -> RuleSet:
         if _NEGATIVE.search(u.text) or _NEGATIVE.search(quote) or _NEG_CONTEXT.search(u.reason or "") \
                 or _NEG_CONTEXT.search(quote):
             rs.manual_checks.append(ManualCheck(required=True, text=f"Prohibido: {u.text}"[:400], evidence=u.evidence))
+            continue
+        blob = f"{u.text} {u.reason} {quote}"
+        if _ON_SCREEN.search(blob):
+            # Supported by the render (#41/worker #4): literal text → must_include.
+            rs.on_screen_text.required = True
+            rs.on_screen_text.evidence += u.evidence
+            for lit in _QUOTED.findall(quote):
+                if lit not in rs.on_screen_text.must_include:
+                    rs.on_screen_text.must_include.append(lit)
+            continue
+        if not _IMPOSSIBLE.search(blob):
+            # Content requirement the pipeline can meet → human check per clip.
+            rs.manual_checks.append(ManualCheck(required=True, text=u.text[:400], evidence=u.evidence))
             continue
         keep.append(u)
     rs.unsupported = keep

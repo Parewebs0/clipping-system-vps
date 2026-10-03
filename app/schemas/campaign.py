@@ -170,6 +170,7 @@ class RulesConfirmIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     keys: List[str] = Field(default_factory=list, max_length=100)
     note: Optional[str] = Field(None, max_length=500)
+    waive_unsupported: bool = False  # #48: explicit waiver of unsupported items (note required)
 
 
 class RuleBlocker(BaseModel):

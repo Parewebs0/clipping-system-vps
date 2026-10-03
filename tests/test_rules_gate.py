@@ -127,3 +127,15 @@ def test_enqueue_endpoint_refuses_pending_rules(s, client, auth_headers):
     c = _camp(db, made, rs=_rs())
     r = client.post(f"/campaigns/{c.id}/enqueue", headers=auth_headers)
     assert r.status_code == 409 and "rules" in r.json()["detail"]
+
+
+def test_waive_unsupported_requires_flag_and_note(s):
+    db, made = s
+    c = _camp(db, made, rs=_rs(account=False, unsupported=True))
+    assert apply_gate(c)
+    key = pending(c)[0]["key"]
+    with pytest.raises(GateError, match="note"):
+        confirm(c, [key], "", waive_unsupported=True)
+    r = confirm(c, [key], "footage is also on Drive", waive_unsupported=True)
+    assert r["released"] and c.status == "scored"
+    assert c.source_metadata["rules_confirmations"][key]["type"] == "waiver"

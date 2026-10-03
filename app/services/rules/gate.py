@@ -97,8 +97,12 @@ def gate_campaigns(db, dry_run: bool = False) -> int:
     return n
 
 
-def confirm(campaign, keys: Iterable[str], note: Optional[str], actor: str = "dashboard") -> dict:
-    """Record human confirmations; release the campaign when nothing is pending (no commit)."""
+def confirm(campaign, keys: Iterable[str], note: Optional[str], actor: str = "dashboard",
+            waive_unsupported: bool = False) -> dict:
+    """Record human confirmations; release the campaign when nothing is pending (no commit).
+
+    Unsupported items can only be *waived* explicitly (`waive_unsupported`)
+    and with a note explaining why (#48)."""
     from app.services.campaign_transitions import record_auto_transition
 
     keys = [k for k in dict.fromkeys(keys or []) if k]
@@ -107,13 +111,17 @@ def confirm(campaign, keys: Iterable[str], note: Optional[str], actor: str = "da
     if unknown:
         raise GateError(f"unknown blocker key(s): {', '.join(unknown)}")
     unsupported = [k for k in keys if by_key[k]["kind"] != "human"]
-    if unsupported:
-        raise GateError("unsupported rules cannot be confirmed; park or archive the campaign: " + ", ".join(unsupported))
+    if unsupported and not waive_unsupported:
+        raise GateError("unsupported rules cannot be confirmed; waive them explicitly with a note, "
+                        "or park/archive the campaign: " + ", ".join(unsupported))
+    if unsupported and not (note or "").strip():
+        raise GateError("waiving an unsupported rule requires a note")
     meta = dict(campaign.source_metadata or {})
     conf = dict(meta.get("rules_confirmations") or {})
     now = datetime.now(timezone.utc).isoformat()
     for k in keys:
-        conf[k] = {"by": actor, "at": now, "note": (note or "")[:500] or None, "text": by_key[k]["text"][:300]}
+        conf[k] = {"by": actor, "at": now, "note": (note or "")[:500] or None, "text": by_key[k]["text"][:300],
+                   "type": "waiver" if by_key[k]["kind"] != "human" else "confirmation"}
     meta["rules_confirmations"] = conf
     campaign.source_metadata = meta
     still = pending(campaign)

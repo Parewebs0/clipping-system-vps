@@ -2642,6 +2642,11 @@ export interface components {
             keys?: string[];
             /** Note */
             note?: string | null;
+            /**
+             * Waive Unsupported
+             * @default false
+             */
+            waive_unsupported: boolean;
         };
         /** SocialAccountOut */
         SocialAccountOut: {
