@@ -63,7 +63,8 @@ Servicios externos: Whop API · xAI Grok · Google Docs público · Google Drive
      (start/end dentro de duration_min/max de la campaña, title, caption)
      → candidates status='pending'
       ↓
-14   APROBACIÓN HUMANA: POST /candidates/{id}/approve  (o Mission Control)
+14   APROBACIÓN HUMANA: POST /candidates/{id}/approve  (o Mission Control → Candidatos;
+     GET /mission-control/candidates; approve/reject con API_WRITE_TOKEN si está definido)
      → candidato 'approved' → job 'render'
      (el script admite --approve para auto-aprobar; hoy NO se usa en cron)
       ↓

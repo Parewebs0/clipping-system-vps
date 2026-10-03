@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Briefcase, Clapperboard, Film, LayoutDashboard, ListChecks, PlayCircle } from 'lucide-react'
+import { Briefcase, Clapperboard, Film, LayoutDashboard, ListChecks, PlayCircle, Scissors } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KeyRound } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,7 @@ const NAV = [
   { to: '/campaigns', label: 'Campañas', icon: Briefcase },
   { to: '/jobs', label: 'Jobs', icon: ListChecks },
   { to: '/videos', label: 'Vídeos', icon: Film },
+  { to: '/candidates', label: 'Candidatos', icon: Scissors },
   { to: '/clips', label: 'Clips', icon: Clapperboard },
 ]
 
