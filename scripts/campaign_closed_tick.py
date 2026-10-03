@@ -77,6 +77,12 @@ def run(args, db, client=None) -> tuple[int, dict]:
         if args.dry_run:
             summary["parked" if reasons else "kept"] += 1
             continue
+        # #29: re-read under row lock — other ticks may have written meanwhile.
+        db.refresh(c, with_for_update=True)
+        if not args.campaign_id and c.status not in _checkable_statuses():
+            db.commit()
+            entry["skipped"] = f"moved_to_{c.status}"
+            continue
         meta = dict(c.source_metadata or {})
         if econ:
             meta["economics"] = {**(meta.get("economics") or {}), **econ}

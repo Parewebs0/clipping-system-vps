@@ -149,3 +149,15 @@ def record_auto_transition(
     campaign.source_metadata = meta
     campaign.status = target
     return True
+
+
+def lock_if_status(db, campaign: Campaign, statuses) -> bool:
+    """Re-read `campaign` from the DB with SELECT … FOR UPDATE.
+
+    Returns True if it is still in one of `statuses` (row stays locked until the
+    caller commits). Returns False if another tick moved it meanwhile (e.g. the
+    closed tick parked it) — the caller must then not write status/metadata
+    (#29). Discards any pending in-memory changes on `campaign`.
+    """
+    db.refresh(campaign, with_for_update=True)
+    return campaign.status in set(statuses)

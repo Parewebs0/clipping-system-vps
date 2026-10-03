@@ -60,6 +60,9 @@ def main() -> int:
     from app.schemas.asset import AssetCreate
     from app.services.asset_service import create_asset
     from app.services.asset_resolve import RESOLVER_VERSION, expand_all
+    from app.services.campaign_transitions import lock_if_status
+
+    step_statuses = ("briefed", "failed_resolve", "assets_resolved")
 
     db = SessionLocal()
     created = resolved = 0
@@ -148,6 +151,11 @@ def main() -> int:
                     errors = ["social_only: only social/reference links, no Drive/Dropbox/direct video source"]
                 print(f"campaign={c.id} new_files=0 errors={errors[:3]} -> failed_resolve/{kind}")
                 if not args.dry_run:
+                    if not lock_if_status(db, c, step_statuses):
+                        print(f"campaign={c.id} moved to {c.status} meanwhile -> left untouched")
+                        db.commit()
+                        continue
+                    meta = dict(c.source_metadata or {})
                     c.status = "failed_resolve"
                     meta["resolve_error"] = {
                         "kind": kind,
@@ -158,6 +166,11 @@ def main() -> int:
                     db.commit()
                 continue
             if not args.dry_run:
+                if not lock_if_status(db, c, step_statuses):
+                    print(f"campaign={c.id} moved to {c.status} meanwhile -> assets kept, status untouched")
+                    db.commit()
+                    continue
+                meta = dict(c.source_metadata or {})
                 c.status = "assets_resolved"
                 meta["resolve_error"] = None
                 c.source_metadata = meta
