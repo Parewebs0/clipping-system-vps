@@ -69,7 +69,7 @@ export function AppShell() {
                   <KeyRound className="size-4" /> Introduce el token de la API
                 </CardTitle>
                 <CardDescription>
-                  Mission Control usa el mismo Bearer token que la API (API_TOKEN). Se guarda solo en esta pestaña
+                  Mission Control usa el Bearer token de la API (API_TOKEN, o API_WRITE_TOKEN si está configurado para poder editar campañas). Se guarda solo en esta pestaña
                   (sessionStorage).
                 </CardDescription>
               </CardHeader>

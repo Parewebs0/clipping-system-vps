@@ -14,7 +14,7 @@ export function LoadingBlock({ rows = 4 }: { rows?: number }) {
 }
 
 export function ErrorBlock({ error }: { error: unknown }) {
-  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+  if (error instanceof ApiError && (error.status === 401 || (error.status === 403 && typeof error.detail !== 'string'))) {
     return (
       <Alert>
         <KeyRound className="size-4" />
