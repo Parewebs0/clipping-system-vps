@@ -332,23 +332,10 @@ class WhopProvider(CampaignProvider):
                     camp_uuid,
                 )
                 return None
-            # TEMPORAL hardcoded blacklist (2026-09-18): Whop pinta "Submissions
-            # closed" en la card pero NO expone el campo en el JSON público.
-            # Bloqueamos por external_id/name las campañas problemáticas
-            # conocidas hasta que encontremos el endpoint auth-only o Whop
-            # exponga el campo. Coinpoker id=b147171f-1c01-4a21-803b-ed03db59d82f
-            # aparece como "active" con budgetProgressBps=4921 y showOnDiscover=null.
-            _CLOSED_NAME_PATTERNS = (
-                "coinpoker logo general campaign",
-            )
-            name_lc = name.lower()
-            for bad in _CLOSED_NAME_PATTERNS:
-                if bad in name_lc:
-                    logger.info(
-                        "whop skip %s: name matches closed-card blacklist (%r)",
-                        camp_uuid, bad,
-                    )
-                    return None
+            # 2026-10-03 (#23): the hardcoded Coinpoker name blacklist is gone.
+            # The listing only returns active campaigns and
+            # scripts/campaign_closed_tick.py parks paused/exhausted ones from
+            # the public detail endpoint (status/statusReason).
 
             budget_cents = c.get("budgetCents")
             pool = float(budget_cents) / 100.0 if budget_cents is not None else None

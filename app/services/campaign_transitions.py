@@ -26,6 +26,7 @@ from typing import Optional
 from app.models.campaign import Campaign, CampaignStatus as S
 
 ARCHIVED = S.ARCHIVED.value
+PARKED = S.PARKED.value
 
 # from -> allowed manual targets
 MANUAL_TRANSITIONS: dict[str, tuple[str, ...]] = {
@@ -37,6 +38,9 @@ MANUAL_TRANSITIONS: dict[str, tuple[str, ...]] = {
     S.FAILED_BRIEF.value: (S.DISCOVERED.value, ARCHIVED),
     S.FAILED_RESOLVE.value: (S.BRIEFED.value, S.DISCOVERED.value, ARCHIVED),
     ARCHIVED: (S.DISCOVERED.value,),
+    # Auto-parked by campaign_closed_tick (#23). A human can re-open it from
+    # the entry state (e.g. budget topped up) or archive it for good.
+    PARKED: (S.DISCOVERED.value, ARCHIVED),
 }
 
 # Which tick consumes each status (shown in the UI / docs).
@@ -49,6 +53,7 @@ CONSUMED_BY: dict[str, Optional[str]] = {
     S.FAILED_BRIEF.value: None,
     S.FAILED_RESOLVE.value: "drive_resolver_tick (3b, solo kind=gog)",
     ARCHIVED: None,
+    PARKED: None,
 }
 
 # What happens next when a human moves a campaign *to* this status.
@@ -57,6 +62,7 @@ EFFECT: dict[str, str] = {
     S.BRIEFED.value: "El resolver (3b) volverá a resolver los enlaces y crear assets.",
     S.ASSETS_RESOLVED.value: "El scorer (3c) recalculará el score con los assets actuales.",
     S.BLOCKED_NO_ASSETS.value: "Aparcada: download_enqueue_tick deja de encolar descargas nuevas (los jobs ya encolados siguen).",
+    PARKED: "Aparcada (cerrada, agotada o no apta en origen): ningún tick la procesa y no cuenta para el límite de discovery.",
     ARCHIVED: "Sale del pipeline: ningún tick la procesa y no cuenta para el límite de campañas activas de discovery. Los jobs ya encolados no se cancelan.",
 }
 
@@ -100,6 +106,42 @@ def apply_transition(campaign: Campaign, target: str, reason: Optional[str] = No
             "reason": (reason or "")[:500] or None,
         }
     )
+    meta["status_history"] = history[-HISTORY_MAX:]
+    campaign.source_metadata = meta
+    campaign.status = target
+    return True
+
+
+def record_auto_transition(
+    campaign: Campaign,
+    target: str,
+    reason: Optional[str] = None,
+    actor: str = "pipeline",
+    extra: Optional[dict] = None,
+) -> bool:
+    """Pipeline-side status change (no manual-rule check, no commit).
+
+    Used by ticks that move a campaign sideways (e.g. #23 parking). Appends a
+    status_history entry like apply_transition so the dashboard shows why.
+    Returns False if already in `target`.
+    """
+    current = campaign.status
+    if target == current:
+        return False
+    if target not in MANUAL_TRANSITIONS:
+        raise TransitionError(f"Unknown status '{target}'")
+    meta = dict(campaign.source_metadata or {})
+    history = list(meta.get("status_history") or [])
+    entry = {
+        "from": current,
+        "to": target,
+        "at": datetime.now(timezone.utc).isoformat(),
+        "by": actor,
+        "reason": (reason or "")[:500] or None,
+    }
+    if extra:
+        entry.update(extra)
+    history.append(entry)
     meta["status_history"] = history[-HISTORY_MAX:]
     campaign.source_metadata = meta
     campaign.status = target

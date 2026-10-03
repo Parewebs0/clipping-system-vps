@@ -241,7 +241,8 @@ def compute_economics(card: dict, *, now: datetime | None = None, platform: str 
         "runway_days": round(runway_days, 2) if runway_days is not None else None,
         "requires_application": card.get("requiresApplication"),
         "payout_type": card.get("payoutType"),
-        "platforms": list(card.get("platforms") or []),
+        # Detail payloads have no top-level `platforms`; fall back to payoutModel.
+        "platforms": list(card.get("platforms") or rates.keys()),
     }
 
 

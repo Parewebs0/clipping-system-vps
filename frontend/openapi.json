@@ -543,7 +543,8 @@
               "blocked_no_assets",
               "failed_brief",
               "failed_resolve",
-              "archived"
+              "archived",
+              "parked"
             ],
             "title": "Status",
             "type": "string"
@@ -819,7 +820,8 @@
               "blocked_no_assets",
               "failed_brief",
               "failed_resolve",
-              "archived"
+              "archived",
+              "parked"
             ],
             "title": "Status",
             "type": "string"
@@ -1155,7 +1157,8 @@
               "blocked_no_assets",
               "failed_brief",
               "failed_resolve",
-              "archived"
+              "archived",
+              "parked"
             ],
             "title": "Status",
             "type": "string"
