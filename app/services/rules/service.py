@@ -65,6 +65,9 @@ def persist_rules(campaign, rs: RuleSet, bundle: SourceBundle) -> dict:
     meta["brief_docs"] = rs.meta.get("docs") or []
     meta["rules_blockers"] = blocking_items(rs)
     campaign.source_metadata = meta
+    from app.services.rules.gate import reconcile_confirmations
+
+    reconcile_confirmations(campaign, rs)
     spec = dict(campaign.spec or {})
     spec["duration_min"] = float(rs.duration.min_s)
     spec["duration_max"] = float(rs.duration.max_s)

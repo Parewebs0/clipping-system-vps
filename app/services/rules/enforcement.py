@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 
 from app.services.rules.schema import Evidence, RuleSet, UnsupportedRule
 
@@ -20,7 +21,109 @@ _IMAGE_HINT = re.compile(r"\.(png|jpe?g|webp|svg)(\?|$)|drive\.google\.com/(file
 
 
 def _key(kind: str, text: str) -> str:
+    """Legacy sha1(text) key. Kept so old confirmations can be recognised."""
     return f"{kind}:{hashlib.sha1(text.strip().lower().encode()).hexdigest()[:10]}"
+
+
+_TRAILING_PUNCT = re.compile(r"""[\s.,;:!?…"'“”‘’)\]]+$""")
+_TOKEN = re.compile(r"[0-9a-záéíóúüñ]+", re.IGNORECASE)
+OVERLAP_MIN = 0.8
+
+
+def _norm_quote(text: str) -> str:
+    """Lowercase, collapse whitespace, drop trailing punctuation."""
+    s = unicodedata.normalize("NFKC", text or "").lower()
+    s = re.sub(r"\s+", " ", s).strip()
+    return _TRAILING_PUNCT.sub("", s).strip()
+
+
+def evidence_fingerprint(evidence, fallback: str = "") -> str:
+    """Hash of every verified quote, normalised, sorted and joined with ``\\n``.
+
+    Quotes that are not verified are ignored. With no verified quote the
+    normalised fallback text is hashed so two empty items do not collide.
+    """
+    quotes: list[str] = []
+    for e in evidence or []:
+        if isinstance(e, str):
+            quote, verified = e, True
+        else:
+            quote = getattr(e, "quote", "") or ""
+            verified = getattr(e, "verified", True)
+        if verified is False:
+            continue
+        n = _norm_quote(quote)
+        if n:
+            quotes.append(n)
+    if not quotes and fallback:
+        n = _norm_quote(fallback)
+        if n:
+            quotes.append(n)
+    blob = "\n".join(sorted(set(quotes)))
+    return hashlib.sha1(blob.encode()).hexdigest()[:16]
+
+
+def account_key(kind: str, evidence, text: str) -> str:
+    return f"human:account:{kind}:{evidence_fingerprint(evidence, text)}"
+
+
+def unsupported_key(evidence, text: str) -> str:
+    return f"unsupported:{evidence_fingerprint(evidence, text)}"
+
+
+def _tokens(text: str) -> set[str]:
+    return set(_TOKEN.findall(_norm_quote(text)))
+
+
+def token_overlap(a: str, b: str) -> float:
+    """Share of the shorter token set that appears in the other. 1.0 = contained."""
+    ta, tb = _tokens(a), _tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / min(len(ta), len(tb))
+
+
+def migrate_confirmations(confirmations: dict | None, blockers: list[dict]) -> tuple[dict, list[str]]:
+    """Map old confirmation keys onto the current blockers.
+
+    A key that already matches a blocker is kept. Any other confirmation is
+    moved only when it overlaps exactly one still-unconfirmed blocker at
+    >= 0.8 and that blocker is claimed by exactly one old confirmation.
+    Ambiguous matches are dropped and reported; Jesús reconfirms them.
+    """
+    conf = dict(confirmations or {})
+    by_key = {b["key"]: b for b in blockers}
+    kept = {k: v for k, v in conf.items() if k in by_key}
+    warnings: list[str] = []
+    claims: dict[str, list[str]] = {}
+    for old_key, payload in conf.items():
+        if old_key in by_key:
+            continue
+        old_text = str((payload or {}).get("text") or "")
+        hits = []
+        for b in blockers:
+            if b["key"] in kept:
+                continue
+            if token_overlap(old_text, b.get("text") or "") >= OVERLAP_MIN:
+                hits.append(b["key"])
+        if len(hits) > 1:
+            warnings.append(
+                f"confirmación antigua no migrada ({old_key}): solapa con {len(hits)} bloqueantes"
+            )
+            continue
+        if len(hits) == 1:
+            claims.setdefault(hits[0], []).append(old_key)
+    for new_key, old_keys in claims.items():
+        if len(old_keys) != 1:
+            warnings.append(
+                f"bloqueante {new_key} no migrado: {len(old_keys)} confirmaciones antiguas superan 0.8"
+            )
+            continue
+        old_key = old_keys[0]
+        moved = dict(conf[old_key] or {})
+        moved["migrated_from"] = old_key
+        kept[new_key] = moved
+    return kept, warnings
 
 
 def assign_enforcement(rs: RuleSet) -> RuleSet:
@@ -113,11 +216,12 @@ def blocking_items(rs: RuleSet) -> list[dict]:
     out: list[dict] = []
     for u in rs.unsupported:
         if u.blocking:
-            out.append({"key": _key("unsupported", u.text), "kind": "unsupported", "text": u.text,
-                        "reason": u.reason, "evidence": [e.quote for e in u.evidence][:2]})
+            out.append({"key": unsupported_key(u.evidence, u.text), "kind": "unsupported", "rule": "unsupported",
+                        "text": u.text, "reason": u.reason, "evidence": [e.quote for e in u.evidence][:2]})
     for a in rs.account_requirements:
-        out.append({"key": _key("account", a.text), "kind": "human", "rule": f"account:{a.kind}",
-                    "text": a.text, "evidence": [e.quote for e in a.evidence][:2]})
+        out.append({"key": account_key(a.kind, a.evidence, a.text), "kind": "human",
+                    "rule": f"account:{a.kind}", "text": a.text,
+                    "evidence": [e.quote for e in a.evidence][:2]})
     if rs.pre_approval.required:
         out.append({"key": "human:pre_approval", "kind": "human", "rule": "pre_approval",
                     "text": "Campaign requires pre-approval of posts/creators",
