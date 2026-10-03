@@ -24,7 +24,20 @@ def clean_campaign_title(raw: str) -> str:
     return text[:100] if text else "clip"
 
 
-def _hashtags(campaign: Any) -> list[str]:
+CAPTION_MAX = {"youtube": 5000, "tiktok": 2200, "instagram": 2200}
+TITLE_MAX = {"youtube": 100, "tiktok": 150, "instagram": 150}
+COPY_PLATFORMS = ("youtube", "tiktok", "instagram")
+
+
+def copy_platforms(platforms: list | None) -> list[str]:
+    """Platforms we actually build copy for. X is ignored (#54)."""
+    named = [str(p).lower() for p in (platforms or []) if p]
+    if not named:
+        return ["youtube"]
+    return [p for p in COPY_PLATFORMS if p in named]
+
+
+def _hashtags(campaign: Any, *, platform: str = "youtube") -> list[str]:
     sm = _meta(campaign)
     discovered = sm.get("discovered") if isinstance(sm.get("discovered"), dict) else {}
     rules = sm.get("rules") if isinstance(sm.get("rules"), dict) else {}
@@ -40,7 +53,7 @@ def _hashtags(campaign: Any) -> list[str]:
             t = "#" + t.lstrip("#")
         if t.lower() not in {h.lower() for h in tags}:
             tags.append(t)
-    if "#Shorts" not in tags:
+    if platform == "youtube" and "#Shorts" not in tags:
         tags.append("#Shorts")
     return tags[:8]
 
@@ -67,8 +80,8 @@ def youtube_copy(campaign: Any, clip: Any, candidate: Any = None) -> tuple[str, 
     elif caption.lower() in {"grok", "short", "speech"}:
         caption = f"{camp_title}\n\n{caption}"
 
-    tags = _hashtags(campaign)
-    description = f"{caption}\n\n{' '.join(tags)}"[:5000]
+    tags = _hashtags(campaign, platform="youtube")
+    description = f"{caption}\n\n{' '.join(tags)}"[: CAPTION_MAX["youtube"]]
     return title, description, tags
 
 
@@ -96,6 +109,8 @@ def platform_copy(campaign: Any, clip: Any, candidate: Any = None, platform: str
         return youtube_copy(campaign, clip, candidate)
     cp = rs.copy_rules
     title, legacy_desc, legacy_tags = youtube_copy(campaign, clip, candidate)
+    if platform != "youtube":
+        legacy_tags = [t for t in legacy_tags if t.lower() != "#shorts"]
     terms = list(rs.prohibitions.terms)
     title = _strip_prohibited(title, terms) or clean_campaign_title(getattr(campaign, "name", "") or "")
     # 1) body text: literal caption wins; else the decider caption (without hashtags)
@@ -110,8 +125,6 @@ def platform_copy(campaign: Any, clip: Any, candidate: Any = None, platform: str
         body = f"{body}\n{cp.must_mention_any[0]}"
         low = body.lower()
     mentions = [m for m in (cp.mentions_by_platform.get(platform) or []) if m.lower() not in low]
-    if mentions:
-        body = f"{body} {' '.join(mentions)}"
     # 3) FTC disclosure
     ftc_tokens = cp.ftc.tokens or (["#Ad"] if cp.ftc.required else [])
     ftc_line = ftc_tokens[0] if ftc_tokens else None
@@ -127,6 +140,9 @@ def platform_copy(campaign: Any, clip: Any, candidate: Any = None, platform: str
         extras = extras[: max(0, cp.hashtags.max_extra)]
     tags += extras
     blocks = [body]
+    if mentions:
+        # Own block so a long body is shortened without dropping the tags (#54).
+        blocks.append(" ".join(mentions))
     if ftc_line and ftc_line.lower() in {t.lower() for t in tags} and not cp.ftc.own_line:
         # The disclosure is also the first ordered hashtag (e.g. #forgeguipartner):
         # the hashtag line right after the text satisfies "first after text".
@@ -137,8 +153,21 @@ def platform_copy(campaign: Any, clip: Any, candidate: Any = None, platform: str
         tags = [t for t in tags if t.lower() != ftc_line.lower()]
     if tags:
         blocks.append(" ".join(tags))
-    description = "\n".join(blocks)[:5000]
-    return title[:100], description, tags
+    limit = CAPTION_MAX.get(platform, CAPTION_MAX["youtube"])
+    description = _fit(blocks, limit)
+    return title[: TITLE_MAX.get(platform, 100)], description, tags
+
+
+def _fit(blocks: list[str], limit: int) -> str:
+    """Keep mentions, the FTC line and hashtags; shorten the body so the caption fits."""
+    if len(blocks) <= 1:
+        return (blocks[0] if blocks else "")[:limit]
+    tail = "\n".join(blocks[1:])
+    if len(tail) >= limit:
+        return tail[:limit]
+    room = limit - len(tail) - 1
+    body = blocks[0][: max(0, room)].rstrip()
+    return f"{body}\n{tail}" if body else tail
 
 
 def paid_promotion(campaign: Any) -> bool:

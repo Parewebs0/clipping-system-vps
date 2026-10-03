@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from app.services.publish_copy import paid_promotion, platform_copy, platform_mentions
+from app.services.publish_copy import CAPTION_MAX, copy_platforms, paid_promotion, platform_copy, platform_mentions
 from app.services.rules.render_spec import direct_image_url
 from app.services.rules.schema import RuleSet, load_ruleset
 from app.services.rules.verifier import check_copy
@@ -64,6 +64,57 @@ def test_without_ruleset_falls_back_to_legacy_and_paid_flag():
     assert "#Shorts" in tags
     assert paid_promotion(c) is True
     assert paid_promotion(SimpleNamespace(source_provider="manual")) is False
+
+
+def test_copy_platforms_ignores_x_and_defaults_youtube():
+    assert copy_platforms(None) == ["youtube"]
+    assert copy_platforms([]) == ["youtube"]
+    assert copy_platforms(["x"]) == []
+    assert copy_platforms(["YouTube", "X", "tiktok", "instagram"]) == ["youtube", "tiktok", "instagram"]
+
+
+def test_18_mentions_on_tiktok_and_instagram_without_shorts():
+    rsd = json.loads((FX / "ruleset_18.json").read_text())
+    rs = load_ruleset({"ruleset": rsd})
+    camp, cand = _camp(rsd), _cand(caption="This tiny home unfolds in minutes.")
+    for platform in ("youtube", "tiktok", "instagram"):
+        title, desc, tags = platform_copy(camp, None, cand, platform)
+        assert len(desc) <= CAPTION_MAX[platform]
+        assert "@boxabl" in desc and "Boxabl" in desc
+        assert [c for c in check_copy(rs, platform, title, desc) if c["status"] == "fail"] == []
+        if platform == "youtube":
+            assert any(t.lower() == "#shorts" for t in tags)
+        else:
+            assert all(t.lower() != "#shorts" for t in tags)
+            assert "#shorts" not in desc.lower()
+
+
+def test_13_platform_mentions_and_caption_cap():
+    rsd = json.loads((FX / "ruleset_13.json").read_text())
+    rs = load_ruleset({"ruleset": rsd})
+    camp = _camp(rsd)
+    expect = {"youtube": "@SEGA_West", "tiktok": "@sth_game", "instagram": "@sth_game"}
+    for platform, mention in expect.items():
+        title, desc, tags = platform_copy(camp, None, _cand(), platform)
+        assert mention in desc
+        assert len(desc) <= CAPTION_MAX[platform]
+        assert any(ln.strip() == "#Ad" for ln in desc.splitlines())
+        assert [c for c in check_copy(rs, platform, title, desc) if c["status"] == "fail"] == []
+        if platform != "youtube":
+            assert all(t.lower() != "#shorts" for t in tags)
+
+
+def test_long_body_keeps_mentions_and_ftc_under_tiktok_cap():
+    rs = RuleSet()
+    rs.copy_rules.ftc.required = True
+    rs.copy_rules.ftc.tokens = ["#Ad"]
+    rs.copy_rules.ftc.own_line = True
+    rs.copy_rules.mentions_by_platform = {"tiktok": ["@boxabl"]}
+    title, desc, _ = platform_copy(_camp(rs.dump()), None, _cand(caption="Word " * 2000), "tiktok")
+    assert len(desc) <= 2200
+    assert "@boxabl" in desc and "#Ad" in desc.splitlines()
+    assert "#shorts" not in desc.lower()
+    assert [c for c in check_copy(rs, "tiktok", title, desc) if c["status"] == "fail"] == []
 
 
 def test_drive_logo_url_direct():
