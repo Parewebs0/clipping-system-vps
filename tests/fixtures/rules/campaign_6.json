@@ -1,0 +1,77 @@
+{
+ "name": "[whop] · $0.50/1k · $184.7k · ForgeGUI Clipping [Roblox]",
+ "source_url": "https://whop.com/experiences/exp_EfN9ClEYDL8Bh9/campaigns/1db63081-715e-4e04-9b11-fbc1d4e8e700",
+ "discovered": {
+  "description": "Clip provided ForgeGUI footage into short-form content and get paid for the views you generate. ForgeGUI is an AI tool that helps Roblox developers create GUIs, models, thumbnails, scripts, and more.\n",
+  "platforms": [
+   "instagram",
+   "tiktok",
+   "youtube"
+  ],
+  "reference_materials": [
+   {
+    "url": "https://docs.google.com/document/d/1qO49_v4Qa_JQiRWX8dDe1pi7ZSizvZOFNC8O-YlHDsI/edit?usp=sharing",
+    "name": null,
+    "type": "brandAsset",
+    "media_type": "external"
+   },
+   {
+    "url": "https://drive.google.com/drive/folders/1vFXrGZbqmMJbdxwuoEZvZbBXdBQ8c_c-?usp=sharing",
+    "name": null,
+    "type": "brandAsset",
+    "media_type": "external"
+   }
+  ],
+  "asset_links": [
+   "https://docs.google.com/document/d/1qO49_v4Qa_JQiRWX8dDe1pi7ZSizvZOFNC8O-YlHDsI/edit?usp=sharing",
+   "https://drive.google.com/drive/folders/1vFXrGZbqmMJbdxwuoEZvZbBXdBQ8c_c-?usp=sharing"
+  ],
+  "organization_verified": true
+ },
+ "detail": {
+  "guidelines": "- Use the provided ForgeGUI footage\n- Add light editing to make each video feel natural\n- Showcase ForgeGUI and what the tool can do\n- Keep the content simple, clean, and engaging\n- Post the finished videos as short-form content\n\n*Read Instructions Document for All details*",
+  "creator_description": "<ul><li><p>Can repurpose provided footage with simple, clean edits</p></li><li><p>Makes content feel natural and organic, not overly promotional</p></li><li><p>Has a strong Tier 1 audience</p></li><li><p>Maintains solid engagement and consistent posting</p></li></ul><p></p>",
+  "requirement": {
+   "botMonitoringDays": 30,
+   "brandLogo": false,
+   "demographics": true,
+   "faceOnCamera": false,
+   "linkInBio": false,
+   "noRepostedContent": false,
+   "preApproval": false
+  },
+  "rules": {
+   "branding": {
+    "logoRequired": false
+   },
+   "faceOnCamera": false,
+   "noReposts": false,
+   "sound": {
+    "keepOriginalAudio": false,
+    "mustUseProvided": false
+   },
+   "source": {
+    "mustUseProvided": false
+   }
+  },
+  "content_types": [
+   "clipping",
+   "ugc-faceless"
+  ],
+  "reference_material": [
+   {
+    "mediaType": "external",
+    "name": "Instructions",
+    "type": "brandAsset",
+    "url": "https://docs.google.com/document/d/1qO49_v4Qa_JQiRWX8dDe1pi7ZSizvZOFNC8O-YlHDsI/edit?usp=sharing"
+   },
+   {
+    "mediaType": "external",
+    "name": "Assets",
+    "type": "brandAsset",
+    "url": "https://drive.google.com/drive/folders/1vFXrGZbqmMJbdxwuoEZvZbBXdBQ8c_c-?usp=sharing"
+   }
+  ]
+ },
+ "doc_url": "https://docs.google.com/document/d/1qO49_v4Qa_JQiRWX8dDe1pi7ZSizvZOFNC8O-YlHDsI/edit"
+}

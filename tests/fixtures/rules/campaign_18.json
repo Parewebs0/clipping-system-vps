@@ -1,0 +1,84 @@
+{
+ "name": "[whop] · $2/1k · $17.5k · Boxabl x ASG",
+ "source_url": "https://whop.com/experiences/exp_rRNELBC9F4ViUJ/campaigns/c821e1c6-ba7e-4fd1-b5d2-449c2c1e2df6",
+ "discovered": {
+  "description": "ASG Clips x Boxabl 🏠 Boxabl is revolutionizing real estate with affordable, factory-built homes. Create viral clips showcasing this game-changing tech strong hooks, clean edits, big energy. Top clippers get paid. Let's put housing's future on the map!",
+  "platforms": [
+   "instagram",
+   "tiktok",
+   "x",
+   "youtube"
+  ],
+  "reference_materials": [
+   {
+    "url": "https://docs.google.com/document/d/1u3SlQ9j-XmO3j6PPQpnt9_5ZdF3XuDn85RYOH2LKd3o/edit?tab=t.0",
+    "name": null,
+    "type": "brandAsset",
+    "media_type": "external"
+   },
+   {
+    "url": "https://drive.google.com/drive/folders/18g8x37vc9ULLBpN96wtTrct1cd3_aUmK",
+    "name": null,
+    "type": "brandAsset",
+    "media_type": "external"
+   }
+  ],
+  "asset_links": [
+   "https://docs.google.com/document/d/1u3SlQ9j-XmO3j6PPQpnt9_5ZdF3XuDn85RYOH2LKd3o/edit?tab=t.0",
+   "https://drive.google.com/drive/folders/18g8x37vc9ULLBpN96wtTrct1cd3_aUmK"
+  ],
+  "organization_verified": false
+ },
+ "detail": {
+  "guidelines": "Boxabl makes foldable, factory-built homes — flagship product is the Casita (20x20 ft, ships flat, unfolds on-site).\nClip only from the pre-approved BOXABL Content To Clip footage (factory tours/walkthroughs featuring creators like Enes Yilmazer, Orkun Isitmak, Elon Musk, Airrack, Faze Rug, etc).\n\nAlways show the WHOLE Boxabl home, not just one feature — think car review, show the whole car first.\nMake it clear it's a BOXABL home — say it out loud or put \"BOXABL\" on screen.\nHook viewers in the first 2 seconds with a strong visual or recognizable face — no slow intros or logos.\n\nUse bold text overlays/captions so the story works on mute.\nEvery post caption must mention Boxabl (Casita, foldable home, or factory) — never leave it blank or unrelated.\nTag @boxabl on TikTok, Instagram Reels, and YouTube Shorts. On X, use a tracking URL instead of a tag.\n\nAuto-captions must spell \"BOXABL\" correctly or the clip is rejected.\nPositive vibes only — no mocking or negativity toward Boxabl, the product, or featured talent (including Post Malone, Elon, etc).\nDon't post raw rips — footage must be edited (cuts, b-roll, overlays).\nVary your clips — don't repost the same moment repeatedly.\nNo clips of Kanye — instant rejection.\nNo story boosting.\n\nDo not mention Boxabl stock or its trading ticker in any caption or post.\nOptional: tag founder/CEO Galiano Tiramani (@GalianoTiramani on X or @box_pusher on Instagram).\nOptional affiliate program for extra earnings — link at boxabl.com/affiliate (forms = $1 each, sales = 3% commission, referrals = 0.5%/$0.25 override).",
+  "creator_description": "<p>Looking for clippers who can turn Boxabl's factory tour and celebrity walkthrough footage into scroll-stopping short-form content. You should be skilled at fast-paced editing, strong hooks, and bold text overlays. Interest in real estate, tech, or home innovation is a plus. Must follow brand attribution and caption rules closely — quality and consistency matter more than volume.</p>",
+  "requirement": {
+   "brandLogo": true,
+   "faceOnCamera": false,
+   "linkInBio": false,
+   "noRepostedContent": true,
+   "preApproval": true
+  },
+  "rules": {
+   "audio": {
+    "clearSpeech": false
+   },
+   "branding": {
+    "logoRequired": true
+   },
+   "content": {
+    "noExplicit": false
+   },
+   "faceOnCamera": false,
+   "noReposts": true,
+   "sound": {
+    "keepOriginalAudio": false,
+    "mustUseProvided": false
+   },
+   "source": {
+    "mustUseProvided": false
+   },
+   "video": {
+    "wellLit": false
+   }
+  },
+  "content_types": [
+   "clipping"
+  ],
+  "reference_material": [
+   {
+    "mediaType": "external",
+    "name": "Content",
+    "type": "brandAsset",
+    "url": "https://docs.google.com/document/d/1u3SlQ9j-XmO3j6PPQpnt9_5ZdF3XuDn85RYOH2LKd3o/edit?tab=t.0"
+   },
+   {
+    "mediaType": "external",
+    "name": "Guide",
+    "type": "brandAsset",
+    "url": "https://drive.google.com/drive/folders/18g8x37vc9ULLBpN96wtTrct1cd3_aUmK"
+   }
+  ]
+ },
+ "doc_url": "https://docs.google.com/document/d/1u3SlQ9j-XmO3j6PPQpnt9_5ZdF3XuDn85RYOH2LKd3o/edit"
+}

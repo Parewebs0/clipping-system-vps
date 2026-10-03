@@ -1,0 +1,61 @@
+{
+ "name": "[whop] · $1.5/1k · $24k · STRANGER THAN HEAVEN - Clip with Ado & Tori Kelly",
+ "source_url": "https://whop.com/experiences/exp_zeADOv9rOOKk2x/campaigns/b2401ee7-0701-40cc-b201-3f416a005509",
+ "discovered": {
+  "description": "Download clips from the official STRANGER THAN HEAVEN content folder & Post clips showing the game's Show Business mode, including the in-game performances by Ado and Tori Kelly.",
+  "platforms": [
+   "instagram",
+   "tiktok",
+   "youtube"
+  ],
+  "reference_materials": [
+   {
+    "url": "https://docs.google.com/document/d/1fK8_iJHS7veTeTVBvdtZfyuIIN9xLTfOxtpQWrYmex0/edit?usp=sharing",
+    "name": null,
+    "type": "brandAsset",
+    "media_type": "external"
+   }
+  ],
+  "asset_links": [
+   "https://docs.google.com/document/d/1fK8_iJHS7veTeTVBvdtZfyuIIN9xLTfOxtpQWrYmex0/edit?usp=sharing"
+  ],
+  "organization_verified": true
+ },
+ "detail": {
+  "guidelines": "Please refer to Google Doc for requirements. ",
+  "creator_description": null,
+  "requirement": {
+   "brandLogo": false,
+   "faceOnCamera": false,
+   "linkInBio": false,
+   "noRepostedContent": false,
+   "preApproval": false
+  },
+  "rules": {
+   "branding": {
+    "logoRequired": false
+   },
+   "faceOnCamera": false,
+   "noReposts": false,
+   "sound": {
+    "keepOriginalAudio": false,
+    "mustUseProvided": false
+   },
+   "source": {
+    "mustUseProvided": false
+   }
+  },
+  "content_types": [
+   "clipping"
+  ],
+  "reference_material": [
+   {
+    "mediaType": "external",
+    "name": "Campaign Requirements",
+    "type": "brandAsset",
+    "url": "https://docs.google.com/document/d/1fK8_iJHS7veTeTVBvdtZfyuIIN9xLTfOxtpQWrYmex0/edit?usp=sharing"
+   }
+  ]
+ },
+ "doc_url": "https://docs.google.com/document/d/1fK8_iJHS7veTeTVBvdtZfyuIIN9xLTfOxtpQWrYmex0/edit"
+}
