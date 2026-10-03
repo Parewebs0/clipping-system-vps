@@ -57,8 +57,10 @@ Optional / recommended items: keep required=false and still quote them.
 }
 Platform structured flags (logo, link in bio, face on camera, reposts, pre-approval…) are handled
 separately: only extract what the TEXT says.
-"unsupported": ONLY rules the source explicitly states that require something inside the video an automated
+"unsupported": ONLY rules the source explicitly states that REQUIRE something inside the video an automated
 editor cannot produce; each MUST quote the source. Never list things the source does not ask for.
+Prohibitions (things NOT to do: no X, don't Y, avoid Z, not allowed…) are NEVER "unsupported": put them in
+prohibitions (terms/topics) — not doing something is always possible.
 "account_requirements": ONLY obligations (not permissions such as "you do not need…").
 Account-level rules (bio, audience %, engagement, warmup, posts/day, keep live N days, join Discord, likes visible) go to account_requirements.
 SOURCES:
@@ -69,7 +71,7 @@ For EACH line decide one action:
   "field"       — it is a rule that belongs to an existing field (give "field" among: duration, aspect, language, captions, on_screen_text, logo, audio, hook, edit, source, copy, copy.hashtags, copy.ftc, prohibitions) and optional "add" (list of literal terms to append: for prohibitions → terms, on_screen_text → must_include, copy → must_mention_any, captions → brand_dictionary);
   "account"     — account-level requirement (give "kind");
   "manual"      — content/quality rule a reviewer must check on each clip;
-  "unsupported" — it requires something INSIDE THE VIDEO that an automated editor cannot produce (give "reason"); posting behaviour, caption styling and platform settings are "account" or "ignore";
+  "unsupported" — it REQUIRES something INSIDE THE VIDEO that an automated editor cannot produce (give "reason"); prohibitions ("no X", "don't", "avoid", "not allowed") are NEVER unsupported (use "manual" or "field": prohibitions); posting behaviour, caption styling and platform settings are "account" or "ignore";
   "ignore"      — not a rule (headings, payout info, links lists, examples, optional tips).
 Return JSON: {"items": [{"i": <line number>, "action": "...", "field": str|null, "add": [], "kind": str|null, "reason": str|null}]}
 Current rules (compact): %s
@@ -263,6 +265,53 @@ def sanitize(rs: RuleSet) -> RuleSet:
     return rs
 
 
+_NEGATIVE = re.compile(
+    r"^\W*(no|not|don'?t|do not|never|avoid|without|stop|zero|using|adding|uploading|posting|reposting|"
+    r"uso de|usar|sin|nada de|prohibid\w*|forbidden|prohibited|banned)\b", re.I)
+_NEG_CONTEXT = re.compile(r"\b(not allowed|prohibited|forbidden|banned|don'?t|do not|never|avoid|no permitid\w*|prohibid\w*)\b", re.I)
+_INFORMATIVE = re.compile(r"\b(not expected|not required|optional|no need|you do not need|you don'?t need|no required)\b", re.I)
+_COPY_KIND = re.compile(r"tag|mention|caption|hashtag|ftc|disclosure", re.I)
+
+
+def reclassify(rs: RuleSet) -> RuleSet:
+    """#39: deterministic guard on LLM classification.
+
+    * An LLM "unsupported" item phrased as a prohibition is not unsupported
+      (not doing something is always possible) → manual check per clip.
+    * Purely informative lines ("you are not expected to…") are dropped.
+    * Account items that are really copy rules (tagging, caption, hashtags)
+      go to the copy (already covered) or to manual checks.
+    Deterministic unsupported items (host, mandatory sound) are added later
+    by enforcement.py and are not affected.
+    """
+    keep: list[UnsupportedRule] = []
+    for u in rs.unsupported:
+        quote = u.evidence[0].quote if u.evidence else ""
+        if _INFORMATIVE.search(u.text) or _INFORMATIVE.search(quote):
+            continue
+        if _NEGATIVE.search(u.text) or _NEGATIVE.search(quote) or _NEG_CONTEXT.search(u.reason or "") \
+                or _NEG_CONTEXT.search(quote):
+            rs.manual_checks.append(ManualCheck(required=True, text=f"Prohibido: {u.text}"[:400], evidence=u.evidence))
+            continue
+        keep.append(u)
+    rs.unsupported = keep
+    cp = rs.copy_rules
+    has_mentions = bool(cp.must_mention_any or any(cp.mentions_by_platform.values()))
+    accounts: list[AccountRequirement] = []
+    for a in rs.account_requirements:
+        if _INFORMATIVE.search(a.text):
+            continue
+        if _COPY_KIND.search(a.kind or "") and not (a.kind or "").startswith("audio"):
+            if not has_mentions:
+                rs.manual_checks.append(ManualCheck(required=True, text=f"Copy: {a.text}"[:400], evidence=a.evidence))
+            else:
+                cp.evidence += a.evidence
+            continue
+        accounts.append(a)
+    rs.account_requirements = accounts
+    return rs
+
+
 def all_evidence(rs: RuleSet) -> list[Evidence]:
     evs: list[Evidence] = []
     for key in _RULE_KEYS:
@@ -386,6 +435,7 @@ def extract_ruleset(bundle: SourceBundle, llm: LLMFn, *, campaign_id: int | None
     rs = sanitize(rs)
     rs = apply_structured(rs, bundle.requirement, bundle.structured_rules)
     rs = second_pass(rs, bundle, llm, campaign_id)
+    rs = reclassify(rs)
     evs = all_evidence(rs)
     rs.coverage.evidence_total = len(evs)
     rs.coverage.evidence_verified = sum(1 for e in evs if e.verified)
