@@ -65,6 +65,13 @@ class DiscoveredCampaign(BaseModel):
     asset_links: list[str] = Field(default_factory=list)
     raw: dict[str, Any] = Field(default_factory=dict)
 
+    # Issue #21: money fields derived from the listing (budget, remaining,
+    # spent %, per-platform rates with min/max payout, creators, burn/runway,
+    # expected value) and the useful bits of the public detail payload
+    # (status, content types, guidelines, requirement, rules).
+    economics: dict[str, Any] = Field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
+
 
 class ScoreResult(BaseModel):
     cpm_score: float
