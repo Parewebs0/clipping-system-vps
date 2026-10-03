@@ -126,7 +126,13 @@ def main() -> int:
                     brief_text_parts.append(text[:12000])
                     all_urls.extend(extract_urls(text))
 
-            heur = heuristic_flags("\n".join(brief_text_parts) + "\n" + (discovered.get("description") or ""))
+            # Issue #21: discovery stores the public detail (guidelines,
+            # requirement, rules) in source_metadata.detail; feed it too.
+            detail = meta.get("detail") or {}
+            guidelines = detail.get("guidelines") or ""
+            heur = heuristic_flags(
+                "\n".join(brief_text_parts) + "\n" + (discovered.get("description") or "") + "\n" + guidelines
+            )
             kinds = sorted({classify_url(u) for u in all_urls})
             payload = {
                 "name": c.name,
@@ -138,6 +144,13 @@ def main() -> int:
                 "heuristic_flags": heur,
                 "brief_documents": brief_text_parts,
             }
+            if detail:
+                payload["guidelines"] = guidelines or None
+                payload["creator_description"] = detail.get("creator_description")
+                payload["requirement"] = detail.get("requirement")
+                payload["content_types"] = detail.get("content_types")
+                # Keep the (long) docs last: the blob is truncated at 14k chars.
+                payload["brief_documents"] = payload.pop("brief_documents")
             print(f"campaign={c.id} docs={len(brief_text_parts)} urls={len(all_urls)} kinds={kinds}")
             if args.dry_run:
                 continue

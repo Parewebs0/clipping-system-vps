@@ -134,7 +134,7 @@ def upsert_campaign(
     ).scalar_one_or_none()
 
     metadata: dict[str, Any] = {
-        "discovered": discovered.model_dump(),
+        "discovered": discovered.model_dump(exclude={"economics", "detail"}),
         # NEW (2026-09-17, pipeline v2): expose top-level so brief-reader and
         # downstream crons can read the full Whop API surface without re-parsing
         # `discovered` (Pydantic JSON dict). Keeps back-compat for older
@@ -153,6 +153,12 @@ def upsert_campaign(
         "status": discovered.status,
         "requires_application": discovered.requires_application,
     }
+    # Issue #21: only overwrite when the provider actually sent them so an
+    # older code path (run_discovery / API) does not wipe richer data.
+    if discovered.economics:
+        metadata["economics"] = dict(discovered.economics)
+    if discovered.detail:
+        metadata["detail"] = dict(discovered.detail)
 
     if existing is not None:
         existing.source_metadata = {**(existing.source_metadata or {}), **metadata}
