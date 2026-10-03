@@ -39,7 +39,6 @@ ACTIVE_STATUSES = (
     "briefed",
     "assets_resolved",
     "scored",
-    "ready",
 )
 DEFAULT_MAX_ACTIVE = int(os.environ.get("DISCOVERY_MAX_ACTIVE", "3"))
 

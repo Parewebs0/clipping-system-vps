@@ -20,7 +20,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("download_enqueue_tick")
 
-SCORED_STATUSES = ("scored", "ready")
+# Pipeline v2: only 'scored' gates downloads (legacy 'ready' was dropped in 0012).
+SCORED_STATUSES = ("scored",)
 _SKIP_KINDS = frozenset({
     "drive_folder", "dropbox_folder", "brand_asset",
     "youtube_profile", "twitter_profile", "tiktok_profile",
