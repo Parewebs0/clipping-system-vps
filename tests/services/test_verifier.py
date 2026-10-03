@@ -134,7 +134,13 @@ def test_on_qa_completed_stores_compliance(db):
     db.commit()
     on_qa_completed(db, qj, {"status": "pass"})
     db.refresh(clip)
-    # default copy has no @boxabl / #Ad → the verifier must fail the copy rules
-    assert clip.compliance_status == "fail"
-    assert "copy.ftc" in clip.compliance_report["failed"]
-    assert {"logo", "captions", "aspect"}.isdisjoint(clip.compliance_report["failed"])
+    # #45: the copy is built from the RuleSet → the copy rules pass too
+    assert clip.compliance_status == "pass", clip.compliance_report["failed"]
+    assert any(c["rule"] == "copy.ftc" and c["status"] == "pass" for c in clip.compliance_report["checks"])
+    # a render without the logo must fail
+    rj.result = {**GOOD_RESULT, "applied": {**GOOD_RESULT["applied"], "watermark": {"applied": False}}}
+    db.commit()
+    from app.services.rules.verifier import verify_clip
+
+    verify_clip(db, clip)
+    assert clip.compliance_status == "fail" and clip.compliance_report["failed"] == ["logo"]
