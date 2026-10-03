@@ -94,11 +94,15 @@ def main(argv=None) -> int:
     from app.api.campaigns import _is_real_video_url
     from app.services.campaign_transitions import WORKABLE_STATUSES
     from app.services.download_gate import cancel_unworkable
+    from app.services.rules.gate import gate_campaigns
 
     db = SessionLocal()
     enqueued = 0
     scanned = 0
     try:
+        # #37: rules gate first (scored + pending blockers -> needs_review),
+        # then cancel pending downloads of anything no longer workable (#31).
+        gate_campaigns(db, args.dry_run)
         cancel_unworkable(db, args.dry_run)
         campaigns = (
             db.query(Campaign)

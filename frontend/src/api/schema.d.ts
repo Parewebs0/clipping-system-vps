@@ -275,6 +275,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaign_id}/rules/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Rules
+         * @description Confirm human requirements (account, pre-approval, logo file). When no
+         *     blocker is left a `needs_review` campaign returns to its previous status.
+         *     409 for unknown keys or unsupported rules (park/archive those).
+         */
+        post: operations["confirm_rules_campaigns__campaign_id__rules_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaign_id}/ruleset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ruleset
+         * @description Typed RuleSet v2 (#33) + workability blockers and confirmations (#37).
+         */
+        get: operations["get_ruleset_campaigns__campaign_id__ruleset_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaign_id}/status": {
         parameters: {
             query?: never;
@@ -1349,7 +1391,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1427,7 +1469,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1543,7 +1585,33 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+        };
+        /** CampaignRulesetOut */
+        CampaignRulesetOut: {
+            /** Blockers */
+            blockers?: components["schemas"]["RuleBlocker"][];
+            /** Campaign Id */
+            campaign_id: number;
+            /** Compliance */
+            compliance?: {
+                [key: string]: unknown;
+            } | null;
+            /** Gate */
+            gate?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Pending Count
+             * @default 0
+             */
+            pending_count: number;
+            /** Ruleset */
+            ruleset?: {
+                [key: string]: unknown;
+            } | null;
+            /** Status */
+            status: string;
         };
         /**
          * CampaignSpec
@@ -2490,6 +2558,40 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** RuleBlocker */
+        RuleBlocker: {
+            /** Confirmation */
+            confirmation?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Confirmed
+             * @default false
+             */
+            confirmed: boolean;
+            /** Evidence */
+            evidence?: string[];
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Reason */
+            reason?: string | null;
+            /** Rule */
+            rule?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * RulesConfirmIn
+         * @description #37: confirm human rule requirements by blocker key.
+         */
+        RulesConfirmIn: {
+            /** Keys */
+            keys?: string[];
+            /** Note */
+            note?: string | null;
+        };
         /** SocialAccountOut */
         SocialAccountOut: {
             /** Auth Kind */
@@ -3275,6 +3377,72 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_rules_campaigns__campaign_id__rules_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulesConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignRulesetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ruleset_campaigns__campaign_id__ruleset_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignRulesetOut"];
                 };
             };
             /** @description Validation Error */

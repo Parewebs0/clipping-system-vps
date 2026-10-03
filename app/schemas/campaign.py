@@ -7,7 +7,7 @@ the campaign came from so it can extract rules differently per source.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -163,3 +163,31 @@ class CampaignOut(BaseModel):
     clips_published: int
     created_at: datetime
     updated_at: datetime
+
+
+class RulesConfirmIn(BaseModel):
+    """#37: confirm human rule requirements by blocker key."""
+    model_config = ConfigDict(extra="forbid")
+    keys: List[str] = Field(default_factory=list, max_length=100)
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class RuleBlocker(BaseModel):
+    key: str
+    kind: str
+    text: str
+    rule: Optional[str] = None
+    reason: Optional[str] = None
+    evidence: List[str] = Field(default_factory=list)
+    confirmed: bool = False
+    confirmation: Optional[Dict[str, Any]] = None
+
+
+class CampaignRulesetOut(BaseModel):
+    campaign_id: int
+    status: str
+    ruleset: Optional[Dict[str, Any]] = None
+    blockers: List[RuleBlocker] = Field(default_factory=list)
+    pending_count: int = 0
+    gate: Optional[Dict[str, Any]] = None
+    compliance: Optional[Dict[str, Any]] = None

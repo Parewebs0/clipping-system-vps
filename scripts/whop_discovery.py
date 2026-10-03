@@ -44,6 +44,7 @@ ACTIVE_STATUSES = (
     "briefed",
     "assets_resolved",
     "scored",
+    "needs_review",  # #37: waiting for a human still takes a slot
 )
 DEFAULT_MAX_ACTIVE = int(os.environ.get("DISCOVERY_MAX_ACTIVE", "3"))
 

@@ -4,6 +4,7 @@ import type {
   CampaignDetail,
   CampaignList,
   CampaignRules,
+  CampaignRuleset,
   Candidates,
   Clips,
   JobRecent,
@@ -19,6 +20,7 @@ export const keys = {
   campaigns: ['campaigns'] as const,
   campaign: (id: number) => ['campaign', id] as const,
   rules: (id: number) => ['campaign', id, 'rules'] as const,
+  ruleset: (id: number) => ['campaign', id, 'ruleset'] as const,
   pipeline: (id: number) => ['campaign', id, 'pipeline'] as const,
   jobs: (f: { job_type?: string; status?: string }) => ['jobs', f] as const,
   videos: ['videos'] as const,
@@ -49,6 +51,13 @@ export const useCampaignRules = (id: number, enabled = true) =>
   useQuery({
     queryKey: keys.rules(id),
     queryFn: () => api<CampaignRules>(`/mission-control/campaigns/${id}/rules`),
+    enabled,
+  })
+
+export const useCampaignRuleset = (id: number, enabled = true) =>
+  useQuery({
+    queryKey: keys.ruleset(id),
+    queryFn: () => api<CampaignRuleset>(`/campaigns/${id}/ruleset`),
     enabled,
   })
 
