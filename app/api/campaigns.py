@@ -559,7 +559,7 @@ async def upload_logo(
     The file is kept on this server. ``rules_overrides.logo_url`` is the
     worker route, not a public URL.
     """
-    from app.services.logo_store import MAX_LOGO_BYTES, LogoError, logo_file_path, rasterize_logo
+    from app.services.logo_store import MAX_LOGO_BYTES, LogoError, rasterize_logo, store_logo_png
     from app.services.rules.gate import GateError, blockers, confirm
 
     c = get_campaign(db, campaign_id)
@@ -572,9 +572,6 @@ async def upload_logo(
         png = rasterize_logo(data, file.content_type or "", file.filename or "")
     except LogoError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    path = logo_file_path(campaign_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(png)
     meta = dict(c.source_metadata or {})
     overrides = dict(meta.get("rules_overrides") or {})
     overrides["logo_url"] = f"/worker/campaigns/{campaign_id}/logo"
@@ -587,6 +584,11 @@ async def upload_logo(
         except GateError as e:
             db.rollback()
             raise HTTPException(status_code=409, detail=str(e)) from e
+    try:
+        store_logo_png(campaign_id, png)
+    except OSError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="could not store logo") from e
     db.commit()
     db.refresh(c)
     return _ruleset_view(c)

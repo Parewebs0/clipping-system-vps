@@ -26,6 +26,13 @@ logging.basicConfig(
 
 logger = logging.getLogger("clipping-api")
 
+from app.services.logo_store import ensure_logo_dir  # noqa: E402
+
+try:
+    ensure_logo_dir()
+except OSError:
+    logger.warning("logo directory is not writable", exc_info=True)
+
 
 app = FastAPI(
     title="Clipping API",

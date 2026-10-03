@@ -29,8 +29,29 @@ def logo_dir() -> Path:
     return Path("storage/logos")
 
 
+def ensure_logo_dir() -> Path:
+    """Create the logo directory on startup so a fresh volume is writable."""
+    path = logo_dir()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def logo_file_path(campaign_id: int) -> Path:
     return logo_dir() / f"{int(campaign_id)}.png"
+
+
+def store_logo_png(campaign_id: int, png: bytes) -> Path:
+    """Write the PNG only after the caller has decided the upload can commit.
+
+    A temp file is replaced into place so a failed confirm does not truncate
+    a logo that was already being served.
+    """
+    path = logo_file_path(campaign_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_bytes(png)
+    tmp.replace(path)
+    return path
 
 
 def rasterize_logo(data: bytes, content_type: str = "", filename: str = "") -> bytes:

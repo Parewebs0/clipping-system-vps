@@ -208,18 +208,33 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
     return out
 
 
-def human_checks(rs: RuleSet, hook_end: Optional[float] = None) -> list[dict]:
+def hook_end_in_clip(hook_end: Optional[float], clip_duration: Optional[float]) -> Optional[float]:
+    """Keep hook_end only when 0 < hook_end <= clip duration. Otherwise it is absent (#65)."""
+    if hook_end is None or clip_duration is None:
+        return None
+    try:
+        value = float(hook_end)
+        duration = float(clip_duration)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0 or value > duration:
+        return None
+    return value
+
+
+def human_checks(rs: RuleSet, hook_end: Optional[float] = None, clip_duration: Optional[float] = None) -> list[dict]:
     out = []
     if rs.hook.required:
-        # No hook_end from the decider → stay a human review. Never invent a pass (#56).
-        if hook_end is None or rs.hook.max_seconds is None:
+        # No usable hook_end → stay a human review. Never invent a pass (#56, #65).
+        bounded = hook_end_in_clip(hook_end, clip_duration)
+        if bounded is None or rs.hook.max_seconds is None:
             out.append(_c("hook", "review", rs.hook.max_seconds, hook_end, "humano al aprobar el publish", rs.hook.note or ""))
         else:
             limit = float(rs.hook.max_seconds)
-            ok = float(hook_end) <= limit + 0.05
-            out.append(_c("hook", "pass" if ok else "fail", limit, hook_end,
+            ok = bounded <= limit + 0.05
+            out.append(_c("hook", "pass" if ok else "fail", limit, bounded,
                           "hook_end del decider <= hook.max_seconds",
-                          "" if ok else f"hook_end {hook_end} > {limit}s"))
+                          "" if ok else f"hook_end {bounded} > {limit}s"))
     if rs.edit.required:
         out.append(_c("edit", "review", rs.edit.allowed_edits, None, "humano al aprobar el publish"))
     if rs.copy_rules.pinned_comment:
@@ -253,7 +268,7 @@ def verify(rs: RuleSet, *, result: dict, required: dict, duration_window: tuple[
     if any(str(p).lower() == "x" for p in (rs.platforms or [])):
         checks.append(_c("copy.platform.x", "n/a", None, None,
                          "X queda fuera de alcance (#54); no bloquea YouTube, TikTok ni Instagram"))
-    checks += human_checks(rs, hook_end=hook_end)
+    checks += human_checks(rs, hook_end=hook_end, clip_duration=clip_duration)
     failed = [c for c in checks if c["status"] == "fail"]
     return {
         "status": "fail" if failed else "pass",

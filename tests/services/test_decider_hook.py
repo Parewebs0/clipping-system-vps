@@ -19,3 +19,8 @@ def test_hook_end_is_optional_and_rounded():
     assert mod._hook_end("later") is None
     assert mod._hook_end(1.234) == 1.23
     assert mod._hook_end("2") == 2.0
+    assert mod._hook_end(0, 10) is None
+    assert mod._hook_end(-1.2, 10) is None
+    assert mod._hook_end(10.01, 10) is None
+    assert mod._hook_end(1.5, 10) == 1.5
+    assert mod._hook_end(10, 10) == 10.0

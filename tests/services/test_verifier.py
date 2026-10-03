@@ -117,6 +117,10 @@ def test_hook_end_passes_fails_or_stays_review():
     assert "hook" not in ok["review"] and "hook" not in ok["failed"]
     late = verify(rs, hook_end=2.2, **base)
     assert "hook" in late["failed"]
+    # 0, negative, or past the clip is ignored: hook stays review, it does not fail (#65)
+    for bad in (0, -0.4, 30.01):
+        outside = verify(rs, hook_end=bad, **base)
+        assert "hook" in outside["review"] and "hook" not in outside["failed"]
     # edit is never auto-passed
     rs.edit.required = True
     still = verify(rs, hook_end=1.0, **base)

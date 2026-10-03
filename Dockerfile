@@ -42,4 +42,5 @@ RUN set -eu; \
 
 COPY . .
 COPY --from=frontend /build/app/static/mission-control ./app/static/mission-control
+RUN mkdir -p /opt/clipping-system/storage/logos
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
