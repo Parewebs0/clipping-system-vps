@@ -190,20 +190,11 @@ def on_render_completed(
         qa_rules: dict[str, Any] = {}
         try:
             from app.models.campaign import Campaign
+            from app.services.rules.runtime import qa_rules as _campaign_qa_rules
+
             campaign = db.get(Campaign, asset.campaign_id)
-            if campaign is not None and isinstance(campaign.spec, dict):
-                spec = campaign.spec
-                if spec.get("duration_min") is not None:
-                    qa_rules["min_duration"] = float(spec["duration_min"])
-                if spec.get("duration_max") is not None:
-                    qa_rules["max_duration"] = float(spec["duration_max"])
-                extra = spec.get("extra") or {}
-                if isinstance(extra, dict):
-                    extra_qa = extra.get("qa_rules") or {}
-                    if isinstance(extra_qa, dict):
-                        for key in ("width", "height", "min_fps", "require_audio", "codec"):
-                            if key in extra_qa:
-                                qa_rules[key] = extra_qa[key]
+            if campaign is not None:
+                qa_rules = _campaign_qa_rules(campaign)  # #35: duration + 1080x1920/fps/audio/codec
         except Exception as e:  # noqa: BLE001
             logger.warning("could not load QA rules from campaign %s: %s", asset.campaign_id, e)
 

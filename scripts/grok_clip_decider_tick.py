@@ -17,8 +17,10 @@ except Exception:
 
 PROMPT = """Pick 1 or 2 clip windows from this transcript for short-form video.
 Rules: duration_min={dmin}, duration_max={dmax} seconds. Format 9:16.
+Campaign rules (must be respected):
+{brief}
 Return JSON:
-{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","title":"max 80 chars hook","caption":"2-3 lines for YouTube description, no prices, no [whop]"}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","title":"max 80 chars hook","caption":"2-3 lines for YouTube description, no prices, no [whop]","on_screen_text":"short overlay text or empty"}}]}}
 Prefer complete phrases. Do not exceed duration_max. Stay inside video_duration={duration}.
 Transcript segments (start,end,text):
 """
@@ -38,6 +40,7 @@ def main() -> int:
     from app.models.job import Job  # noqa: F401
     from app.services.grok_client import grok_chat_json
     from app.services.silent_clip_cutter import campaign_duration_window, is_speech, transcript_text
+    from app.services.rules.runtime import decider_brief
     from app.services.candidate_lifecycle import approve_candidate
 
     db = SessionLocal()
@@ -65,7 +68,8 @@ def main() -> int:
                     continue
                 lines.append(f"{s.get('start',0):.1f}-{s.get('end',0):.1f} {(s.get('text') or '').strip()}")
             duration = float(asset.duration_seconds or 0) or dmax
-            prompt = PROMPT.format(dmin=dmin, dmax=dmax, duration=duration) + "\n".join(lines)[:5000]
+            brief = decider_brief(campaign) or "- (none beyond duration/format)"
+            prompt = PROMPT.format(dmin=dmin, dmax=dmax, duration=duration, brief=brief) + "\n".join(lines)[:5000]
             print(f"asset={asset.id} campaign={asset.campaign_id} calling grok segs={len(lines)}")
             if args.dry_run:
                 done += 1
@@ -99,6 +103,7 @@ def main() -> int:
                         "kind": "speech",
                         "title": title,
                         "caption": caption,
+                        "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
                     },
                     status="pending",
                 )

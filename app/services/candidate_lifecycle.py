@@ -22,8 +22,6 @@ from typing import Any, Dict, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.campaign_engine.normalizer import normalize
-from app.campaign_engine.parser import parse_instructions
 from app.clip_selection.models import ClipProposal
 from app.clip_selection.validator import validate_proposal
 from app.models.asset import Asset
@@ -51,9 +49,10 @@ def _now() -> datetime:
 
 
 def _build_spec_for_campaign(campaign: Campaign):
-    """Re-derive NormalizedSpec from current campaign.source_instructions."""
-    hints = parse_instructions(campaign.source_instructions or "")
-    return normalize(hints, campaign.source_provider)
+    """Current rules of the campaign (#35: RuleSet → spec → defaults; no regex parser)."""
+    from app.services.rules.runtime import effective_spec
+
+    return effective_spec(campaign)
 
 
 def _build_proposal_from_candidate(candidate: Candidate) -> ClipProposal:
@@ -154,7 +153,10 @@ def approve_candidate(
     # --- Validate against current spec ----------------------------------
     spec = _build_spec_for_campaign(campaign)
     proposal = _build_proposal_from_candidate(candidate)
-    transcription_text = _get_transcription_text(asset)
+    from app.services.rules.runtime import segment_text
+
+    # #35: prohibited terms are checked on the candidate's own window.
+    transcription_text = segment_text(asset, float(candidate.start_time), float(candidate.end_time))
 
     ok, reason = validate_proposal(proposal, spec, transcription_text)
 
@@ -202,6 +204,7 @@ def approve_candidate(
         "captions_required": bool(spec.captions_required),
         "watermark_url": spec.watermark_url,
         "language": spec.language,
+        "ruleset_version": spec.extra.get("ruleset_version"),
     }
 
     try:

@@ -19,8 +19,6 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from app.campaign_engine.normalizer import normalize
-from app.campaign_engine.parser import parse_instructions
 from app.models.asset import Asset, AssetStatus
 from app.models.campaign import Campaign
 from app.schemas.candidate import CandidateCreate
@@ -115,8 +113,9 @@ class ClipSelectionAgent:
             )
 
         # --- 2. Derive NormalizedSpec from source_instructions -----------
-        hints = parse_instructions(campaign.source_instructions or "")
-        spec = normalize(hints, campaign.source_provider)
+        from app.services.rules.runtime import effective_spec
+
+        spec = effective_spec(campaign)
         spec_dict = spec.model_dump()
 
         # --- 2b. Pull campaign brief (if any) from extra_metadata --------

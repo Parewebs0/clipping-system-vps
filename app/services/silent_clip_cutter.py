@@ -70,29 +70,12 @@ def asset_duration(asset: Asset, tx: Any) -> float:
 
 
 def campaign_duration_window(campaign: Campaign | None) -> tuple[float, float]:
-    rules, spec = {}, {}
-    if campaign is not None:
-        meta = campaign.source_metadata or {}
-        if isinstance(meta, dict):
-            rules = meta.get("rules") or {}
-        spec = campaign.spec or {}
-    dmin = (
-        rules.get("duration_min") or rules.get("min_duration")
-        or (spec.get("duration_min") if isinstance(spec, dict) else None)
-        or DEFAULT_MIN
-    )
-    dmax = (
-        rules.get("duration_max") or rules.get("max_duration")
-        or (spec.get("duration_max") if isinstance(spec, dict) else None)
-        or DEFAULT_MAX
-    )
-    try:
-        dmin, dmax = float(dmin), float(dmax)
-    except (TypeError, ValueError):
-        dmin, dmax = DEFAULT_MIN, DEFAULT_MAX
-    if dmax <= dmin:
-        dmax = dmin + 10
-    return dmin, dmax
+    """#35: single source of truth (RuleSet → spec → defaults)."""
+    if campaign is None:
+        return DEFAULT_MIN, DEFAULT_MAX
+    from app.services.rules.runtime import duration_window
+
+    return duration_window(campaign)
 
 
 def windows(duration: float, dmin: float, dmax: float, file_size) -> list[tuple[float, float]]:
