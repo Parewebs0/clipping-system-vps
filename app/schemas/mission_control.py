@@ -132,7 +132,7 @@ class CampaignDetailCampaign(BaseModel):
     updated_at: Optional[str] = None
 
 
-class AssetOut(BaseModel):
+class McAssetOut(BaseModel):
     id: str
     source_url: str
     source_provider: Optional[str] = None
@@ -149,7 +149,7 @@ class AssetOut(BaseModel):
     created_at: Optional[str] = None
 
 
-class JobOut(BaseModel):
+class McJobOut(BaseModel):
     id: str
     job_type: str
     status: JobStatusT
@@ -166,7 +166,7 @@ class JobOut(BaseModel):
     result: Optional[Dict[str, Any]] = None
 
 
-class ClipOut(BaseModel):
+class McClipOut(BaseModel):
     id: str
     asset_id: Optional[str] = None
     file_path: Optional[str] = None
@@ -186,9 +186,9 @@ class ClipOut(BaseModel):
 
 class CampaignDetailOut(BaseModel):
     campaign: CampaignDetailCampaign
-    assets: List[AssetOut]
-    active_jobs: List[JobOut]
-    clips: List[ClipOut]
+    assets: List[McAssetOut]
+    active_jobs: List[McJobOut]
+    clips: List[McClipOut]
     llm_usage: LlmUsageSummary
     worker_file_base_url: Optional[str] = None
 
@@ -229,7 +229,7 @@ class CampaignRulesOut(BaseModel):
     prize_pool_usd: Optional[float] = None
 
 
-class JobRecentItem(JobOut):
+class JobRecentItem(McJobOut):
     campaign_name: Optional[str] = None
     elapsed_seconds: float = 0.0
 
@@ -279,7 +279,7 @@ class VideosOut(BaseModel):
     worker_file_base_url: Optional[str] = None
 
 
-class ClipInventoryItem(ClipOut):
+class ClipInventoryItem(McClipOut):
     campaign_id: int
     campaign_name: Optional[str] = None
     asset_source_url: Optional[str] = None
