@@ -24,7 +24,7 @@ Servicios externos: Whop API · xAI Grok · Google Docs público · Google Drive
 0/1  whop_discovery.py  (08:15 y 20:15 Madrid)
      Whop API → UPSERT campaigns (name, cpm, prize_pool, source_url, source_metadata.discovered)
      Solo inserta si hay < MAX_ACTIVE (3) campañas activas
-     (activas = discovered | briefed | assets_resolved | scored | ready)
+     (activas = discovered | briefed | assets_resolved | scored)
      → status='discovered'
       ↓
 3a   brief_reader_tick.py  (cada 15 min, 1 campaña)
@@ -48,7 +48,7 @@ Servicios externos: Whop API · xAI Grok · Google Docs público · Google Drive
      score ≥ 50 y ≥ 1 asset real → 'scored'; si no → 'blocked_no_assets'
       ↓
 7    download_enqueue_tick.py  (cada 10 min, 1 job)
-     campañas 'scored'/'ready' → siguiente asset 'pending' sin job → job 'download'
+     campañas 'scored' → siguiente asset 'pending' sin job → job 'download'
      (salta carpetas, docs, perfiles, skip_download)
       ↓
 8-9  WORKER download → POST /worker/jobs/{id}/result
@@ -83,7 +83,7 @@ Servicios externos: Whop API · xAI Grok · Google Docs público · Google Drive
 ## Estados
 
 **Campaña:** `discovered` → `briefed` → `assets_resolved` → `scored` (→ trabajo) ·
-terminales/errores: `failed_brief`, `failed_resolve`, `blocked_no_assets` (legacy `ready` se sigue aceptando en el paso 7).
+terminales/errores: `failed_brief`, `failed_resolve`, `blocked_no_assets`. El estado legacy `ready` ya no existe (migración 0012) ni se acepta en el paso 7.
 
 **Asset:** `pending` → `downloaded` → `transcribed` · `failed`.
 
