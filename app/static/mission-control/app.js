@@ -689,8 +689,15 @@ const ERROR_HINTS = {
   playwright_timeout:  "Playwright/Chromium no cargó la página de Dropbox. Verificar binario o reintentar.",
   dropbox_user_disabled_dl: "Dropbox no permite descarga anónima (solo view). Pedir al operador que active 'Anyone with the link can download'.",
   rlkey_expired:       "La firma `rlkey` del shared link caducó. Refrescar el link desde Dropbox.",
+  // drive_resolver_tick (3b) — kinds reales escritos hoy
+  gog:                 "Fallo de gog (Drive). Se reintenta solo en el próximo tick; si persiste con invalid_grant, re-autorizar gog.",
+  social_only:         "Solo hay enlaces sociales/de referencia (IG, TikTok, perfiles), nada descargable. Terminal: no se reintenta.",
+  unsupported_source:  "Los enlaces apuntan a hosts no soportados (ni Drive, ni Dropbox file, ni vídeo directo).",
+  no_videos:           "La carpeta/enlace no contiene vídeos ingeribles.",
+  dropbox_folder_needs_list: "Carpeta de Dropbox: aún no se listan. Pedir enlaces a ficheros sueltos.",
+  legacy_string:       "Error antiguo sin clasificar (formato previo).",
   // generic
-  other:               "Causa no clasificada. Revisar logs del cron (openclaw cron runs).",
+  other:               "Causa no clasificada. Revisar logs del cron en /home/jarvis/clipping-cron/logs/.",
 };
 
 function _renderOneError(title, err, accentKey) {

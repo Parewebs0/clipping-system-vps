@@ -308,3 +308,128 @@ def test_no_write_verbs_in_router():
     }
     missing = expected - paths
     assert not missing, f"missing endpoints: {missing}; saw: {paths}"
+
+
+# ---------------------------------------------------------------------------
+# Issue #7: contract aligned with what the pipeline v2 ticks really write
+# ---------------------------------------------------------------------------
+
+_REAL_SCORE_META = {
+    "score": {
+        "value": 62.5, "real_assets": 2, "cpm_usd": 1.5, "prize_pool_usd": 24000.0,
+        "breakdown": {"value": 62.5, "base": 70.0, "penalties": {"captions": 7.5},
+                       "penalty_total": 7.5, "min_to_run": 50.0, "eligible": True},
+    },
+    "score_preview": {"value": 55.0},
+    "brief_docs": [{"url": "https://docs.google.com/document/d/x", "chars": 120}],
+    "resolve_error": {"kind": "social_only", "message": "social_only: only social links"},
+    "briefing_error": "old plain string",
+    "discovered": {"external_id": 12345, "joined": 1, "cpm_usd_per_1k": "1.5"},
+}
+
+
+def _set_meta(cid: int, meta: dict) -> None:
+    import json as _json
+    s = SessionLocal()
+    try:
+        s.execute(
+            text("UPDATE campaigns SET source_metadata = CAST(:sm AS jsonb) WHERE id = :id"),
+            {"sm": _json.dumps(meta), "id": cid},
+        )
+        s.commit()
+    finally:
+        s.close()
+
+
+def test_campaigns_list_reads_real_score_shape(enabled_client, auth_headers):
+    row = _create_campaign()
+    _set_meta(row[0], _REAL_SCORE_META)
+    try:
+        r = enabled_client.get("/mission-control/campaigns", headers=auth_headers)
+        assert r.status_code == 200, r.text
+        it = next(i for i in r.json()["items"] if i["id"] == row[0])
+        assert it["priority_score"] == 62.5
+        assert it["score_eligible"] is True
+        assert it["score_min_to_run"] == 50.0
+        assert it["priority_breakdown"]["penalties"] == {"captions": 7.5}
+        assert it["resolve_error"] == {"kind": "social_only", "message": "social_only: only social links", "at": None}
+        assert it["briefing_error"]["kind"] == "legacy_string"
+    finally:
+        _cleanup_campaign(row[0])
+
+
+def test_campaign_rules_reads_real_score_and_brief_docs(enabled_client, auth_headers):
+    row = _create_campaign()
+    _set_meta(row[0], _REAL_SCORE_META)
+    try:
+        r = enabled_client.get(f"/mission-control/campaigns/{row[0]}/rules", headers=auth_headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["priority_score"] == 62.5
+        assert body["priority_components"]["min_to_run"] == 50.0
+        assert body["score_preview"] == {"value": 55.0}
+        assert body["brief_docs"][0]["chars"] == 120
+        assert body["discovered"]["external_id"] == "12345"
+        assert body["discovered"]["cpm_usd_per_1k"] == 1.5
+    finally:
+        _cleanup_campaign(row[0])
+
+
+def test_campaign_detail_exposes_llm_usage_and_clip_location(enabled_client, auth_headers):
+    row = _create_campaign()
+    s = SessionLocal()
+    try:
+        s.execute(
+            text(
+                "INSERT INTO llm_usage (provider, model, stage, campaign_id, total_tokens, cost_usd, ok) "
+                "VALUES ('xai','m','brief_reader',:cid,1000,0.25,true),"
+                "       ('xai','m','clip_decider',:cid,500,0.10,false)"
+            ),
+            {"cid": row[0]},
+        )
+        aid = s.execute(
+            text(
+                "INSERT INTO assets (id, campaign_id, source_url, asset_type, status, extra_metadata) "
+                "VALUES (gen_random_uuid(), :cid, 'https://example.com/v.mp4', 'video', 'transcribed', "
+                "'{\"last_error_kind\": \"x\"}'::jsonb) RETURNING id"
+            ),
+            {"cid": row[0]},
+        ).scalar_one()
+        s.execute(
+            text(
+                "INSERT INTO clips (id, campaign_id, asset_id, qa_status, status, location, final_path_worker) "
+                "VALUES (gen_random_uuid(), :cid, :aid, 'pass', 'approved', 'pending_upload', 'C:/clips/pending_upload/a.mp4')"
+            ),
+            {"cid": row[0], "aid": aid},
+        )
+        s.commit()
+    finally:
+        s.close()
+    try:
+        r = enabled_client.get(f"/mission-control/campaigns/{row[0]}", headers=auth_headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["llm_usage"]["calls"] == 2
+        assert body["llm_usage"]["errors"] == 1
+        assert abs(body["llm_usage"]["cost_usd"] - 0.35) < 1e-6
+        assert {b["stage"] for b in body["llm_usage"]["by_stage"]} == {"brief_reader", "clip_decider"}
+        assert body["clips"][0]["location"] == "pending_upload"
+        assert body["clips"][0]["final_path_worker"].endswith("a.mp4")
+        assert body["assets"][0]["extra_metadata"] == {"last_error_kind": "x"}
+
+        inv = enabled_client.get(
+            f"/mission-control/clips?campaign_id={row[0]}", headers=auth_headers
+        ).json()
+        assert inv["items"][0]["location"] == "pending_upload"
+
+        ov = enabled_client.get("/mission-control/overview", headers=auth_headers).json()
+        assert ov["llm_usage_total"]["calls"] >= 2
+        assert "llm_usage_24h" in ov
+    finally:
+        s = SessionLocal()
+        try:
+            s.execute(text("DELETE FROM llm_usage WHERE campaign_id = :cid"), {"cid": row[0]})
+            s.commit()
+        finally:
+            s.close()
+        _cleanup_campaign(row[0])
