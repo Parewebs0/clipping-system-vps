@@ -104,6 +104,14 @@ class Clip(Base):
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
 
+    # #43 post-render rules verifier: publish requires compliance_status='pass'.
+    compliance_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="pending"
+    )
+    compliance_report: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+
     # Top-level status (derived from qa + manual decisions)
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, server_default="created"
@@ -160,5 +168,9 @@ class Clip(Base):
         CheckConstraint(
             "location IS NULL OR location IN ('pending_upload', 'uploaded', 'archived')",
             name="ck_clips_location",
+        ),
+        CheckConstraint(
+            "compliance_status IN ('pending', 'pass', 'fail')",
+            name="ck_clips_compliance_status",
         ),
     )

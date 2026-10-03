@@ -688,6 +688,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clips/{clip_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify
+         * @description #43: re-run the post-render rules verifier (e.g. after confirming a
+         *     logo URL or editing the copy). Publish requires compliance_status='pass'.
+         */
+        post: operations["verify_clips__clip_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/discovery/providers": {
         parameters: {
             query?: never;
@@ -1924,6 +1945,15 @@ export interface components {
             campaign_name?: string | null;
             /** Candidate Id */
             candidate_id?: string | null;
+            /** Compliance Report */
+            compliance_report?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Compliance Status
+             * @default pending
+             */
+            compliance_status: string;
             /** Created At */
             created_at?: string | null;
             /** Duration Seconds */
@@ -1976,6 +2006,18 @@ export interface components {
             campaign_id: number;
             /** Candidate Id */
             candidate_id?: string | null;
+            /**
+             * Compliance Report
+             * @default {}
+             */
+            compliance_report: {
+                [key: string]: unknown;
+            };
+            /**
+             * Compliance Status
+             * @default pending
+             */
+            compliance_status: string;
             /**
              * Created At
              * Format: date-time
@@ -2366,6 +2408,15 @@ export interface components {
         McClipOut: {
             /** Asset Id */
             asset_id?: string | null;
+            /** Compliance Report */
+            compliance_report?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Compliance Status
+             * @default pending
+             */
+            compliance_status: string;
             /** Created At */
             created_at?: string | null;
             /** Duration Seconds */
@@ -4258,6 +4309,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClipPublicationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_clips__clip_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipOut"];
                 };
             };
             /** @description Validation Error */

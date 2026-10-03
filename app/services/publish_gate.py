@@ -67,6 +67,10 @@ def approve_clip_publish(
         raise PublishGateError(
             f"clip {clip_id} status={clip.status!r}, need 'approved'"
         )
+    if getattr(clip, "compliance_status", "pending") != "pass":
+        raise PublishGateError(
+            f"clip {clip_id} compliance_status={getattr(clip, 'compliance_status', None)!r}, need 'pass' (#43)"
+        )
     if clip.location not in OK_LOCATIONS:
         raise PublishGateError(
             f"clip {clip_id} location={clip.location!r}, need pending_upload|uploaded"

@@ -184,6 +184,8 @@ class McClipOut(BaseModel):
     qa_at: Optional[str] = None
     published_at: Optional[str] = None
     publish_approved_at: Optional[str] = None
+    compliance_status: str = "pending"
+    compliance_report: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CampaignDetailOut(BaseModel):

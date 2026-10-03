@@ -102,3 +102,16 @@ export function useConfirmRules(id: number) {
     onSuccess: () => invalidate(id),
   })
 }
+
+// --- #43 post-render rules verifier: re-run (write token).
+export function useVerifyClip(campaignId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (clipId: string) => api<{ id: string; compliance_status: string }>(`/clips/${clipId}/verify`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clips'] })
+      if (campaignId != null) qc.invalidateQueries({ queryKey: ['campaign', campaignId] })
+      else qc.invalidateQueries({ queryKey: ['campaign'] })
+    },
+  })
+}

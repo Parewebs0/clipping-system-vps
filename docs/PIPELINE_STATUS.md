@@ -32,7 +32,8 @@
 | 12–13 | Clip decider (voz, Grok) | `scripts/grok_clip_decider_tick.py --limit 1` | assets `transcribed` con voz y sin candidatos → 1–2 candidatos `pending` (con title/caption) | 4×/hora (min 7,22,37,52), **sin `--approve`** |
 | 14 | Aprobación de candidato | humano: `POST /candidates/{id}/approve` (o Mission Control) | candidato `approved` → job `render` | manual |
 | 15–19 | Render + QA | Worker (FFmpeg / FFprobe) + hooks | job `render` → clip `created` + job `qa` → clip `approved` / `rejected` / `review` | — (automático) |
-| 20 | Publish gate | humano: `POST /clips/{id}/approve_publish` | clip `approved` + QA `pass` → `clip_publications.status='pending'` | manual |
+| 19b | Verificador de reglas (#43) | hook tras QA (`app/services/rules/verifier.py`), re-ejecutar con `POST /clips/{id}/verify` | `clips.compliance_status` pass/fail + `compliance_report` por regla (duración, 1080x1920, audio, subtítulos + diccionario de marca, logo, texto en pantalla, idioma; copy: caption literal, menciones, orden de hashtags, FTC en línea propia, términos prohibidos). Fuente: `applied`+`probe` del worker (render_spec v2) y render_spec del payload. Checks humanos por clip = «revisión humana» (se confirman al aprobar el publish) | — (automático) |
+| 20 | Publish gate | humano: `POST /clips/{id}/approve_publish` | clip `approved` + QA `pass` + **compliance `pass`** → `clip_publications.status='pending'` | manual |
 | 21 | Encolar publicación | `scripts/publish_enqueue_tick.py --limit 1 [--live]` | `clip_publications` pending → job `publish` (dry-run por defecto) → Worker | **deshabilitado** (línea comentada) hasta cerrar el trial |
 
 ## Dependencias externas (solo nombres)

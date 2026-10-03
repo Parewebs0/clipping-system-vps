@@ -87,6 +87,9 @@ class ClipOut(BaseModel):
     location: Optional[str] = None
     final_path_worker: Optional[str] = None
     location_updated_at: Optional[datetime] = None
+    # #43 post-render rules verifier
+    compliance_status: str = "pending"
+    compliance_report: dict = {}
 
 
 class ApprovePublishIn(BaseModel):

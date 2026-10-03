@@ -2284,6 +2284,16 @@
             ],
             "title": "Candidate Id"
           },
+          "compliance_report": {
+            "additionalProperties": true,
+            "title": "Compliance Report",
+            "type": "object"
+          },
+          "compliance_status": {
+            "default": "pending",
+            "title": "Compliance Status",
+            "type": "string"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -2478,6 +2488,17 @@
               }
             ],
             "title": "Candidate Id"
+          },
+          "compliance_report": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Compliance Report",
+            "type": "object"
+          },
+          "compliance_status": {
+            "default": "pending",
+            "title": "Compliance Status",
+            "type": "string"
           },
           "created_at": {
             "format": "date-time",
@@ -3648,6 +3669,16 @@
               }
             ],
             "title": "Asset Id"
+          },
+          "compliance_report": {
+            "additionalProperties": true,
+            "title": "Compliance Report",
+            "type": "object"
+          },
+          "compliance_status": {
+            "default": "pending",
+            "title": "Compliance Status",
+            "type": "string"
           },
           "created_at": {
             "anyOf": [
@@ -7774,6 +7805,55 @@
           }
         ],
         "summary": "List Publications",
+        "tags": [
+          "clips"
+        ]
+      }
+    },
+    "/clips/{clip_id}/verify": {
+      "post": {
+        "description": "#43: re-run the post-render rules verifier (e.g. after confirming a\nlogo URL or editing the copy). Publish requires compliance_status='pass'.",
+        "operationId": "verify_clips__clip_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clip_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Clip Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify",
         "tags": [
           "clips"
         ]
