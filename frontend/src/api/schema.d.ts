@@ -186,6 +186,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/status-machine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Status Machine
+         * @description Manual transitions allowed from each status (single source of truth:
+         *     app/services/campaign_transitions.py). Forward steps belong to the ticks.
+         */
+        get: operations["status_machine_campaigns_status_machine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaign_id}": {
         parameters: {
             query?: never;
@@ -197,10 +218,19 @@ export interface paths {
         get: operations["get_one_campaigns__campaign_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete
+         * @description Hard delete, only for `archived` campaigns without active jobs.
+         *     Cascades to assets, candidates, clips and clip publications.
+         */
+        delete: operations["delete_campaigns__campaign_id__delete"];
         options?: never;
         head?: never;
-        /** Update */
+        /**
+         * Update
+         * @description Partial update (see CampaignUpdate). 400 unknown status, 409 duplicate
+         *     name / forbidden transition / non-editable field, 422 validation.
+         */
         patch: operations["update_campaigns__campaign_id__patch"];
         trace?: never;
     };
@@ -239,6 +269,27 @@ export interface paths {
          *     first processable asset of the campaign becomes the source.
          */
         post: operations["enqueue_pipeline_campaigns__campaign_id__enqueue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaign_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Status
+         * @description Manual status change validated against the state machine
+         *     (GET /campaigns/status-machine). 409 if the transition is not allowed.
+         */
+        post: operations["set_status_campaigns__campaign_id__status_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1275,7 +1326,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve" | "archived";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1353,7 +1404,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve" | "archived";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1469,7 +1520,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve";
+            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "failed_brief" | "failed_resolve" | "archived";
         };
         /**
          * CampaignSpec
@@ -1500,19 +1551,72 @@ export interface components {
             /** Watermark Url */
             watermark_url?: string | null;
         };
-        /** CampaignUpdate */
+        /**
+         * CampaignSpecPatch
+         * @description Partial spec update: only the fields sent are changed; `extra` is merged
+         *     key by key so the scorer's data (spec.extra.score, score_breakdown, ...)
+         *     survives an edit from the dashboard.
+         */
+        CampaignSpecPatch: {
+            /** Captions Required */
+            captions_required?: boolean | null;
+            /** Duration Max */
+            duration_max?: number | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Exclude Keywords */
+            exclude_keywords?: string[] | null;
+            /** Extra */
+            extra?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format */
+            format?: string | null;
+            /** Keywords */
+            keywords?: string[] | null;
+            /** Language */
+            language?: string | null;
+            /** Watermark Url */
+            watermark_url?: string | null;
+        };
+        /** CampaignStatusChange */
+        CampaignStatusChange: {
+            /** Reason */
+            reason?: string | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * CampaignUpdate
+         * @description PATCH /campaigns/{id}. Every field optional; unknown fields -> 422.
+         *
+         *     * `status` goes through the manual state machine
+         *       (app/services/campaign_transitions.py): unknown -> 400, not allowed -> 409.
+         *     * `source_url` / `source_id` are only editable on `manual` campaigns:
+         *       for `whop` campaigns source_url is the discovery dedup key.
+         *     * `source_provider` is never editable (identity of the origin).
+         *     * `source_metadata` is merged on top of the existing dict.
+         *     * Explicit `null` clears nullable text fields (source_url, source_id,
+         *       source_instructions).
+         */
         CampaignUpdate: {
             /** Name */
             name?: string | null;
+            /** Source Id */
+            source_id?: string | null;
             /** Source Instructions */
             source_instructions?: string | null;
             /** Source Metadata */
             source_metadata?: {
                 [key: string]: unknown;
             } | null;
-            spec?: components["schemas"]["CampaignSpec"] | null;
+            /** Source Url */
+            source_url?: string | null;
+            spec?: components["schemas"]["CampaignSpecPatch"] | null;
             /** Status */
             status?: string | null;
+            /** Status Reason */
+            status_reason?: string | null;
         };
         /** CandidateCreate */
         CandidateCreate: {
@@ -2291,6 +2395,26 @@ export interface components {
              */
             updated_at: string;
         };
+        /** StatusMachineOut */
+        StatusMachineOut: {
+            /** Statuses */
+            statuses: components["schemas"]["StatusMachineState"][];
+            /** Transitions */
+            transitions: {
+                [key: string]: string[];
+            };
+        };
+        /** StatusMachineState */
+        StatusMachineState: {
+            /** Consumed By */
+            consumed_by?: string | null;
+            /** Effect */
+            effect?: string | null;
+            /** Manual Targets */
+            manual_targets: string[];
+            /** Value */
+            value: string;
+        };
         /**
          * SystemInfoIn
          * @description System info sent during worker registration.
@@ -2889,6 +3013,26 @@ export interface operations {
             };
         };
     };
+    status_machine_campaigns_status_machine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusMachineOut"];
+                };
+            };
+        };
+    };
     get_one_campaigns__campaign_id__get: {
         parameters: {
             query?: never;
@@ -2908,6 +3052,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CampaignOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_campaigns__campaign_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -2975,6 +3148,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_status_campaigns__campaign_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignStatusChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignOut"];
                 };
             };
             /** @description Validation Error */
