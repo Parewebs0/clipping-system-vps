@@ -61,6 +61,7 @@ def main() -> int:
     from app.models.campaign import Campaign
     from app.models.asset import Asset
     from app.services.campaign_score import campaign_rate_usd, campaign_remaining_usd, score_campaign
+    from app.services.campaign_transitions import lock_if_status
 
     db = SessionLocal()
     changed = 0
@@ -106,6 +107,10 @@ def main() -> int:
             )
             if args.dry_run:
                 continue
+            if not lock_if_status(db, c, ("assets_resolved",)):
+                print(f"campaign={c.id} moved to {c.status} meanwhile -> left untouched")
+                continue
+            meta = dict(c.source_metadata or {})
             c.assets_count = len(real)
             spec = dict(c.spec or {})
             extra = dict(spec.get("extra") or {})
