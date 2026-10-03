@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8080
     api_token: str = ""
+    # Optional operator/dashboard token for campaign writes (issue #11). If set,
+    # campaign create/PATCH/status/DELETE require it; API_TOKEN keeps working
+    # for everything else (worker). Empty = API_TOKEN can write (legacy).
+    api_write_token: str = ""
 
     # App
     environment: str = "production"

@@ -8,7 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
-from app.auth import require_bearer
+from app.auth import require_bearer, require_write_bearer
 from app.db.database import get_db
 from app.models.campaign import CampaignStatus
 from app.schemas.campaign import (
@@ -133,7 +133,7 @@ def _is_real_video_url(url: str | None) -> bool:
 def create(
     payload: CampaignCreate,
     db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
+    _: bool = Depends(require_write_bearer),
 ):
     try:
         c = create_campaign(db, payload)
@@ -196,7 +196,7 @@ def update(
     campaign_id: int,
     payload: CampaignUpdate,
     db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
+    _: bool = Depends(require_write_bearer),
 ):
     """Partial update (see CampaignUpdate). 400 unknown status, 409 duplicate
     name / forbidden transition / non-editable field, 422 validation."""
@@ -218,7 +218,7 @@ def set_status(
     campaign_id: int,
     payload: CampaignStatusChange,
     db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
+    _: bool = Depends(require_write_bearer),
 ):
     """Manual status change validated against the state machine
     (GET /campaigns/status-machine). 409 if the transition is not allowed."""
@@ -238,7 +238,7 @@ def set_status(
 def delete(
     campaign_id: int,
     db: Session = Depends(get_db),
-    _: bool = Depends(require_bearer),
+    _: bool = Depends(require_write_bearer),
 ):
     """Hard delete, only for `archived` campaigns without active jobs.
     Cascades to assets, candidates, clips and clip publications."""
