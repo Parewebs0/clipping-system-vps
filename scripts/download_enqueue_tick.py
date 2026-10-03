@@ -20,8 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("download_enqueue_tick")
 
-# Pipeline v2: only 'scored' gates downloads (legacy 'ready' was dropped in 0012).
-SCORED_STATUSES = ("scored",)
+# Pipeline v2: only workable campaigns (campaign_transitions.WORKABLE_STATUSES,
+# today 'scored') get downloads; pending jobs of campaigns that left those
+# statuses are cancelled (#31).
 _SKIP_KINDS = frozenset({
     "drive_folder", "dropbox_folder", "brand_asset",
     "youtube_profile", "twitter_profile", "tiktok_profile",
@@ -81,24 +82,27 @@ def _enqueue_one(db, campaign, asset, dry_run: bool) -> dict:
     return {"created": 1, "asset_id": asset_id, "job_id": str(job.id)}
 
 
-def main() -> int:
+def main(argv=None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=1, help="max download jobs this run")
     p.add_argument("--dry-run", action="store_true")
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     from app.db.database import SessionLocal
     from app.models.campaign import Campaign
     from app.models.asset import Asset
     from app.api.campaigns import _is_real_video_url
+    from app.services.campaign_transitions import WORKABLE_STATUSES
+    from app.services.download_gate import cancel_unworkable
 
     db = SessionLocal()
     enqueued = 0
     scanned = 0
     try:
+        cancel_unworkable(db, args.dry_run)
         campaigns = (
             db.query(Campaign)
-            .filter(Campaign.status.in_(SCORED_STATUSES))
+            .filter(Campaign.status.in_(WORKABLE_STATUSES))
             .filter(Campaign.source_provider != "manual")
             .order_by(Campaign.id.asc())
             .all()
