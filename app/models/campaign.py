@@ -53,6 +53,7 @@ class CampaignStatus(str, enum.Enum):
     BLOCKED_NO_ASSETS = "blocked_no_assets"  # paso 3c: 0 real assets
     FAILED_BRIEF = "failed_brief"       # paso 3a: brief unreadable
     FAILED_RESOLVE = "failed_resolve"   # paso 3b: drive access denied
+    ARCHIVED = "archived"               # manual (Mission Control): out of the pipeline (0017)
 
 
 CAMPAIGN_STATUS_VALUES = tuple(s.value for s in CampaignStatus)
