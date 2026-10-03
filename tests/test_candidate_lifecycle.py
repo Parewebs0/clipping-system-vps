@@ -192,16 +192,22 @@ def test_approve_out_of_window_rejects(db):
 
 
 def test_approve_excluded_keyword_rejects(db):
-    """Candidate whose transcript contains an exclude_keyword gets rejected."""
+    """Candidate whose window mentions a prohibited term (RuleSet, #35) gets rejected."""
     from app.models.asset import Asset, AssetStatus
     from app.models.campaign import Campaign
     from app.models.candidate import Candidate, CandidateStatus
     from app.services.candidate_lifecycle import approve_candidate
+    from app.services.rules.enforcement import assign_enforcement
+    from app.services.rules.schema import RuleSet
 
+    rs = RuleSet()
+    rs.duration.min_s, rs.duration.max_s = 30.0, 60.0
+    rs.prohibitions.terms = ["spoiler"]
     c = Campaign(
         name=f"lc-{uuid.uuid4().hex[:6]}",
         source_provider="whop",
-        source_instructions="Make 30-60s clips. Exclude: spoiler.",
+        source_instructions="(ignored since #35)",
+        source_metadata={"ruleset": assign_enforcement(rs).dump()},
     )
     db.add(c)
     db.commit()
