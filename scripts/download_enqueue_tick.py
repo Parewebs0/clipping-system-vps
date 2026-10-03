@@ -100,8 +100,8 @@ def main(argv=None) -> int:
     enqueued = 0
     scanned = 0
     try:
-        # #37: rules gate first (scored + pending blockers -> needs_review),
-        # then cancel pending downloads of anything no longer workable (#31).
+        # #37/#52: gate scored campaigns, release needs_review with 0 pending
+        # and refresh a stale rules_gate reason. Then cancel downloads (#31).
         gate_campaigns(db, args.dry_run)
         cancel_unworkable(db, args.dry_run)
         campaigns = (

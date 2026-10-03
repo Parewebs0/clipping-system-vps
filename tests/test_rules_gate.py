@@ -129,6 +129,37 @@ def test_enqueue_endpoint_refuses_pending_rules(s, client, auth_headers):
     assert r.status_code == 409 and "rules" in r.json()["detail"]
 
 
+def test_gate_releases_needs_review_with_zero_pending(s):
+    db, made = s
+    c = _camp(db, made, status="needs_review", rs=_rs(account=False))
+    meta = dict(c.source_metadata or {})
+    meta["rules_gate"] = {"previous_status": "scored", "pending_keys": ["stale"], "reason": "old"}
+    c.source_metadata = meta
+    db.commit()
+    assert gate_campaigns(db) >= 1
+    db.expire_all()
+    c = db.get(Campaign, c.id)
+    assert c.status == "scored"
+
+
+def test_gate_refreshes_stale_reason(s):
+    db, made = s
+    c = _camp(db, made, status="needs_review", rs=_rs(pre=True))
+    meta = dict(c.source_metadata or {})
+    meta["rules_gate"] = {"previous_status": "assets_resolved", "pending_keys": ["old"], "reason": "stale reason"}
+    c.source_metadata = meta
+    db.commit()
+    gate_campaigns(db)
+    db.expire_all()
+    c = db.get(Campaign, c.id)
+    assert c.status == "needs_review"
+    gate = c.source_metadata["rules_gate"]
+    assert gate["reason"] != "stale reason"
+    assert gate["pending_keys"]
+    assert "old" not in gate["pending_keys"]
+    assert gate["previous_status"] == "assets_resolved"
+
+
 def test_waive_unsupported_requires_flag_and_note(s):
     db, made = s
     c = _camp(db, made, rs=_rs(account=False, unsupported=True))

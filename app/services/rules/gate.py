@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
-from app.services.rules.enforcement import blocking_items
+from app.services.rules.enforcement import blocking_items, migrate_confirmations
 from app.services.rules.schema import load_ruleset
 
 NEEDS_REVIEW = "needs_review"
@@ -81,18 +81,117 @@ def apply_gate(campaign, actor: str = "rules_gate") -> bool:
     return True
 
 
+def _previous_status(campaign) -> str:
+    prev = ((campaign.source_metadata or {}).get("rules_gate") or {}).get("previous_status") or "scored"
+    return prev if prev in GATED_FROM else "scored"
+
+
+def refresh_rules_gate(campaign) -> bool:
+    """Rewrite rules_gate reason/pending_keys when a re-read changed the blockers."""
+    if campaign.status != NEEDS_REVIEW:
+        return False
+    items = pending(campaign)
+    if not items:
+        return False
+    meta = dict(campaign.source_metadata or {})
+    gate = dict(meta.get("rules_gate") or {})
+    reason = _reason(items)
+    keys = [b["key"] for b in items]
+    if gate.get("reason") == reason and gate.get("pending_keys") == keys:
+        return False
+    gate["at"] = datetime.now(timezone.utc).isoformat()
+    gate["pending_keys"] = keys
+    gate["reason"] = reason
+    gate.setdefault("previous_status", _previous_status(campaign))
+    meta["rules_gate"] = gate
+    campaign.source_metadata = meta
+    return True
+
+
+def release_if_clear(campaign, actor: str = "rules_gate") -> bool:
+    """needs_review with nothing pending goes back to the status it came from."""
+    from app.services.campaign_transitions import record_auto_transition
+
+    if campaign.status != NEEDS_REVIEW or pending(campaign):
+        return False
+    return record_auto_transition(
+        campaign, _previous_status(campaign),
+        reason="rules gate: 0 pendientes tras re-lectura", actor=actor,
+    )
+
+
+def record_migration_warnings(campaign, warnings: list[str], actor: str = "rules_migrate") -> None:
+    """Append a history note without changing status. Ambiguous migrations stay unconfirmed."""
+    if not warnings:
+        return
+    meta = dict(campaign.source_metadata or {})
+    history = list(meta.get("status_history") or [])
+    now = datetime.now(timezone.utc).isoformat()
+    for warning in warnings:
+        history.append({
+            "from": campaign.status,
+            "to": campaign.status,
+            "at": now,
+            "by": actor,
+            "reason": warning[:500],
+        })
+    from app.services.campaign_transitions import HISTORY_MAX
+
+    meta["status_history"] = history[-HISTORY_MAX:]
+    campaign.source_metadata = meta
+
+
+def reconcile_confirmations(campaign, rs=None) -> list[str]:
+    """Keep confirmations whose key still exists; migrate the rest 1:1 by token overlap.
+
+    Called on --reapply and on every rules persist (an LLM re-read). Returns warnings.
+    """
+    meta = dict(campaign.source_metadata or {})
+    rs = rs or load_ruleset(meta)
+    if rs is None:
+        return []
+    blockers = blocking_items(rs)
+    new_conf, warnings = migrate_confirmations(meta.get("rules_confirmations"), blockers)
+    if new_conf != dict(meta.get("rules_confirmations") or {}):
+        meta["rules_confirmations"] = new_conf
+        meta["rules_blockers"] = blockers
+        campaign.source_metadata = meta
+    record_migration_warnings(campaign, warnings)
+    return warnings
+
+
 def gate_campaigns(db, dry_run: bool = False) -> int:
     from app.models.campaign import Campaign
 
     n = 0
+    dirty = False
     for c in db.query(Campaign).filter(Campaign.status.in_(GATED_FROM)).order_by(Campaign.id):
         items = pending(c)
         if not items:
             continue
         print(f"rules_gate campaign={c.id} status={c.status} pending={len(items)} -> {NEEDS_REVIEW}")
-        if not dry_run and apply_gate(c):
+        if dry_run:
+            continue
+        if apply_gate(c):
             n += 1
-    if n and not dry_run:
+            dirty = True
+    for c in db.query(Campaign).filter(Campaign.status == NEEDS_REVIEW).order_by(Campaign.id):
+        items = pending(c)
+        if not items:
+            prev = _previous_status(c)
+            print(f"rules_gate campaign={c.id} needs_review pending=0 -> {prev}")
+            if dry_run:
+                continue
+            if release_if_clear(c):
+                n += 1
+                dirty = True
+            continue
+        if dry_run:
+            continue
+        if refresh_rules_gate(c):
+            print(f"rules_gate campaign={c.id} refreshed pending={len(items)}")
+            dirty = True
+    if dirty and not dry_run:
         db.commit()
     return n
 

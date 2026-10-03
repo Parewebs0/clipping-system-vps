@@ -107,6 +107,11 @@ def _reapply(args) -> int:
             meta["rules_blockers"] = blockers
             meta["rules"] = legacy_rules(rs)
             c.source_metadata = meta
+            from app.services.rules.gate import reconcile_confirmations
+
+            warnings = reconcile_confirmations(c, rs)
+            if warnings:
+                print(f"campaign={c.id} migration warnings={len(warnings)}")
             db.commit()
         return 0
     finally:
