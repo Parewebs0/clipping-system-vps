@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.auth import require_bearer
@@ -14,14 +14,21 @@ from app.models.campaign import CampaignStatus
 from app.schemas.campaign import (
     CampaignCreate,
     CampaignOut,
+    CampaignStatusChange,
     CampaignUpdate,
+    StatusMachineOut,
 )
 from app.services.campaign_service import (
+    CampaignBadRequest,
+    CampaignConflict,
+    change_campaign_status,
     create_campaign,
+    delete_campaign,
     get_campaign,
     list_campaigns,
     update_campaign,
 )
+from app.services.campaign_transitions import CONSUMED_BY, EFFECT, MANUAL_TRANSITIONS
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +161,24 @@ def list_all(
     )
 
 
+@router.get("/status-machine", response_model=StatusMachineOut)
+def status_machine(_: bool = Depends(require_bearer)):
+    """Manual transitions allowed from each status (single source of truth:
+    app/services/campaign_transitions.py). Forward steps belong to the ticks."""
+    return {
+        "statuses": [
+            {
+                "value": st,
+                "consumed_by": CONSUMED_BY.get(st),
+                "effect": EFFECT.get(st),
+                "manual_targets": list(targets),
+            }
+            for st, targets in MANUAL_TRANSITIONS.items()
+        ],
+        "transitions": {k: list(v) for k, v in MANUAL_TRANSITIONS.items()},
+    }
+
+
 @router.get("/{campaign_id}", response_model=CampaignOut)
 def get_one(
     campaign_id: int,
@@ -173,13 +198,57 @@ def update(
     db: Session = Depends(get_db),
     _: bool = Depends(require_bearer),
 ):
+    """Partial update (see CampaignUpdate). 400 unknown status, 409 duplicate
+    name / forbidden transition / non-editable field, 422 validation."""
     try:
-        c = update_campaign(db, campaign_id, payload)
-    except ValueError as e:
+        c = update_campaign(db, campaign_id, payload, actor="api:patch")
+    except CampaignBadRequest as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except CampaignConflict as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(e))
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return c
+
+
+@router.post("/{campaign_id}/status", response_model=CampaignOut)
+def set_status(
+    campaign_id: int,
+    payload: CampaignStatusChange,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_bearer),
+):
+    """Manual status change validated against the state machine
+    (GET /campaigns/status-machine). 409 if the transition is not allowed."""
+    try:
+        c = change_campaign_status(db, campaign_id, payload.status, payload.reason, actor="api:status")
+    except CampaignBadRequest as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except CampaignConflict as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(e))
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return c
+
+
+@router.delete("/{campaign_id}", status_code=204)
+def delete(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_bearer),
+):
+    """Hard delete, only for `archived` campaigns without active jobs.
+    Cascades to assets, candidates, clips and clip publications."""
+    try:
+        ok = delete_campaign(db, campaign_id)
+    except CampaignConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    if ok is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return Response(status_code=204)
 
 
 
