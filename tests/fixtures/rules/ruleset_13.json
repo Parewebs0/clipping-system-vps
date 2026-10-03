@@ -1,0 +1,712 @@
+{
+ "copy": {
+  "ftc": {
+   "note": null,
+   "scope": "clip",
+   "tokens": [
+    "#Ad",
+    "#Advertisement",
+    "#Sponsored"
+   ],
+   "evidence": [
+    {
+     "quote": "Every post MUST include one of the following disclosures in the caption:",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "Must appear alone on its own separate line",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "Must be the first hashtag or element after the post text",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "Must not be buried in a paragraph, it must be clear and conspicuous",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "Must be in the same font, font size, and color as the rest of the caption",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "own_line": true,
+   "required": true,
+   "enforcement": "auto",
+   "first_after_text": true
+  },
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Use this exact caption, word for word:",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Add the platform tag right after the caption text.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Tag the correct account in your caption for each platform:",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Do not shorten, reword, or add claims to the caption.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "❌ Changing, shortening, or rewording the required caption",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "hashtags": {
+   "note": null,
+   "scope": "clip",
+   "ordered": [],
+   "evidence": [
+    {
+     "quote": "Up to 3 additional hashtags allowed, but they must relate to the content",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "position": "after_text",
+   "required": true,
+   "max_extra": 3,
+   "enforcement": "auto"
+  },
+  "required": true,
+  "enforcement": "auto",
+  "exact_caption": "Experience a 50-year story, extreme combat, and thrill of show business in STRANGER THAN HEAVEN on January 15, 2027, coming to Xbox Series X, Xbox Game Pass, Xbox Cloud, Xbox on PC, PlayStation 5, and Steam. Pre-order now.",
+  "pinned_comment": null,
+  "must_mention_any": [],
+  "mentions_by_platform": {
+   "tiktok": [
+    "@sth_game"
+   ],
+   "youtube": [
+    "@SEGA_West"
+   ],
+   "instagram": [
+    "@sth_game"
+   ]
+  }
+ },
+ "edit": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "All posts must be original edits, not downloaded and reposted from someone else's page",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "human",
+  "allowed_edits": []
+ },
+ "hook": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto",
+  "max_seconds": null
+ },
+ "logo": {
+  "url": "https://drive.google.com/file/d/14mlwFoPPLWTftO5BnLVrP4NtIfUFHFmQ/view?usp=sharing",
+  "note": null,
+  "scope": "clip",
+  "as_cta": false,
+  "timing": "full",
+  "cta_text": null,
+  "evidence": [
+   {
+    "quote": "LOGO WATERMARK (REQUIRED)",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Download the official logo PNG and place it on every clip:",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "The logo must be clearly visible and not stretched, recolored, or covered.",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "position": "top_right",
+  "required": true,
+  "enforcement": "auto",
+  "min_seconds": null
+ },
+ "meta": {
+  "docs": [
+   {
+    "ok": true,
+    "url": "https://docs.google.com/document/d/1fK8_iJHS7veTeTVBvdtZfyuIIN9xLTfOxtpQWrYmex0/edit?usp=sharing",
+    "chars": 6634,
+    "error": null
+   }
+  ],
+  "chunks": 1,
+  "extracted_at": "2026-10-03T11:28:29.102325+00:00",
+  "source_chars": 6861,
+  "validation_errors": []
+ },
+ "audio": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Only use the audio that comes with the clips in the official content folder",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "No background music of any kind",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "auto",
+  "original_only": true,
+  "no_added_music": true,
+  "music_recommended": false,
+  "must_use_provided_sound": false
+ },
+ "aspect": {
+  "note": null,
+  "ratio": "9:16",
+  "scope": "clip",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto"
+ },
+ "source": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Download clips from the official STRANGER THAN HEAVEN content folder.",
+    "source": "description",
+    "verified": true
+   },
+   {
+    "quote": "Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Use ONLY footage and audio from the official content folder",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "unsupported",
+  "allowed_urls": [
+   "https://f.io/Uqz4Au1N"
+  ],
+  "only_provided": true
+ },
+ "version": 2,
+ "captions": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto",
+  "brand_dictionary": []
+ },
+ "coverage": {
+  "ignored": 11,
+  "uncovered": [],
+  "evidence_total": 57,
+  "normative_lines": 71,
+  "evidence_verified": 56,
+  "covered_first_pass": 42,
+  "mapped_second_pass": 18,
+  "unsupported_second_pass": 0
+ },
+ "duration": {
+  "note": "max not stated: pipeline default",
+  "max_s": 45.0,
+  "min_s": 10.0,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "Video must be AT LEAST 10 seconds long",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "auto"
+ },
+ "language": {
+  "code": "en",
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "English content only",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "auto"
+ },
+ "platforms": [
+  "tiktok",
+  "instagram",
+  "youtube"
+ ],
+ "unsupported": [
+  {
+   "text": "NSFW, violent, or controversial content",
+   "reason": "banned immediately",
+   "blocking": true,
+   "evidence": [
+    {
+     "quote": "No NSFW content",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "No racism, homophobic or sexual content (you will be banned immediately for this)",
+     "source": "doc",
+     "verified": true
+    }
+   ]
+  },
+  {
+   "text": "Only official footage, hosted on unsupported host (https://f.io/Uqz4Au1N)",
+   "reason": "asset resolver cannot ingest this host",
+   "blocking": true,
+   "evidence": [
+    {
+     "quote": "Download clips from the official STRANGER THAN HEAVEN content folder.",
+     "source": "description",
+     "verified": true
+    },
+    {
+     "quote": "Do NOT use footage from any source outside the official content folder. Clips from unlisted content will be rejected immediately.",
+     "source": "doc",
+     "verified": true
+    },
+    {
+     "quote": "Use ONLY footage and audio from the official content folder",
+     "source": "doc",
+     "verified": true
+    }
+   ]
+  }
+ ],
+ "pre_approval": {
+  "note": null,
+  "scope": "campaign",
+  "evidence": [],
+  "required": false,
+  "enforcement": "auto"
+ },
+ "prohibitions": {
+  "note": null,
+  "scope": "clip",
+  "terms": [
+   "homophobic content",
+   "political content",
+   "NSFW",
+   "violent content",
+   "controversial content",
+   "rage bait",
+   "hate bait",
+   "exaggerated or over-the-top hype claims",
+   "false or made-up information"
+  ],
+  "topics": [
+   "racism",
+   "sexual content",
+   "content mentioning race or gender",
+   "exaggerated hooks",
+   "false claims",
+   "misrepresenting content"
+  ],
+  "evidence": [
+   {
+    "quote": "No NSFW content",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "No racism, homophobic or sexual content",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "No political content",
+    "source": "llm",
+    "verified": false
+   },
+   {
+    "quote": "Content mentioning race or gender",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Sexually suggestive content",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Exaggerated or over-the-top hooks",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "False or unverified claims",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Misrepresenting the content",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Rage bait or hate bait",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "No exaggerated or over-the-top hype claims.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "No false or made-up information.",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
+  "enforcement": "human"
+ },
+ "manual_checks": [
+  {
+   "note": null,
+   "text": "High-quality posts only, no blurry or low-effort content",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "High-quality posts only, no blurry or low-effort content",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "Text must be clear and readable",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "Text must be clear and readable.",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "Everything you write must be completely ACCURATE and TRUE to the clip you are posting.",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "Everything you write must be completely ACCURATE and TRUE to the clip you are posting.",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "❌ Low-quality or lazy uploads",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "❌ Low-quality or lazy uploads",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "❌ Bait posting: posting random viral content just to farm views. Posts must be relevant to the campaign",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "❌ Bait posting: posting random viral content just to farm views. Posts must be relevant to the campaign",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "❌ Missing the logo watermark, account tag, or FTC disclosure",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "❌ Missing the logo watermark, account tag, or FTC disclosure",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  }
+ ],
+ "on_screen_text": {
+  "note": null,
+  "scope": "clip",
+  "evidence": [
+   {
+    "quote": "ON-SCREEN TEXT (REQUIRED)",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Every post must include on-screen text.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Wording is flexible, but it must be based on what is shown in your clip.",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Only mention features that actually appear in your clip.",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "guidance": "Wording is flexible, but it must be based on what is shown in your clip. Only mention features that actually appear in your clip. Text must be clear and readable.",
+  "required": true,
+  "enforcement": "auto",
+  "must_include": []
+ },
+ "content_source_urls": [
+  "https://f.io/Uqz4Au1N",
+  "https://drive.google.com/file/d/14mlwFoPPLWTftO5BnLVrP4NtIfUFHFmQ/view?usp=sharing"
+ ],
+ "account_requirements": [
+  {
+   "kind": "audience",
+   "note": null,
+   "text": "Minimum 35% combined USA and Canada audience required on all posts. This can also be met if the post itself reaches 35%+ USA and Canada audience in its own analytics.",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Audience Requirement: Minimum 35% combined USA and Canada audience required on all posts.",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "engagement",
+   "note": null,
+   "text": "Minimum 0.20% engagement rate (1,000 views = minimum 2 likes)",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Minimum 0.20% engagement rate (1,000 views = minimum 2 likes)",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "likes_public",
+   "note": null,
+   "text": "Likes must be visible, hidden likes = automatic rejection",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Likes must be visible, hidden likes = automatic rejection",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "keep_live",
+   "note": null,
+   "text": "Post must stay live for 30 days minimum",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Post must stay live for 30 days minimum",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "tagging",
+   "note": null,
+   "text": "✔ TikTok: @sth_game",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "✔ TikTok: @sth_game",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "tagging",
+   "note": null,
+   "text": "✔ Instagram: @sth_game",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "✔ Instagram: @sth_game",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "tagging",
+   "note": null,
+   "text": "✔ YouTube Shorts: @SEGA_West",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "✔ YouTube Shorts: @SEGA_West",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "ftc_compliance",
+   "note": null,
+   "text": "✔ By participating you agree to make your post FTC compliant",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "✔ By participating you agree to make your post FTC compliant",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "no_spam",
+   "note": null,
+   "text": "❌ Spam posting: do not copy the same video across multiple accounts. Post fresh content on each page",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "❌ Spam posting: do not copy the same video across multiple accounts. Post fresh content on each page",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "story_boosting",
+   "note": null,
+   "text": "❌ Story boosting: posting the content to your story to generate views. Story views do not count and will get you banned",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "❌ Story boosting: posting the content to your story to generate views. Story views do not count and will get you banned",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "no_paid_boost",
+   "note": null,
+   "text": "❌ Paid boosting or video promoting of any kind. Using TikTok/Instagram promote tools or paid ads will result in a permanent ban from Clipping Culture",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "❌ Paid boosting or video promoting of any kind. Using TikTok/Instagram promote tools or paid ads will result in a permanent ban from Clipping Culture",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "post_limit",
+   "note": null,
+   "text": "❌ Posting the same video more than 5 times across your pages. Spread content out, don't oversaturate",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "❌ Posting the same video more than 5 times across your pages. Spread content out, don't oversaturate",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  }
+ ]
+}

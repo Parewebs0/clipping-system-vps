@@ -16,7 +16,7 @@ from app.models.clip_publication import ClipPublication
 from app.models.job import Job
 from app.models.social_account import SocialAccount
 from app.services.job_service import create_job
-from app.services.publish_copy import platform_copy
+from app.services.publish_copy import paid_promotion, platform_copy, platform_mentions
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,9 @@ def enqueue_publish_jobs(
             "platforms": [platform],
             "caption": description,
             "hashtags": hashtags,
-            "mentions": [],
+            "mentions": platform_mentions(campaign, platform),
+            # #45: YouTube paidProductPlacementDetails.hasPaidProductPlacement
+            "paid_promotion": paid_promotion(campaign),
             "title": title,
             "dry_run": payload_dry,
         }

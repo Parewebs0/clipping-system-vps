@@ -58,7 +58,24 @@ def clip_segments(asset, start: float, end: float) -> list[dict]:
     return out
 
 
+_DRIVE_FILE = re.compile(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?(?:export=download&)?id=)([\w-]{10,})")
+
+
+def direct_image_url(url: Optional[str]) -> Optional[str]:
+    """Google Drive 'view' links → direct download (the worker needs the bytes)."""
+    if not url:
+        return url
+    m = _DRIVE_FILE.search(url)
+    if m:
+        return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+    return url
+
+
 def logo_url(campaign, rs: RuleSet) -> Optional[str]:
+    return direct_image_url(_logo_url(campaign, rs))
+
+
+def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
     if rs.logo.url:
         return rs.logo.url
     conf = ((campaign.source_metadata or {}).get("rules_confirmations") or {}).get("human:logo_file") or {}
