@@ -8,7 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.auth import require_bearer
+from app.auth import require_bearer, require_write_bearer
 from app.db.database import get_db
 from app.schemas.clip import (
     ApprovePublishIn,
@@ -165,6 +165,25 @@ def approve_publish(
         already_approved=already,
         publications=pubs,
     )
+
+
+@router.post("/{clip_id}/verify", response_model=ClipOut)
+def verify(
+    clip_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_write_bearer),
+):
+    """#43: re-run the post-render rules verifier (e.g. after confirming a
+    logo URL or editing the copy). Publish requires compliance_status='pass'."""
+    from app.services.rules.verifier import verify_clip
+
+    c = get_clip(db, clip_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Clip not found")
+    verify_clip(db, c)
+    db.commit()
+    db.refresh(c)
+    return c
 
 
 @router.get("/{clip_id}/publications", response_model=List[ClipPublicationOut])

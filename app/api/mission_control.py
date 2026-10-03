@@ -500,7 +500,7 @@ def campaign_detail(
                 SELECT id, asset_id, file_path, duration_seconds, file_size,
                        qa_status, qa_result, status, location, final_path_worker,
                        created_at, updated_at, qa_at, published_at,
-                       publish_approved_at
+                       publish_approved_at, compliance_status, compliance_report
                 FROM clips
                 WHERE campaign_id = :id
                 ORDER BY created_at DESC
@@ -526,6 +526,8 @@ def campaign_detail(
                 "qa_at": _iso(cl.qa_at),
                 "published_at": _iso(cl.published_at),
                 "publish_approved_at": _iso(cl.publish_approved_at),
+                "compliance_status": cl.compliance_status,
+                "compliance_report": cl.compliance_report or {},
             }
             for cl in cl_rows
         ]
@@ -904,7 +906,7 @@ def clips_inventory(
                        cl.qa_status, cl.qa_result, cl.status,
                        cl.location, cl.final_path_worker,
                        cl.created_at, cl.updated_at, cl.qa_at, cl.published_at,
-                       cl.publish_approved_at,
+                       cl.publish_approved_at, cl.compliance_status, cl.compliance_report,
                        c.name AS campaign_name,
                        a.source_url AS asset_source_url
                 FROM clips cl
@@ -940,6 +942,8 @@ def clips_inventory(
                 "qa_at": _iso(r.qa_at),
                 "published_at": _iso(r.published_at),
                 "publish_approved_at": _iso(r.publish_approved_at),
+                "compliance_status": r.compliance_status,
+                "compliance_report": r.compliance_report or {},
             }
             for r in rows
         ]

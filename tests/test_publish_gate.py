@@ -57,6 +57,7 @@ def _make_clip(**overrides):
             qa_result={},
             status="approved",
             location="pending_upload",
+            compliance_status="pass",  # #43
         )
         fields.update(overrides)
         clip = Clip(**fields)
@@ -137,3 +138,18 @@ def test_http_social_accounts():
     assert r.status_code == 200, r.text
     platforms = [row["platform"] for row in r.json()]
     assert "youtube" in platforms
+
+
+def test_approve_rejects_compliance_not_pass():
+    """#43: publish requires the post-render verifier to pass."""
+    for st in ("pending", "fail"):
+        clip_id = _make_clip(compliance_status=st)
+        db = SessionLocal()
+        try:
+            try:
+                approve_clip_publish(db, clip_id)
+                assert False, "expected PublishGateError"
+            except PublishGateError as e:
+                assert "compliance_status" in str(e)
+        finally:
+            db.close()

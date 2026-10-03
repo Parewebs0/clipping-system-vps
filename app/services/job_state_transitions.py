@@ -243,6 +243,13 @@ def on_qa_completed(db: Session, job: Job, result_data: dict) -> Optional[Clip]:
     else:
         clip.status = ClipStatus.REVIEW.value
     clip.qa_job_id = job.id
+    # #43: post-render rules verifier (publish requires compliance 'pass').
+    try:
+        from app.services.rules.verifier import verify_clip
+
+        verify_clip(db, clip)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("clip %s compliance verification failed: %s", clip.id, e)
     db.commit()
     db.refresh(clip)
     if qa_status == ClipQAStatus.PASS.value:

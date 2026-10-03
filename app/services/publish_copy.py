@@ -70,3 +70,8 @@ def youtube_copy(campaign: Any, clip: Any, candidate: Any = None) -> tuple[str, 
     tags = _hashtags(campaign)
     description = f"{caption}\n\n{' '.join(tags)}"[:5000]
     return title, description, tags
+
+
+def platform_copy(campaign: Any, clip: Any, candidate: Any = None, platform: str = "youtube") -> tuple[str, str, list[str]]:
+    """Copy for `platform` (#43 verifier and publish enqueue share it)."""
+    return youtube_copy(campaign, clip, candidate)

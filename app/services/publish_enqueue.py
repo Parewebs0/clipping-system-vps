@@ -16,7 +16,7 @@ from app.models.clip_publication import ClipPublication
 from app.models.job import Job
 from app.models.social_account import SocialAccount
 from app.services.job_service import create_job
-from app.services.publish_copy import youtube_copy
+from app.services.publish_copy import platform_copy
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +96,14 @@ def enqueue_publish_jobs(
             continue
         if clip.qa_status != "pass" or clip.status != "approved":
             continue
+        if clip.compliance_status != "pass":  # #43 post-render rules verifier
+            continue
         if _blocks_requeue(db, clip.id, platform, live=live):
             continue
 
         campaign = db.get(Campaign, clip.campaign_id)
         cand = db.get(Candidate, clip.candidate_id) if clip.candidate_id else None
-        title, description, hashtags = youtube_copy(campaign, clip, cand)
+        title, description, hashtags = platform_copy(campaign, clip, cand, platform)
         file_path = clip.final_path_worker or clip.file_path
         payload = {
             "clip_id": str(clip.id),

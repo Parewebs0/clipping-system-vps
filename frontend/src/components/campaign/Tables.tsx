@@ -5,6 +5,7 @@ import { StatusBadge, ToneBadge } from '@/components/common/StatusBadge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmtBytes, fmtDate, fmtDuration } from '@/lib/format'
 import { CLIP_QA_STATUS } from '@/lib/status'
+import { ComplianceCell } from './ComplianceReport'
 
 export function AssetsTable({ rows, baseUrl }: { rows: McAsset[]; baseUrl?: string | null }) {
   if (!rows.length) return <EmptyBlock>Sin assets. El resolver (3b) los crea a partir de los enlaces del brief.</EmptyBlock>
@@ -63,6 +64,7 @@ export function ClipsTable({ rows, baseUrl }: { rows: McClip[]; baseUrl?: string
         <TableRow>
           <TableHead>Clip</TableHead>
           <TableHead>QA</TableHead>
+          <TableHead>Reglas</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead>Ubicación</TableHead>
           <TableHead>Fichero</TableHead>
@@ -78,6 +80,9 @@ export function ClipsTable({ rows, baseUrl }: { rows: McClip[]; baseUrl?: string
             </TableCell>
             <TableCell>
               <ToneBadge tone={CLIP_QA_STATUS[c.qa_status].tone}>{CLIP_QA_STATUS[c.qa_status].label}</ToneBadge>
+            </TableCell>
+            <TableCell>
+              <ComplianceCell clip={c} />
             </TableCell>
             <TableCell>
               <StatusBadge status={c.status} />
