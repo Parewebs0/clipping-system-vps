@@ -3,6 +3,20 @@
     "schemas": {
       "ApprovePublishIn": {
         "properties": {
+          "confirmed_checks": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Confirmed Checks",
+            "type": "array"
+          },
           "platforms": {
             "anyOf": [
               {

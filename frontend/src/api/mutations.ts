@@ -103,6 +103,30 @@ export function useConfirmRules(id: number) {
   })
 }
 
+export function useUploadLogo(id: number) {
+  const invalidate = useInvalidateCampaign()
+  return useMutation({
+    mutationFn: (body: FormData) => api<CampaignRuleset>(`/campaigns/${id}/rules/logo`, { method: 'POST', body }),
+    onSuccess: () => invalidate(id),
+  })
+}
+
+export function useApprovePublish(campaignId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ clipId, confirmed_checks }: { clipId: string; confirmed_checks: Array<number | string> }) =>
+      api<{ already_approved: boolean }>(`/clips/${clipId}/approve_publish`, {
+        method: 'POST',
+        body: JSON.stringify({ confirmed_checks }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clips'] })
+      if (campaignId != null) qc.invalidateQueries({ queryKey: ['campaign', campaignId] })
+      else qc.invalidateQueries({ queryKey: ['campaign'] })
+    },
+  })
+}
+
 // --- #43 post-render rules verifier: re-run (write token).
 export function useVerifyClip(campaignId?: number) {
   const qc = useQueryClient()

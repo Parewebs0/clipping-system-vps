@@ -11,7 +11,7 @@ from app.models.candidate import Candidate, CandidateStatus
 from app.models.clip import Clip
 from app.models.clip_publication import ClipPublication
 from app.models.job import Job  # noqa: F401
-from app.services.publish_gate import approve_clip_publish, PublishGateError
+from app.services.publish_gate import approve_clip_publish, PublishGateError, require_review_confirmations
 
 
 def _make_clip(**overrides):
@@ -82,6 +82,51 @@ def test_approve_happy_path():
         _, pubs2, already2 = approve_clip_publish(db, clip_id)
         assert already2 is True
         assert len(pubs2) == 1
+    finally:
+        db.close()
+
+
+def test_review_confirmation_resolver():
+    report = {"checks": [
+        {"rule": "hook", "status": "review"},
+        {"rule": "edit", "status": "pass"},
+        {"rule": "manual_check", "status": "review"},
+        {"rule": "manual_check", "status": "review"},
+    ]}
+    assert require_review_confirmations({"checks": []}, []) == []
+    assert require_review_confirmations(report, ["hook", 2, 3]) == [0, 2, 3]
+    try:
+        require_review_confirmations(report, ["hook"])
+        assert False, "expected missing checks"
+    except PublishGateError as e:
+        assert "manual_check" in str(e)
+    try:
+        require_review_confirmations(report, ["manual_check", "hook"])
+        assert False, "expected duplicate rule"
+    except PublishGateError as e:
+        assert "index" in str(e)
+
+
+def test_approve_requires_the_human_checklist_once():
+    clip_id = _make_clip(compliance_report={"checks": [
+        {"rule": "duration", "status": "pass"},
+        {"rule": "hook", "status": "review"},
+        {"rule": "edit", "status": "review"},
+    ]})
+    db = SessionLocal()
+    try:
+        try:
+            approve_clip_publish(db, clip_id, confirmed_checks=["hook"])
+            assert False, "expected PublishGateError"
+        except PublishGateError as e:
+            assert "edit" in str(e)
+        db.rollback()
+        clip, _, already = approve_clip_publish(db, clip_id, confirmed_checks=[1, "edit"])
+        assert already is False
+        saved = clip.compliance_report["human_confirmations"]
+        assert saved["checks"] == [1, 2] and saved["by"] == "api:approve_publish"
+        _, _, again = approve_clip_publish(db, clip_id)
+        assert again is True
     finally:
         db.close()
 

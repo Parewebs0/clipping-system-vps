@@ -154,7 +154,8 @@ def approve_publish(
     """
     try:
         clip, pubs, already = approve_clip_publish(
-            db, clip_id, platforms=payload.platforms
+            db, clip_id, platforms=payload.platforms,
+            confirmed_checks=payload.confirmed_checks, actor="api:approve_publish",
         )
     except PublishGateError as e:
         msg = str(e)
