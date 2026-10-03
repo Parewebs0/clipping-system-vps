@@ -20,6 +20,11 @@ psycopg2-binary==2.9.12
 httpx==0.28.1           # Async + TestClient
 requests==2.34.2        # Sync HTTP for whop_integration / 3rd-party scrapers
 
+# Logo upload (#55): PNG passthrough, JPEG/WebP via Pillow, SVG via cairosvg
+pillow==11.3.0
+cairosvg==2.8.2
+python-multipart==0.0.20
+
 # Config loading
 python-dotenv==1.2.3
 

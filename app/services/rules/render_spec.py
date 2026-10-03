@@ -76,6 +76,9 @@ def logo_url(campaign, rs: RuleSet) -> Optional[str]:
 
 
 def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
+    overrides = ((getattr(campaign, "source_metadata", None) or {}).get("rules_overrides") or {})
+    if isinstance(overrides, dict) and overrides.get("logo_url"):
+        return str(overrides["logo_url"])
     if rs.logo.url:
         return rs.logo.url
     conf = ((campaign.source_metadata or {}).get("rules_confirmations") or {}).get("human:logo_file") or {}
@@ -104,6 +107,12 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         wm_start, wm_end = 0.0, min(dur, secs)
     elif rs.logo.timing == "end":
         wm_start, wm_end = max(0.0, dur - secs), dur
+    if rs.logo.as_cta and not (wm_start is None and wm_end is None):
+        # End card stays 3s. Extend a partial window so the logo covers it (#56).
+        # start/end None already means the whole clip, which covers the last 3s.
+        base = 0.0 if wm_start is None else float(wm_start)
+        wm_start = round(min(base, max(0.0, dur - 3.0)), 3)
+        wm_end = dur
     watermark = {"enabled": bool(url), "url": url, "position": rs.logo.position, "width": 220,
                  "start": wm_start, "end": wm_end}
     # On-screen text: decider text + literal must_include + CTA

@@ -50,6 +50,35 @@ def test_spec_logo_from_confirmation_and_text():
     assert req["logo"] and req["logo_url_available"] and req["captions"] and req["on_screen_must_include"] == ["@boxabl"]
 
 
+def test_as_cta_extends_partial_logo_window_and_keeps_end_card_text():
+    rs = RuleSet()
+    rs.logo.required = True
+    rs.logo.url = "https://cdn.x/logo.png"
+    rs.logo.timing = "start"
+    rs.logo.min_seconds = 3
+    rs.logo.as_cta = True
+    rs.logo.cta_text = "Visit boxabl.com"
+    cand = SimpleNamespace(start_time=0.0, end_time=20.0, extra_metadata={})
+    out = build_render_spec(_camp(rs), SimpleNamespace(extra_metadata={}), cand)
+    assert out["watermark"]["start"] == 0.0 and out["watermark"]["end"] == 20.0
+    cta = out["on_screen_text"]["items"][-1]
+    assert cta["text"] == "Visit boxabl.com" and cta["start"] == 17.0 and cta["end"] == 20.0
+    rs.logo.timing = "full"
+    full = build_render_spec(_camp(rs), SimpleNamespace(extra_metadata={}), cand)
+    assert full["watermark"]["start"] is None and full["watermark"]["end"] is None
+
+
+def test_logo_override_is_preferred_over_ruleset_url():
+    rs = RuleSet()
+    rs.logo.required = True
+    rs.logo.url = "https://cdn.x/old.png"
+    camp = _camp(rs)
+    camp.source_metadata["rules_overrides"] = {"logo_url": "/worker/campaigns/1/logo"}
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    out = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert out["watermark"]["url"] == "/worker/campaigns/1/logo"
+
+
 def test_spec_logo_required_without_url_is_flagged():
     rs = RuleSet()
     rs.logo.required = True

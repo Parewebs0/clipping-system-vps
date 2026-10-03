@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth import require_bearer, require_write_bearer
@@ -496,6 +496,7 @@ def _ruleset_view(c) -> dict:
     meta = c.source_metadata or {}
     rs = load_ruleset(meta)
     items = blockers(c)
+    overrides = meta.get("rules_overrides") if isinstance(meta.get("rules_overrides"), dict) else {}
     return {
         "campaign_id": c.id,
         "status": c.status,
@@ -504,6 +505,7 @@ def _ruleset_view(c) -> dict:
         "pending_count": sum(1 for b in items if not b["confirmed"]),
         "gate": meta.get("rules_gate"),
         "compliance": meta.get("rules_compliance"),
+        "logo_url": overrides.get("logo_url"),
     }
 
 
@@ -540,6 +542,51 @@ def confirm_rules(
     except GateError as e:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(e))
+    db.commit()
+    db.refresh(c)
+    return _ruleset_view(c)
+
+
+@router.post("/{campaign_id}/rules/logo", response_model=CampaignRulesetOut)
+async def upload_logo(
+    campaign_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_write_bearer),
+):
+    """Store a campaign logo and confirm only ``human:logo_file`` (#55).
+
+    The file is kept on this server. ``rules_overrides.logo_url`` is the
+    worker route, not a public URL.
+    """
+    from app.services.logo_store import MAX_LOGO_BYTES, LogoError, logo_file_path, rasterize_logo
+    from app.services.rules.gate import GateError, blockers, confirm
+
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    data = await file.read()
+    if len(data) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="logo larger than 5MB")
+    try:
+        png = rasterize_logo(data, file.content_type or "", file.filename or "")
+    except LogoError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    path = logo_file_path(campaign_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(png)
+    meta = dict(c.source_metadata or {})
+    overrides = dict(meta.get("rules_overrides") or {})
+    overrides["logo_url"] = f"/worker/campaigns/{campaign_id}/logo"
+    meta["rules_overrides"] = overrides
+    c.source_metadata = meta
+    logo_blocker = next((b for b in blockers(c) if b["key"] == "human:logo_file" and not b["confirmed"]), None)
+    if logo_blocker:
+        try:
+            confirm(c, ["human:logo_file"], note="logo file uploaded", actor="api:logo_upload")
+        except GateError as e:
+            db.rollback()
+            raise HTTPException(status_code=409, detail=str(e)) from e
     db.commit()
     db.refresh(c)
     return _ruleset_view(c)

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # make them clickable (e.g. https://worker.tailnet.ts.net:8443 or file://).
     # Leave empty to render as literal text.
     worker_file_base_url: str = ""
+    # Campaign logo PNGs (#55). Empty: /opt/clipping-system/storage/logos when that
+    # tree exists, otherwise ./storage/logos.
+    logo_dir: str = ""
 
     @property
     def database_url(self) -> str:

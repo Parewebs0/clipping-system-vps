@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { useConfirmRules } from '@/api/mutations'
+import { getToken } from '@/api/client'
+import { useConfirmRules, useUploadLogo } from '@/api/mutations'
 import { useCampaignRuleset } from '@/api/queries'
 import type { RuleBlocker } from '@/api/types'
 import { ErrorBlock, LoadingBlock } from '@/components/common/States'
@@ -111,9 +112,35 @@ function BlockerRow({ b, checked, onToggle }: { b: RuleBlocker; checked: boolean
   )
 }
 
+function LogoPreview({ url }: { url: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    let dead = false
+    let revoke: string | null = null
+    const token = getToken()
+    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error('logo'))))
+      .then((b) => {
+        if (dead) return
+        revoke = URL.createObjectURL(b)
+        setSrc(revoke)
+      })
+      .catch(() => {
+        if (!dead) setSrc(null)
+      })
+    return () => {
+      dead = true
+      if (revoke) URL.revokeObjectURL(revoke)
+    }
+  }, [url])
+  if (!src) return null
+  return <img src={src} alt="logo de la campaña" className="h-16 w-auto rounded border" />
+}
+
 export function RulesetPanel({ campaignId }: { campaignId: number }) {
   const { data, error, isLoading } = useCampaignRuleset(campaignId)
   const confirm = useConfirmRules(campaignId)
+  const upload = useUploadLogo(campaignId)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [note, setNote] = useState('')
   if (isLoading) return <LoadingBlock />
@@ -161,6 +188,32 @@ export function RulesetPanel({ campaignId }: { campaignId: number }) {
               que se cumple igualmente.
             </div>
           )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-sm">
+              Logo de la campaña
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+                className="mt-1 block text-xs"
+                aria-label="subir logo"
+                disabled={upload.isPending}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!f) return
+                  const body = new FormData()
+                  body.append('file', f)
+                  try {
+                    await upload.mutateAsync(body)
+                    toast.success('Logo guardado')
+                  } catch (err) {
+                    toast.error('No se pudo subir el logo', { description: err instanceof Error ? err.message : String(err) })
+                  }
+                }}
+              />
+            </label>
+            {data.logo_url ? <LogoPreview url={data.logo_url} /> : null}
+          </div>
           <ul>
             {blockers.map((b) => (
               <BlockerRow key={b.key} b={b} checked={sel.has(b.key)} onToggle={() => toggle(b.key)} />
