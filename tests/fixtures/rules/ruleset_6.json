@@ -16,6 +16,11 @@
      "quote": "Must be the first hashtag or element after the post text",
      "source": "doc",
      "verified": true
+    },
+    {
+     "quote": "Must not be buried in a paragraph, must be clear and conspicuous",
+     "source": "doc",
+     "verified": true
     }
    ],
    "own_line": false,
@@ -27,7 +32,12 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "Each submission must include a natural comment + description mentioning ForgeGUI. Such as “I used ForgeGUI” The comment must be pinned if the platform allows it.",
+    "quote": "Each submission must include a natural comment + description mentioning ForgeGUI. Such as “I used ForgeGUI”",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "The comment must be pinned if the platform allows it.",
     "source": "doc",
     "verified": true
    }
@@ -60,7 +70,7 @@
   "required": true,
   "enforcement": "auto",
   "exact_caption": null,
-  "pinned_comment": "Each submission must include a natural comment + description mentioning ForgeGUI. Such as “I used ForgeGUI” The comment must be pinned if the platform allows it.",
+  "pinned_comment": "I used ForgeGUI",
   "must_mention_any": [
    "ForgeGUI"
   ],
@@ -71,12 +81,22 @@
   "scope": "clip",
   "evidence": [
    {
-    "quote": "Do not upload the provided footage with no changes",
+    "quote": "Add captions or text on screen",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "You can repurpose the videos by adding: Add captions or text on screen Slight trimming or pacing changes Simple zooms, cuts, or transitions",
+    "quote": "Slight trimming or pacing changes",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Simple zooms, cuts, or transitions",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Do not upload the provided footage with no changes",
     "source": "doc",
     "verified": true
    }
@@ -102,8 +122,8 @@
   "note": "logo required but no logo file URL: provide the file or confirm how it is met",
   "scope": "campaign",
   "as_cta": true,
-  "timing": "end",
-  "cta_text": "Try ForgeGUI today or Tool is called ForgeGUI",
+  "timing": "full",
+  "cta_text": "Try ForgeGUI today",
   "evidence": [
    {
     "quote": "Call to action mentioning ForgeGUI and showing the logo for at least 3 seconds. Can be at the end of the video. Something along the lines of \"Try ForgeGUI today\" or \"Tool is called ForgeGUI\"",
@@ -126,7 +146,7 @@
    }
   ],
   "chunks": 1,
-  "extracted_at": "2026-10-03T11:26:29.227131+00:00",
+  "extracted_at": "2026-10-03T11:34:16.024357+00:00",
   "source_chars": 5770,
   "validation_errors": []
  },
@@ -165,7 +185,7 @@
     "verified": true
    },
    {
-    "quote": "You will be given pre-made ForgeGUI videos/footage to repurpose and upload",
+    "quote": "You will be given pre-made ForgeGUI videos/footage to repurpose and upload.",
     "source": "doc",
     "verified": true
    }
@@ -181,19 +201,25 @@
  "captions": {
   "note": null,
   "scope": "clip",
-  "evidence": [],
-  "required": false,
+  "evidence": [
+   {
+    "quote": "Add captions or text on screen",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "required": true,
   "enforcement": "auto",
   "brand_dictionary": []
  },
  "coverage": {
   "ignored": 4,
   "uncovered": [],
-  "evidence_total": 34,
+  "evidence_total": 46,
   "normative_lines": 31,
-  "evidence_verified": 34,
-  "covered_first_pass": 22,
-  "mapped_second_pass": 5,
+  "evidence_verified": 46,
+  "covered_first_pass": 18,
+  "mapped_second_pass": 9,
   "unsupported_second_pass": 0
  },
  "duration": {
@@ -224,20 +250,7 @@
   "instagram",
   "youtube"
  ],
- "unsupported": [
-  {
-   "text": "You are not expected to create full videos from scratch.",
-   "reason": "Only repurpose provided footage with simple edits",
-   "blocking": true,
-   "evidence": [
-    {
-     "quote": "You are not expected to create full videos from scratch. Your job is to make the provided footage feel native to the platform by adding simple edits.",
-     "source": "doc",
-     "verified": true
-    }
-   ]
-  }
- ],
+ "unsupported": [],
  "pre_approval": {
   "note": null,
   "scope": "campaign",
@@ -251,17 +264,16 @@
   "terms": [
    "bait and switch",
    "paid promotions",
-   "collaborations",
-   "Tiktok promotion",
-   "spamming uploads",
-   "like for like"
+   "aggressive promotion",
+   "un-organic algorithm view methods",
+   "tiktok promotion"
   ],
   "topics": [
-   "Misleading content",
-   "low-quality content",
-   "poorly presented content",
-   "off-topic submissions",
-   "un-organic algorithm view methods"
+   "misleading",
+   "low-quality",
+   "poorly presented",
+   "off-topic",
+   "paid promotions and collaborations"
   ],
   "evidence": [
    {
@@ -275,12 +287,17 @@
     "verified": true
    },
    {
-    "quote": "Tiktok promotion and/any sort of un-organic algorithm view methods are not allowed",
+    "quote": "Misleading, low-quality, poorly presented, or off-topic submissions may be denied.",
     "source": "doc",
     "verified": true
    },
    {
-    "quote": "Spamming uploads/submissions will get you banned",
+    "quote": "Avoid aggressive promotion",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Tiktok promotion and/any sort of un-organic algorithm view methods are not allowed.",
     "source": "doc",
     "verified": true
    }
@@ -291,11 +308,25 @@
  "manual_checks": [
   {
    "note": null,
-   "text": "Content with little original effort may be rejected. Clips need to highlight ForgeGUI features. An actual demo is required.",
+   "text": "Content with little original effort may be rejected.",
    "scope": "clip",
    "evidence": [
     {
-     "quote": "Content with little original effort may be rejected. Clips need to highlight ForgeGUI features. An actual demo is required.",
+     "quote": "Content with little original effort may be rejected.",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
+   "text": "Clips need to highlight ForgeGUI features. An actual demo is required.",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "Clips need to highlight ForgeGUI features. An actual demo is required.",
      "source": "doc",
      "verified": true
     }
@@ -319,6 +350,20 @@
   },
   {
    "note": null,
+   "text": "Bait and switch content will be denied.",
+   "scope": "clip",
+   "evidence": [
+    {
+     "quote": "Bait and switch content will be denied. This is when the hook is unrelated to the rest of the video",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "note": null,
    "text": "Content must feel natural, clean, and organic.",
    "scope": "clip",
    "evidence": [
@@ -333,25 +378,11 @@
   },
   {
    "note": null,
-   "text": "Avoid aggressive promotion",
+   "text": "Clips need to highlight ForgeGUI features. An actual demo is required.",
    "scope": "clip",
    "evidence": [
     {
-     "quote": "Avoid aggressive promotion",
-     "source": "doc",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  },
-  {
-   "note": null,
-   "text": "Must not be buried in a paragraph, must be clear and conspicuous",
-   "scope": "clip",
-   "evidence": [
-    {
-     "quote": "Must not be buried in a paragraph, must be clear and conspicuous",
+     "quote": "Clips need to highlight ForgeGUI features. An actual demo is required.",
      "source": "doc",
      "verified": true
     }
@@ -363,11 +394,24 @@
  "on_screen_text": {
   "note": null,
   "scope": "clip",
-  "evidence": [],
-  "guidance": null,
-  "required": false,
+  "evidence": [
+   {
+    "quote": "Call to action mentioning ForgeGUI and showing the logo for at least 3 seconds. Can be at the end of the video. Something along the lines of \"Try ForgeGUI today\" or \"Tool is called ForgeGUI\"",
+    "source": "doc",
+    "verified": true
+   },
+   {
+    "quote": "Add captions or text on screen",
+    "source": "doc",
+    "verified": true
+   }
+  ],
+  "guidance": "Call to action mentioning ForgeGUI and showing the logo for at least 3 seconds. Can be at the end of the video. Something along the lines of \"Try ForgeGUI today\" or \"Tool is called ForgeGUI\"",
+  "required": true,
   "enforcement": "auto",
-  "must_include": []
+  "must_include": [
+   "ForgeGUI"
+  ]
  },
  "content_source_urls": [
   "https://drive.google.com/drive/folders/1vFXrGZbqmMJbdxwuoEZvZbBXdBQ8c_c-?usp=sharing",
@@ -422,11 +466,11 @@
   {
    "kind": "warmup",
    "note": null,
-   "text": "Skipping warmup = weak reach. After Day 3 Start posting Engage at least 15 minutes daily",
+   "text": "Skipping warmup = weak reach.",
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "WARMUP PROCESS Day 1 Scroll FYP normally Do not search anything Act like a real user Day 2 Search your niche (Roblox dev, Roblox AI softwares, etc.) Engage with a few related videos Continue normal scrolling Day 3 Fully engage with your niche After Day 3 Start posting Engage at least 15 minutes daily Skipping warmup = weak reach.",
+     "quote": "Skipping warmup = weak reach.",
      "source": "doc",
      "verified": true
     }
@@ -437,26 +481,11 @@
   {
    "kind": "posting_limit",
    "note": null,
-   "text": "Do not post more than 3 times per day on one account or else you may get shadowbanned",
+   "text": "Do not post more than 3 times per day on one account or else you may get shadowbanned.",
    "scope": "campaign",
    "evidence": [
     {
-     "quote": "Do not post more than 3 times per day on one account or else you may get shadowbanned",
-     "source": "doc",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  },
-  {
-   "kind": "community",
-   "note": null,
-   "text": "You must join the BloxClips discord server: https://discord.gg/fTrmC7dNb",
-   "scope": "campaign",
-   "evidence": [
-    {
-     "quote": "You must join the BloxClips discord server: https://discord.gg/fTrmC7dNb",
+     "quote": "Do not post more than 3 times per day on one account or else you may get shadowbanned.",
      "source": "doc",
      "verified": true
     }
@@ -482,16 +511,41 @@
   {
    "kind": "dedicated_account",
    "note": null,
-   "text": "Must use a fully Roblox based-account The account must look clean, realistic, and organic. Not spam",
+   "text": "Must use a fully Roblox based-account",
    "scope": "campaign",
    "evidence": [
     {
      "quote": "Must use a fully Roblox based-account",
      "source": "doc",
      "verified": true
-    },
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "community",
+   "note": null,
+   "text": "You must join the BloxClips discord server: https://discord.gg/fTrmC7dNb",
+   "scope": "campaign",
+   "evidence": [
     {
-     "quote": "The account must look clean, realistic, and organic. Not spam",
+     "quote": "You must join the BloxClips discord server: https://discord.gg/fTrmC7dNb",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "other",
+   "note": null,
+   "text": "Remove the verification code from your bio after verifying with content rewards",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Remove the verification code from your bio after verifying with content rewards",
      "source": "doc",
      "verified": true
     }
@@ -552,6 +606,66 @@
    "evidence": [
     {
      "quote": "If you do not already own a roblox account, create a new channel",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "dedicated_account",
+   "note": null,
+   "text": "The account must look clean, realistic, and organic. Not spam",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "The account must look clean, realistic, and organic. Not spam",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "engagement",
+   "note": null,
+   "text": "Engage at least 15 minutes daily",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Engage at least 15 minutes daily",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "posting_limit",
+   "note": null,
+   "text": "Spamming uploads/submissions will get you banned",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Spamming uploads/submissions will get you banned",
+     "source": "doc",
+     "verified": true
+    }
+   ],
+   "required": true,
+   "enforcement": "human"
+  },
+  {
+   "kind": "keep_live",
+   "note": null,
+   "text": "Botters will be permanently IP banned",
+   "scope": "campaign",
+   "evidence": [
+    {
+     "quote": "Botters will be permanently IP banned",
      "source": "doc",
      "verified": true
     }

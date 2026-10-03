@@ -122,7 +122,7 @@
    }
   ],
   "chunks": 1,
-  "extracted_at": "2026-10-03T11:29:08.051068+00:00",
+  "extracted_at": "2026-10-03T11:43:01.392046+00:00",
   "source_chars": 3402,
   "validation_errors": []
  },
@@ -203,11 +203,11 @@
  "coverage": {
   "ignored": 1,
   "uncovered": [],
-  "evidence_total": 19,
+  "evidence_total": 16,
   "normative_lines": 13,
-  "evidence_verified": 19,
-  "covered_first_pass": 11,
-  "mapped_second_pass": 1,
+  "evidence_verified": 16,
+  "covered_first_pass": 10,
+  "mapped_second_pass": 2,
   "unsupported_second_pass": 0
  },
  "duration": {
@@ -239,32 +239,7 @@
   "x",
   "youtube"
  ],
- "unsupported": [
-  {
-   "text": "No clips of Kanye",
-   "reason": "instant rejection",
-   "blocking": true,
-   "evidence": [
-    {
-     "quote": "No clips of Kanye — instant rejection.",
-     "source": "guidelines",
-     "verified": true
-    }
-   ]
-  },
-  {
-   "text": "No story boosting",
-   "reason": "explicitly prohibited",
-   "blocking": true,
-   "evidence": [
-    {
-     "quote": "No story boosting.",
-     "source": "guidelines",
-     "verified": true
-    }
-   ]
-  }
- ],
+ "unsupported": [],
  "pre_approval": {
   "note": null,
   "scope": "campaign",
@@ -282,11 +257,13 @@
   "note": null,
   "scope": "clip",
   "terms": [
-   "Kanye"
+   "Kanye",
+   "Boxabl stock",
+   "trading ticker"
   ],
   "topics": [
    "mocking or negativity toward Boxabl, the product, or featured talent",
-   "Boxabl stock or its trading ticker"
+   "story boosting"
   ],
   "evidence": [
    {
@@ -295,12 +272,17 @@
     "verified": true
    },
    {
-    "quote": "Positive vibes only — no mocking or negativity toward Boxabl, the product, or featured talent (including Post Malone, Elon, etc).",
+    "quote": "No story boosting.",
     "source": "guidelines",
     "verified": true
    },
    {
     "quote": "Do not mention Boxabl stock or its trading ticker in any caption or post.",
+    "source": "guidelines",
+    "verified": true
+   },
+   {
+    "quote": "Positive vibes only — no mocking or negativity toward Boxabl, the product, or featured talent (including Post Malone, Elon, etc).",
     "source": "guidelines",
     "verified": true
    }
@@ -311,26 +293,12 @@
  "manual_checks": [
   {
    "note": null,
-   "text": "Always show the WHOLE Boxabl home, not just one feature",
-   "scope": "clip",
-   "evidence": [
-    {
-     "quote": "Always show the WHOLE Boxabl home, not just one feature — think car review, show the whole car first.",
-     "source": "guidelines",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  },
-  {
-   "note": null,
-   "text": "Vary your clips — don't repost the same moment repeatedly",
+   "text": "Vary your clips — don't repost the same moment repeatedly.",
    "scope": "clip",
    "evidence": [
     {
      "quote": "Vary your clips — don't repost the same moment repeatedly.",
-     "source": "guidelines",
+     "source": "doc",
      "verified": true
     }
    ],
@@ -375,21 +343,5 @@
   "https://drive.google.com/file/d/1OnH2B5N-TaGyHqPdmT0uxdCeA-38FXry/view?usp=sharing",
   "https://drive.google.com/drive/folders/18g8x37vc9ULLBpN96wtTrct1cd3_aUmK"
  ],
- "account_requirements": [
-  {
-   "kind": "tagging",
-   "note": null,
-   "text": "Optional: tag founder/CEO Galiano Tiramani (@GalianoTiramani on X or @box_pusher on Instagram).",
-   "scope": "campaign",
-   "evidence": [
-    {
-     "quote": "Optional: tag founder/CEO Galiano Tiramani (@GalianoTiramani on X or @box_pusher on Instagram).",
-     "source": "doc",
-     "verified": true
-    }
-   ],
-   "required": true,
-   "enforcement": "human"
-  }
- ]
+ "account_requirements": []
 }
