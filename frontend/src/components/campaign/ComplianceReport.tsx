@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { useVerifyClip } from '@/api/mutations'
+import { useApprovePublish, useVerifyClip } from '@/api/mutations'
 import type { McClip } from '@/api/types'
 import { ToneBadge } from '@/components/common/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -17,7 +18,27 @@ export function ComplianceCell({ clip, campaignId }: { clip: McClip; campaignId?
   const st = clip.compliance_status ?? 'pending'
   const report = (clip.compliance_report ?? {}) as { checks?: Check[]; checked_at?: string; failed?: string[] }
   const checks = report.checks ?? []
+  const reviewIdx = checks.map((c, i) => (c.status === 'review' ? i : -1)).filter((i) => i >= 0)
+  const [picked, setPicked] = useState<Set<number>>(new Set())
+  const approved = Boolean(clip.publish_approved_at)
+  const ready = reviewIdx.every((i) => picked.has(i))
   const verify = useVerifyClip(campaignId)
+  const approve = useApprovePublish(campaignId)
+  const toggle = (i: number) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      if (n.has(i)) n.delete(i)
+      else n.add(i)
+      return n
+    })
+  const doApprove = async () => {
+    try {
+      const r = await approve.mutateAsync({ clipId: clip.id, confirmed_checks: reviewIdx.filter((i) => picked.has(i)) })
+      toast.success(r.already_approved ? 'La publicación ya estaba aprobada' : 'Publicación aprobada')
+    } catch (e) {
+      toast.error('No se pudo aprobar la publicación', { description: e instanceof Error ? e.message : String(e) })
+    }
+  }
   const rerun = async () => {
     try {
       const r = await verify.mutateAsync(clip.id)
@@ -77,9 +98,31 @@ export function ComplianceCell({ clip, campaignId }: { clip: McClip; campaignId?
             </tbody>
           </table>
         )}
-        <div>
+        {!approved && reviewIdx.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Checklist antes de aprobar la publicación</div>
+            {reviewIdx.map((i) => (
+              <label key={i} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={picked.has(i)}
+                  onChange={() => toggle(i)}
+                  aria-label={`checklist ${checks[i].rule} ${i}`}
+                />
+                <span className="font-mono text-xs">
+                  {checks[i].rule}
+                  {checks[i].platform ? ` (${checks[i].platform})` : ''}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={rerun} disabled={verify.isPending}>
             Re-verificar
+          </Button>
+          <Button size="sm" onClick={doApprove} disabled={approved || approve.isPending || (reviewIdx.length > 0 && !ready)}>
+            {approved ? 'Publicación aprobada' : 'Aprobar publicación'}
           </Button>
         </div>
       </DialogContent>

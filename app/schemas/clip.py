@@ -94,6 +94,8 @@ class ClipOut(BaseModel):
 
 class ApprovePublishIn(BaseModel):
     platforms: Optional[list[str]] = None
+    # Index into compliance_report.checks, or a rule name that matches one review row (#53).
+    confirmed_checks: list[int | str] = Field(default_factory=list)
 
 
 class ClipPublicationOut(BaseModel):

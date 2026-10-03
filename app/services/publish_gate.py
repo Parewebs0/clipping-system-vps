@@ -40,10 +40,53 @@ def list_publications_for_clip(db: Session, clip_id: uuid.UUID) -> list[ClipPubl
     return list(db.execute(stmt).scalars())
 
 
+def _review_indexes(checks: list) -> list[int]:
+    return [i for i, c in enumerate(checks) if isinstance(c, dict) and c.get("status") == "review"]
+
+
+def require_review_confirmations(report: dict | None, confirmed: Optional[list] = None) -> list[int]:
+    """Every review row must be confirmed by index, or by a rule name that matches one row.
+
+    Duplicate rule names (prohibitions.topic, manual_check) only resolve by index.
+    An empty review list with no confirmations is valid.
+    """
+    checks = list((report or {}).get("checks") or []) if isinstance(report, dict) else []
+    review = _review_indexes(checks)
+    by_rule: dict[str, list[int]] = {}
+    for i in review:
+        by_rule.setdefault(str(checks[i].get("rule") or ""), []).append(i)
+    chosen: set[int] = set()
+    for item in confirmed or []:
+        if isinstance(item, bool) or item is None:
+            raise PublishGateError(f"confirmed_checks entry {item!r} is not an index or a rule name")
+        if isinstance(item, int) or (isinstance(item, str) and item.lstrip("-").isdigit()):
+            idx = int(item)
+            if idx not in review:
+                raise PublishGateError(f"confirmed check {idx} is not a review check")
+            chosen.add(idx)
+            continue
+        if isinstance(item, str):
+            hits = by_rule.get(item) or []
+            if len(hits) == 1:
+                chosen.add(hits[0])
+                continue
+            if not hits:
+                raise PublishGateError(f"no review check named {item!r}")
+            raise PublishGateError(f"rule {item!r} matches several review checks; confirm by index")
+        raise PublishGateError(f"confirmed_checks entry {item!r} is not an index or a rule name")
+    missing = [i for i in review if i not in chosen]
+    if missing:
+        names = ", ".join(str(checks[i].get("rule")) for i in missing)
+        raise PublishGateError(f"unconfirmed review checks: {names}")
+    return sorted(chosen)
+
+
 def approve_clip_publish(
     db: Session,
     clip_id: uuid.UUID,
     platforms: Optional[list[str]] = None,
+    confirmed_checks: Optional[list] = None,
+    actor: str = "api:approve_publish",
 ) -> tuple[Clip, list[ClipPublication], bool]:
     wanted = list(platforms) if platforms else list(DEFAULT_PLATFORMS)
     wanted = [p.strip().lower() for p in wanted if p and p.strip()]
@@ -78,6 +121,11 @@ def approve_clip_publish(
 
     already = clip.publish_approved_at is not None
     if not already:
+        report = clip.compliance_report if isinstance(clip.compliance_report, dict) else {}
+        chosen = require_review_confirmations(report, confirmed_checks)
+        stored = dict(report)
+        stored["human_confirmations"] = {"by": actor, "at": _now().isoformat(), "checks": chosen}
+        clip.compliance_report = stored
         clip.publish_approved_at = _now()
 
     pubs: list[ClipPublication] = []

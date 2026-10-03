@@ -1240,6 +1240,8 @@ export interface components {
     schemas: {
         /** ApprovePublishIn */
         ApprovePublishIn: {
+            /** Confirmed Checks */
+            confirmed_checks?: (number | string)[];
             /** Platforms */
             platforms?: string[] | null;
         };
