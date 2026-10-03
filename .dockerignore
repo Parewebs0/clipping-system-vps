@@ -6,3 +6,5 @@ logs
 gog
 **/__pycache__
 .pytest_cache
+frontend/node_modules
+app/static/mission-control

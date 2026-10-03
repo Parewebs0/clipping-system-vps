@@ -28,7 +28,7 @@
             "type": "boolean"
           },
           "clip": {
-            "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+            "$ref": "#/components/schemas/ClipOut"
           },
           "publications": {
             "items": {
@@ -117,6 +117,159 @@
           "source_url"
         ],
         "title": "AssetCreate",
+        "type": "object"
+      },
+      "AssetOut": {
+        "properties": {
+          "asset_type": {
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "campaign_id": {
+            "title": "Campaign Id",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "downloaded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downloaded At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "extra_metadata": {
+            "additionalProperties": true,
+            "title": "Extra Metadata",
+            "type": "object"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "local_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Path"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Provider"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "transcribed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcribed At"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "campaign_id",
+          "source_url",
+          "asset_type",
+          "status",
+          "extra_metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AssetOut",
         "type": "object"
       },
       "AssetUpdate": {
@@ -424,14 +577,14 @@
         "properties": {
           "active_jobs": {
             "items": {
-              "$ref": "#/components/schemas/JobOut"
+              "$ref": "#/components/schemas/McJobOut"
             },
             "title": "Active Jobs",
             "type": "array"
           },
           "assets": {
             "items": {
-              "$ref": "#/components/schemas/app__schemas__mission_control__AssetOut"
+              "$ref": "#/components/schemas/McAssetOut"
             },
             "title": "Assets",
             "type": "array"
@@ -441,7 +594,7 @@
           },
           "clips": {
             "items": {
-              "$ref": "#/components/schemas/app__schemas__mission_control__ClipOut"
+              "$ref": "#/components/schemas/McClipOut"
             },
             "title": "Clips",
             "type": "array"
@@ -1682,6 +1835,198 @@
         "title": "ClipInventoryItem",
         "type": "object"
       },
+      "ClipOut": {
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "campaign_id": {
+            "title": "Campaign Id",
+            "type": "integer"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "final_path_worker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Path Worker"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "location_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Updated At"
+          },
+          "publish_approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Approved At"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "qa_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qa At"
+          },
+          "qa_job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qa Job Id"
+          },
+          "qa_result": {
+            "additionalProperties": true,
+            "title": "Qa Result",
+            "type": "object"
+          },
+          "qa_status": {
+            "title": "Qa Status",
+            "type": "string"
+          },
+          "render_job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Render Job Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "campaign_id",
+          "asset_id",
+          "qa_status",
+          "qa_result",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ClipOut",
+        "type": "object"
+      },
       "ClipPublicationOut": {
         "properties": {
           "clip_id": {
@@ -2145,135 +2490,6 @@
         "title": "JobCreate",
         "type": "object"
       },
-      "JobOut": {
-        "properties": {
-          "attempts": {
-            "title": "Attempts",
-            "type": "integer"
-          },
-          "completed_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Message"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "job_type": {
-            "title": "Job Type",
-            "type": "string"
-          },
-          "max_attempts": {
-            "title": "Max Attempts",
-            "type": "integer"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "title": "Payload",
-            "type": "object"
-          },
-          "priority": {
-            "title": "Priority",
-            "type": "integer"
-          },
-          "result": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Result"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "status": {
-            "enum": [
-              "pending",
-              "assigned",
-              "processing",
-              "completed",
-              "failed",
-              "cancelled"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          },
-          "worker_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Worker Id"
-          }
-        },
-        "required": [
-          "id",
-          "job_type",
-          "status",
-          "priority",
-          "attempts",
-          "max_attempts"
-        ],
-        "title": "JobOut",
-        "type": "object"
-      },
       "JobRecentItem": {
         "properties": {
           "attempts": {
@@ -2659,6 +2875,435 @@
           }
         },
         "title": "LlmUsageSummary",
+        "type": "object"
+      },
+      "McAssetOut": {
+        "properties": {
+          "asset_type": {
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "downloaded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downloaded At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "extra_metadata": {
+            "additionalProperties": true,
+            "title": "Extra Metadata",
+            "type": "object"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "local_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Path"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "source_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Provider"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "downloaded",
+              "transcribed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "transcribed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcribed At"
+          }
+        },
+        "required": [
+          "id",
+          "source_url",
+          "asset_type",
+          "status"
+        ],
+        "title": "McAssetOut",
+        "type": "object"
+      },
+      "McClipOut": {
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "final_path_worker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Path Worker"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "publish_approved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Approved At"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "qa_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qa At"
+          },
+          "qa_result": {
+            "additionalProperties": true,
+            "title": "Qa Result",
+            "type": "object"
+          },
+          "qa_status": {
+            "enum": [
+              "pending",
+              "pass",
+              "fail",
+              "review"
+            ],
+            "title": "Qa Status",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "approved",
+              "rejected",
+              "review",
+              "published"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "qa_status",
+          "status"
+        ],
+        "title": "McClipOut",
+        "type": "object"
+      },
+      "McJobOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "job_type": {
+            "title": "Job Type",
+            "type": "string"
+          },
+          "max_attempts": {
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "integer"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "assigned",
+              "processing",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
+          }
+        },
+        "required": [
+          "id",
+          "job_type",
+          "status",
+          "priority",
+          "attempts",
+          "max_attempts"
+        ],
+        "title": "McJobOut",
         "type": "object"
       },
       "OverviewOut": {
@@ -3458,651 +4103,6 @@
         },
         "title": "WorkerResultCreate",
         "type": "object"
-      },
-      "app__schemas__asset__AssetOut": {
-        "properties": {
-          "asset_type": {
-            "title": "Asset Type",
-            "type": "string"
-          },
-          "campaign_id": {
-            "title": "Campaign Id",
-            "type": "integer"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "downloaded_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Downloaded At"
-          },
-          "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Seconds"
-          },
-          "extra_metadata": {
-            "additionalProperties": true,
-            "title": "Extra Metadata",
-            "type": "object"
-          },
-          "file_size": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "local_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Local Path"
-          },
-          "mime_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mime Type"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "source_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Id"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Provider"
-          },
-          "source_url": {
-            "title": "Source Url",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "transcribed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Transcribed At"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "campaign_id",
-          "source_url",
-          "asset_type",
-          "status",
-          "extra_metadata",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "AssetOut",
-        "type": "object"
-      },
-      "app__schemas__clip__ClipOut": {
-        "properties": {
-          "asset_id": {
-            "format": "uuid",
-            "title": "Asset Id",
-            "type": "string"
-          },
-          "campaign_id": {
-            "title": "Campaign Id",
-            "type": "integer"
-          },
-          "candidate_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Candidate Id"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Seconds"
-          },
-          "file_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Path"
-          },
-          "file_size": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size"
-          },
-          "final_path_worker": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Final Path Worker"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "location": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location"
-          },
-          "location_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Updated At"
-          },
-          "publish_approved_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publish Approved At"
-          },
-          "published_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published At"
-          },
-          "qa_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Qa At"
-          },
-          "qa_job_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Qa Job Id"
-          },
-          "qa_result": {
-            "additionalProperties": true,
-            "title": "Qa Result",
-            "type": "object"
-          },
-          "qa_status": {
-            "title": "Qa Status",
-            "type": "string"
-          },
-          "render_job_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Render Job Id"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "campaign_id",
-          "asset_id",
-          "qa_status",
-          "qa_result",
-          "status",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "ClipOut",
-        "type": "object"
-      },
-      "app__schemas__mission_control__AssetOut": {
-        "properties": {
-          "asset_type": {
-            "title": "Asset Type",
-            "type": "string"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "downloaded_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Downloaded At"
-          },
-          "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Seconds"
-          },
-          "extra_metadata": {
-            "additionalProperties": true,
-            "title": "Extra Metadata",
-            "type": "object"
-          },
-          "file_size": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "local_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Local Path"
-          },
-          "mime_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mime Type"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Provider"
-          },
-          "source_url": {
-            "title": "Source Url",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "pending",
-              "downloaded",
-              "transcribed",
-              "failed"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "transcribed_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Transcribed At"
-          }
-        },
-        "required": [
-          "id",
-          "source_url",
-          "asset_type",
-          "status"
-        ],
-        "title": "AssetOut",
-        "type": "object"
-      },
-      "app__schemas__mission_control__ClipOut": {
-        "properties": {
-          "asset_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Asset Id"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Seconds"
-          },
-          "file_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Path"
-          },
-          "file_size": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size"
-          },
-          "final_path_worker": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Final Path Worker"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "location": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location"
-          },
-          "publish_approved_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publish Approved At"
-          },
-          "published_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published At"
-          },
-          "qa_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Qa At"
-          },
-          "qa_result": {
-            "additionalProperties": true,
-            "title": "Qa Result",
-            "type": "object"
-          },
-          "qa_status": {
-            "enum": [
-              "pending",
-              "pass",
-              "fail",
-              "review"
-            ],
-            "title": "Qa Status",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "created",
-              "approved",
-              "rejected",
-              "review",
-              "published"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          }
-        },
-        "required": [
-          "id",
-          "qa_status",
-          "status"
-        ],
-        "title": "ClipOut",
-        "type": "object"
       }
     },
     "securitySchemes": {
@@ -4201,7 +4201,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                    "$ref": "#/components/schemas/AssetOut"
                   },
                   "title": "Response List All Assets Get",
                   "type": "array"
@@ -4249,7 +4249,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                  "$ref": "#/components/schemas/AssetOut"
                 }
               }
             },
@@ -4359,7 +4359,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                    "$ref": "#/components/schemas/AssetOut"
                   },
                   "title": "Response List All Assets  Get",
                   "type": "array"
@@ -4407,7 +4407,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                  "$ref": "#/components/schemas/AssetOut"
                 }
               }
             },
@@ -4480,7 +4480,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                    "$ref": "#/components/schemas/AssetOut"
                   },
                   "title": "Response Bulk Create Assets Bulk Post",
                   "type": "array"
@@ -4532,7 +4532,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                    "$ref": "#/components/schemas/AssetOut"
                   },
                   "title": "Response Resolve Assets Resolve  Campaign Id  Post",
                   "type": "array"
@@ -4583,7 +4583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                  "$ref": "#/components/schemas/AssetOut"
                 }
               }
             },
@@ -4639,7 +4639,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__asset__AssetOut"
+                  "$ref": "#/components/schemas/AssetOut"
                 }
               }
             },
@@ -6031,7 +6031,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                    "$ref": "#/components/schemas/ClipOut"
                   },
                   "title": "Response List All Clips Get",
                   "type": "array"
@@ -6078,7 +6078,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                  "$ref": "#/components/schemas/ClipOut"
                 }
               }
             },
@@ -6205,7 +6205,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                    "$ref": "#/components/schemas/ClipOut"
                   },
                   "title": "Response List All Clips  Get",
                   "type": "array"
@@ -6252,7 +6252,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                  "$ref": "#/components/schemas/ClipOut"
                 }
               }
             },
@@ -6347,7 +6347,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                    "$ref": "#/components/schemas/ClipOut"
                   },
                   "title": "Response List By Campaign Storage Clips By Campaign  Campaign Id  Storage Get",
                   "type": "array"
@@ -6398,7 +6398,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                  "$ref": "#/components/schemas/ClipOut"
                 }
               }
             },
@@ -6454,7 +6454,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                  "$ref": "#/components/schemas/ClipOut"
                 }
               }
             },
@@ -6587,7 +6587,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                  "$ref": "#/components/schemas/ClipOut"
                 }
               }
             },
@@ -6655,7 +6655,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__schemas__clip__ClipOut"
+                  "$ref": "#/components/schemas/ClipOut"
                 }
               }
             },

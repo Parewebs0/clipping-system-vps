@@ -50,3 +50,6 @@ tmp/
 
 # Mini PC runtime: gog CLI binary + config/keyring (bind-mounted secrets)
 /gog/
+
+# Mission Control: build output of frontend/ (npm run build / Docker stage)
+/app/static/mission-control/

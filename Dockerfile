@@ -1,3 +1,13 @@
+# --- Stage 1: Mission Control frontend (React + Vite + shadcn/ui, issue #8) ---
+# Output goes to /build/app/static/mission-control (vite outDir ../app/static/...).
+FROM node:22-alpine AS frontend
+WORKDIR /build/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+# --- Stage 2: API ---
 FROM python:3.12-slim
 WORKDIR /opt/clipping-system
 COPY requirements.txt .
@@ -28,4 +38,5 @@ RUN set -eu; \
     gog --version
 
 COPY . .
+COPY --from=frontend /build/app/static/mission-control ./app/static/mission-control
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
