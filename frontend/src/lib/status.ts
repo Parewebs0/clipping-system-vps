@@ -73,6 +73,11 @@ export const CANDIDATE_STATUS: Record<CandidateStatus, Meta> = {
   rejected: { label: 'Rechazado', tone: 'rose', help: 'Descartado (manual o por reglas de la campaña).' },
   rendered: { label: 'Renderizado', tone: 'violet', help: 'Paso 17: clip materializado.' },
   superseded: { label: 'Sustituido', tone: 'zinc', help: 'Otro candidato lo reemplazó.' },
+  needs_review: {
+    label: 'Revisión de copy',
+    tone: 'amber',
+    help: 'El decider no pudo escribir un caption que cumpla las reglas de copy. El motivo está en el razonamiento.',
+  },
 }
 
 export const CANDIDATE_STATUS_ORDER = Object.keys(CANDIDATE_STATUS) as CandidateStatus[]

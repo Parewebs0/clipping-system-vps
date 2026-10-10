@@ -25,14 +25,14 @@ export function previewEmbedUrl(url: string | null | undefined, start: number, e
   return `https://www.youtube-nocookie.com/embed/${id}?${sp.toString()}`
 }
 
-/** Mirrors candidate_lifecycle: pending, or approved without a render job (retry). */
+/** Mirrors candidate_lifecycle: pending, needs_review, or approved without a render job (retry). */
 export function canApprove(c: Pick<CandidateItem, 'status' | 'render_job_id'>): boolean {
-  return c.status === 'pending' || (c.status === 'approved' && !c.render_job_id)
+  return c.status === 'pending' || c.status === 'needs_review' || (c.status === 'approved' && !c.render_job_id)
 }
 
 /** Mirrors candidate_lifecycle.reject_candidate guards. */
 export function canReject(c: Pick<CandidateItem, 'status' | 'render_job_id'>): boolean {
-  return c.status === 'pending' || (c.status === 'approved' && !c.render_job_id)
+  return c.status === 'pending' || c.status === 'needs_review' || (c.status === 'approved' && !c.render_job_id)
 }
 
 export const rejectSchema = z.object({

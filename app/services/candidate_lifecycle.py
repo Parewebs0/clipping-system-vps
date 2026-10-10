@@ -41,7 +41,12 @@ class CandidateStateError(ValueError):
 
 
 # States from which a manual/agent approval may proceed.
-APPROVABLE_STATES = frozenset({CandidateStatus.PENDING.value, CandidateStatus.APPROVED.value})
+# needs_review is a copy failure a person can still accept or reject.
+APPROVABLE_STATES = frozenset({
+    CandidateStatus.PENDING.value,
+    CandidateStatus.APPROVED.value,
+    CandidateStatus.NEEDS_REVIEW.value,
+})
 
 
 def _now() -> datetime:
