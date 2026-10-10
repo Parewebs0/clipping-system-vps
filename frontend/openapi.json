@@ -4428,6 +4428,446 @@
         "title": "RulesConfirmIn",
         "type": "object"
       },
+      "ShadowAssetOut": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          },
+          "current": {
+            "$ref": "#/components/schemas/ShadowSideOut"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/ShadowDiffOut"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/ShadowGraphSideOut"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "asset_id",
+          "current",
+          "graph",
+          "diff"
+        ],
+        "title": "ShadowAssetOut",
+        "type": "object"
+      },
+      "ShadowDiffOut": {
+        "properties": {
+          "iou": {
+            "default": 0.0,
+            "title": "Iou",
+            "type": "number"
+          },
+          "n_clips_delta": {
+            "default": 0,
+            "title": "N Clips Delta",
+            "type": "integer"
+          },
+          "title_similarity": {
+            "default": 0.0,
+            "title": "Title Similarity",
+            "type": "number"
+          }
+        },
+        "title": "ShadowDiffOut",
+        "type": "object"
+      },
+      "ShadowGraphSideOut": {
+        "properties": {
+          "approval_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Note"
+          },
+          "approval_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Reason"
+          },
+          "asked_more_context": {
+            "default": false,
+            "title": "Asked More Context",
+            "type": "boolean"
+          },
+          "captions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Captions",
+            "type": "array"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "context_iteration": {
+            "default": 0,
+            "title": "Context Iteration",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "default": 0.0,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "graph_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Graph Path",
+            "type": "array"
+          },
+          "latency_ms": {
+            "default": 0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "n_clips": {
+            "title": "N Clips",
+            "type": "integer"
+          },
+          "stake_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Usd"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Titles",
+            "type": "array"
+          },
+          "windows": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Windows",
+            "type": "array"
+          },
+          "would_request_approval": {
+            "default": false,
+            "title": "Would Request Approval",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "n_clips"
+        ],
+        "title": "ShadowGraphSideOut",
+        "type": "object"
+      },
+      "ShadowRunDetailOut": {
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ShadowAssetOut"
+            },
+            "title": "Assets",
+            "type": "array"
+          },
+          "cost_usd_total": {
+            "title": "Cost Usd Total",
+            "type": "number"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms_total": {
+            "title": "Latency Ms Total",
+            "type": "integer"
+          },
+          "match_pct": {
+            "title": "Match Pct",
+            "type": "number"
+          },
+          "mean_iou": {
+            "title": "Mean Iou",
+            "type": "number"
+          },
+          "n_assets": {
+            "title": "N Assets",
+            "type": "integer"
+          },
+          "n_would_request_approval": {
+            "default": 0,
+            "title": "N Would Request Approval",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "n_assets",
+          "match_pct",
+          "mean_iou",
+          "cost_usd_total",
+          "latency_ms_total"
+        ],
+        "title": "ShadowRunDetailOut",
+        "type": "object"
+      },
+      "ShadowRunListOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShadowRunSummaryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "count"
+        ],
+        "title": "ShadowRunListOut",
+        "type": "object"
+      },
+      "ShadowRunSummaryOut": {
+        "properties": {
+          "cost_usd_total": {
+            "title": "Cost Usd Total",
+            "type": "number"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms_total": {
+            "title": "Latency Ms Total",
+            "type": "integer"
+          },
+          "match_pct": {
+            "title": "Match Pct",
+            "type": "number"
+          },
+          "mean_iou": {
+            "title": "Mean Iou",
+            "type": "number"
+          },
+          "n_assets": {
+            "title": "N Assets",
+            "type": "integer"
+          },
+          "n_would_request_approval": {
+            "default": 0,
+            "title": "N Would Request Approval",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "n_assets",
+          "match_pct",
+          "mean_iou",
+          "cost_usd_total",
+          "latency_ms_total"
+        ],
+        "title": "ShadowRunSummaryOut",
+        "type": "object"
+      },
+      "ShadowSideOut": {
+        "properties": {
+          "captions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Captions",
+            "type": "array"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "cost_usd": {
+            "default": 0.0,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "latency_ms": {
+            "default": 0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "n_clips": {
+            "title": "N Clips",
+            "type": "integer"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Titles",
+            "type": "array"
+          },
+          "windows": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Windows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "n_clips"
+        ],
+        "title": "ShadowSideOut",
+        "type": "object"
+      },
       "SocialAccountOut": {
         "properties": {
           "auth_kind": {
@@ -8783,6 +9223,81 @@
           }
         ],
         "summary": "Pipeline View",
+        "tags": [
+          "mission-control"
+        ]
+      }
+    },
+    "/mission-control/shadow/runs": {
+      "get": {
+        "description": "List JSONL shadow reports on disk. Read-only, no database.",
+        "operationId": "shadow_runs_mission_control_shadow_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowRunListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Shadow Runs",
+        "tags": [
+          "mission-control"
+        ]
+      }
+    },
+    "/mission-control/shadow/runs/{run_id}": {
+      "get": {
+        "description": "One shadow run: side-by-side current vs graph, plus node path.",
+        "operationId": "shadow_run_detail_mission_control_shadow_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowRunDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Shadow Run Detail",
         "tags": [
           "mission-control"
         ]

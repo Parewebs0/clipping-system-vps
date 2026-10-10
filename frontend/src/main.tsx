@@ -12,6 +12,8 @@ import { ClipsPage } from '@/pages/Clips'
 import { CandidatesPage } from '@/pages/Candidates'
 import { JobsPage } from '@/pages/Jobs'
 import { OverviewPage } from '@/pages/Overview'
+import { ShadowRunDetailPage } from '@/pages/ShadowRunDetail'
+import { ShadowRunsPage } from '@/pages/ShadowRuns'
 import { VideosPage } from '@/pages/Videos'
 import './index.css'
 
@@ -38,6 +40,8 @@ const router = createHashRouter([
       { path: 'videos', element: <VideosPage /> },
       { path: 'candidates', element: <CandidatesPage /> },
       { path: 'clips', element: <ClipsPage /> },
+      { path: 'shadow', element: <ShadowRunsPage /> },
+      { path: 'shadow/:id', element: <ShadowRunDetailPage /> },
       { path: '*', element: <Navigate to="/overview" replace /> },
     ],
   },

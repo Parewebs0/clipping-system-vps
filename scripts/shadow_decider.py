@@ -329,6 +329,29 @@ def compare_row(packed: dict, current: dict, graph_state: dict) -> dict[str, Any
     g_w = [(c["start"], c["end"]) for c in graph_clips]
     cur_titles = [((c.get("extra") or {}).get("title") or "") for c in cur_clips]
     g_titles = [c.get("title") or "" for c in graph_clips]
+    cur_caps = [((c.get("extra") or {}).get("caption") or "") for c in cur_clips]
+    g_caps = [c.get("caption") or "" for c in graph_clips]
+    from app.shadow.reports import approval_reason, infer_graph_path
+
+    graph_block = {
+        "n_clips": len(graph_clips),
+        "windows": g_w,
+        "titles": g_titles,
+        "captions": g_caps,
+        "decision": report.get("decision"),
+        "decision_reason": report.get("decision_reason"),
+        "confidence": report.get("confidence"),
+        "cost_usd": report.get("llm_cost_usd"),
+        "latency_ms": report.get("llm_latency_ms"),
+        "would_request_approval": report.get("would_request_approval"),
+        "approval_note": report.get("approval_note"),
+        "approval_payload": report.get("approval_payload"),
+        "stake_usd": report.get("stake_usd"),
+        "context_iteration": report.get("context_iteration"),
+    }
+    graph_block["asked_more_context"] = int(graph_block.get("context_iteration") or 0) >= 1
+    graph_block["graph_path"] = infer_graph_path({"graph": graph_block})
+    graph_block["approval_reason"] = approval_reason(graph_block)
     return {
         "asset_id": packed["asset_id"],
         "campaign_id": packed["campaign"]["id"],
@@ -337,24 +360,12 @@ def compare_row(packed: dict, current: dict, graph_state: dict) -> dict[str, Any
             "n_clips": len(cur_clips),
             "windows": cur_w,
             "titles": cur_titles,
+            "captions": cur_caps,
             "cost_usd": current.get("cost_usd"),
             "latency_ms": current.get("latency_ms"),
             "model": current.get("model"),
         },
-        "graph": {
-            "n_clips": len(graph_clips),
-            "windows": g_w,
-            "titles": g_titles,
-            "decision": report.get("decision"),
-            "decision_reason": report.get("decision_reason"),
-            "confidence": report.get("confidence"),
-            "cost_usd": report.get("llm_cost_usd"),
-            "latency_ms": report.get("llm_latency_ms"),
-            "would_request_approval": report.get("would_request_approval"),
-            "approval_note": report.get("approval_note"),
-            "stake_usd": report.get("stake_usd"),
-            "context_iteration": report.get("context_iteration"),
-        },
+        "graph": graph_block,
         "diff": {
             "iou": match_iou(cur_w, g_w),
             "title_similarity": title_sim(cur_titles, g_titles),

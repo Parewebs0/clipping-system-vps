@@ -340,3 +340,62 @@ class CandidatesOut(BaseModel):
     items: List[CandidateItem]
     count: int
     counts_by_status: Dict[str, int]
+
+
+class ShadowSideOut(BaseModel):
+    n_clips: int
+    windows: List[List[float]] = Field(default_factory=list)
+    titles: List[str] = Field(default_factory=list)
+    captions: List[str] = Field(default_factory=list)
+    cost_usd: float = 0.0
+    latency_ms: int = 0
+    decision: Optional[str] = None
+    decision_reason: Optional[str] = None
+    confidence: Optional[float] = None
+
+
+class ShadowGraphSideOut(ShadowSideOut):
+    would_request_approval: bool = False
+    approval_note: Optional[str] = None
+    approval_reason: Optional[str] = None
+    stake_usd: Optional[float] = None
+    context_iteration: int = 0
+    asked_more_context: bool = False
+    graph_path: List[str] = Field(default_factory=list)
+
+
+class ShadowDiffOut(BaseModel):
+    iou: float = 0.0
+    title_similarity: float = 0.0
+    n_clips_delta: int = 0
+
+
+class ShadowAssetOut(BaseModel):
+    asset_id: str
+    campaign_id: Optional[int] = None
+    label: Optional[str] = None
+    generated_at: Optional[str] = None
+    current: ShadowSideOut
+    graph: ShadowGraphSideOut
+    diff: ShadowDiffOut
+
+
+class ShadowRunSummaryOut(BaseModel):
+    id: str
+    filename: str
+    generated_at: Optional[str] = None
+    n_assets: int
+    match_pct: float
+    mean_iou: float
+    cost_usd_total: float
+    latency_ms_total: int
+    n_would_request_approval: int = 0
+
+
+class ShadowRunListOut(BaseModel):
+    items: List[ShadowRunSummaryOut]
+    count: int
+
+
+class ShadowRunDetailOut(ShadowRunSummaryOut):
+    assets: List[ShadowAssetOut] = Field(default_factory=list)

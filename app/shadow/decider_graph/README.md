@@ -63,6 +63,9 @@ Cada línea JSONL compara el decider actual (prompt+parse, sin escribir) y el gr
 
 Ejemplo en `reports/shadow/example.md`.
 
+Mission Control (solo lectura): `#/shadow` lista ejecuciones y `#/shadow/:id` el detalle lado a lado.
+`GET /mission-control/shadow/runs` lee los JSONL del disco; no crea tablas.
+
 ## Tests
 
 ```bash

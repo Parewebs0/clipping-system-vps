@@ -30,6 +30,8 @@ from app.schemas.mission_control import (
     JobRecentOut,
     OverviewOut,
     PipelineOut,
+    ShadowRunDetailOut,
+    ShadowRunListOut,
     VideosOut,
 )
 
@@ -982,6 +984,33 @@ def _transcript_excerpt(segments: Any, start: float, end: float) -> List[Dict[st
         if len(out) >= _EXCERPT_MAX_LINES or chars >= _EXCERPT_MAX_CHARS:
             break
     return out
+
+
+@router.get("/shadow/runs", response_model=ShadowRunListOut)
+def shadow_runs(
+    _a: bool = Depends(_enabled_or_404),
+    _b: bool = Depends(require_bearer),
+):
+    """List JSONL shadow reports on disk. Read-only, no database."""
+    from app.shadow.reports import list_runs
+
+    items = list_runs()
+    return {"items": items, "count": len(items)}
+
+
+@router.get("/shadow/runs/{run_id}", response_model=ShadowRunDetailOut)
+def shadow_run_detail(
+    run_id: str,
+    _a: bool = Depends(_enabled_or_404),
+    _b: bool = Depends(require_bearer),
+):
+    """One shadow run: side-by-side current vs graph, plus node path."""
+    from app.shadow.reports import get_run
+
+    detail = get_run(run_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return detail
 
 
 @router.get("/candidates", response_model=CandidatesOut)

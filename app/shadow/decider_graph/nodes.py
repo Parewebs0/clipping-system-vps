@@ -596,6 +596,9 @@ def human_approval(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any
 def report(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]:
     """Build the JSON decision. Never writes to the database."""
     calls = list(state.get("llm_calls") or [])
+    iteration = int(state.get("context_iteration") or 0)
+    from app.shadow.reports import infer_graph_path
+
     payload = {
         "asset_id": state.get("asset_id"),
         "campaign_id": state.get("campaign_id"),
@@ -604,9 +607,10 @@ def report(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]:
         "chosen_clips": state.get("chosen_clips") or [],
         "scored_clips": state.get("scored_clips") or [],
         "confidence": state.get("confidence"),
-        "context_iteration": int(state.get("context_iteration") or 0),
+        "context_iteration": iteration,
         "would_request_approval": bool(state.get("would_request_approval")),
         "approval_note": state.get("approval_note"),
+        "approval_payload": state.get("approval_payload"),
         "stake_usd": state.get("stake_usd"),
         "duration_window": [state.get("duration_min"), state.get("duration_max")],
         "llm_calls": calls,
@@ -614,5 +618,7 @@ def report(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]:
         "llm_latency_ms": sum(int(c.get("latency_ms") or 0) for c in calls),
         "error": state.get("error"),
         "shadow": True,
+        "asked_more_context": iteration >= 1,
+        "graph_path": infer_graph_path({"graph": {"context_iteration": iteration}}),
     }
     return {"report": payload}
