@@ -72,8 +72,13 @@ def auth_headers() -> dict:
 
 
 @pytest.fixture(autouse=True)
-def _clean_jobs_table():
-    """Clean jobs table before every test to ensure isolation."""
+def _clean_jobs_table(request):
+    """Clean jobs table before every test to ensure isolation.
+
+    tests/shadow is marked no_db and must never open a session.
+    """
+    if request.node.get_closest_marker("no_db"):
+        return
     session = SessionLocal()
     try:
         session.execute(text("DELETE FROM jobs"))
