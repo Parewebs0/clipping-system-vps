@@ -79,6 +79,21 @@ def test_logo_override_is_preferred_over_ruleset_url():
     assert out["watermark"]["url"] == "/worker/campaigns/1/logo"
 
 
+def test_audio_policy_bumps_spec_to_v3():
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    asset = SimpleNamespace(extra_metadata={})
+    rs = RuleSet()
+    out = build_render_spec(_camp(rs), asset, cand)
+    assert out["render_spec"]["version"] == 3
+    assert out["audio"] == {"original_only": False, "normalize": True, "target_lufs": -14, "true_peak_db": -1}
+    rs.audio.original_only = True
+    rs.audio.no_added_music = True
+    skipped = build_render_spec(_camp(rs), asset, cand)
+    assert skipped["audio"]["original_only"] is True
+    assert skipped["audio"]["normalize"] is False
+    assert skipped["render_spec"]["version"] == 3
+
+
 def test_spec_logo_required_without_url_is_flagged():
     rs = RuleSet()
     rs.logo.required = True

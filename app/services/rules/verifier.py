@@ -20,6 +20,11 @@ from app.services.rules.schema import RuleSet, load_ruleset
 
 VERIFIER_VERSION = 1
 PLATFORMS = ("youtube",)  # milestone 1: publish only to YouTube
+# Worker results at v2 (no loudnorm metadata) and v3 (applied.audio) both verify.
+MIN_RENDER_SPEC_VERSION = 2
+LOUDNORM_SPEC_VERSION = 3
+LOUDNORM_TARGET_LUFS = -14.0
+LOUDNORM_TRUE_PEAK_DB = -1.0
 
 
 def _norm(s: str) -> str:
@@ -120,12 +125,30 @@ def check_copy(rs: RuleSet, platform: str, title: str, description: str, extra_t
 
 # --- render checks ------------------------------------------------------------
 
+def _render_spec_version(result: dict) -> int:
+    try:
+        return int(result.get("render_spec_version") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _loudnorm_matches(meta: Any) -> bool:
+    if not isinstance(meta, dict) or meta.get("normalized") is not True or meta.get("filter") != "loudnorm":
+        return False
+    try:
+        return (float(meta.get("target_lufs")) == LOUDNORM_TARGET_LUFS
+                and float(meta.get("true_peak_db")) == LOUDNORM_TRUE_PEAK_DB)
+    except (TypeError, ValueError):
+        return False
+
+
 def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: tuple[float, float],
                  clip_duration: Optional[float], tx_language: Optional[str]) -> list[dict]:
     out: list[dict] = []
     probe = result.get("probe") or {}
     applied = result.get("applied") or {}
-    has_meta = bool(probe) and result.get("render_spec_version", 0) >= 2
+    version = _render_spec_version(result)
+    has_meta = bool(probe) and version >= MIN_RENDER_SPEC_VERSION
     how_probe = "ffprobe del render (worker)"
     lo, hi = duration_window
     dur = probe.get("duration") if probe.get("duration") is not None else clip_duration
@@ -134,8 +157,8 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
     else:
         out.append(_c("duration", "pass" if lo - 0.25 <= float(dur) <= hi + 0.25 else "fail", [lo, hi], dur, how_probe))
     if not has_meta:
-        out.append(_c("render.metadata", "fail", "render_spec v2 (applied + probe)", None,
-                      "resultado del job render", "worker sin render_spec v2: actualizar worker (git pull + restart)"))
+        out.append(_c("render.metadata", "fail", "render_spec v2 o v3 (applied + probe)", None,
+                      "resultado del job render", "worker sin render_spec v2/v3: actualizar worker (git pull + restart)"))
         return out
     w, h = int(required.get("width", 1080)), int(required.get("height", 1920))
     res_ok = (probe.get("width"), probe.get("height")) == (w, h)
@@ -146,6 +169,21 @@ def check_render(rs: RuleSet, *, result: dict, required: dict, duration_window: 
         extra_audio = bool(applied.get("audio_track"))
         out.append(_c("audio.original_only", "fail" if extra_audio else "pass", "audio original, sin música añadida",
                       {"extra_track": extra_audio}, "render_spec v2: el worker no mezcla pistas (applied.audio_track)"))
+    if version >= LOUDNORM_SPEC_VERSION:
+        audio_meta = applied.get("audio") if isinstance(applied.get("audio"), dict) else {}
+        expected = {"filter": "loudnorm", "target_lufs": -14, "true_peak_db": -1}
+        if not probe.get("has_audio"):
+            out.append(_c("audio.loudnorm", "n/a", expected, audio_meta,
+                          "render_spec v3: sin pista de audio"))
+        elif rs.audio.original_only:
+            skipped = audio_meta.get("normalized") is False
+            out.append(_c("audio.loudnorm", "pass" if skipped else "fail",
+                          "audio original, sin loudnorm", audio_meta,
+                          "render_spec v3: applied.audio.normalized es false si audio.original_only"))
+        else:
+            out.append(_c("audio.loudnorm", "pass" if _loudnorm_matches(audio_meta) else "fail",
+                          expected, audio_meta,
+                          "render_spec v3: applied.audio loudnorm I=-14 TP=-1"))
     cap = applied.get("captions") or {}
     frames = applied.get("frame_checks") if isinstance(applied.get("frame_checks"), dict) else None
     if rs.captions.required or required.get("captions"):
