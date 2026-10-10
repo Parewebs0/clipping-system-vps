@@ -6,6 +6,7 @@ import { ExtLink, JsonBlock, KV, Mono, PathCell } from '@/components/common/Misc
 import { PageHeader } from '@/components/common/PageHeader'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/common/States'
 import { StatusBadge, ToneBadge } from '@/components/common/StatusBadge'
+import { ComplianceCell } from '@/components/campaign/ComplianceReport'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -44,6 +45,7 @@ export function ClipsPage() {
                     <TableHead className="pl-4">Clip</TableHead>
                     <TableHead>Campaña</TableHead>
                     <TableHead>QA</TableHead>
+                    <TableHead>Reglas</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Ubicación</TableHead>
                     <TableHead>Fichero</TableHead>
@@ -64,6 +66,9 @@ export function ClipsPage() {
                       </TableCell>
                       <TableCell>
                         <ToneBadge tone={CLIP_QA_STATUS[c.qa_status].tone}>{CLIP_QA_STATUS[c.qa_status].label}</ToneBadge>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ComplianceCell clip={c} />
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={c.status} />
@@ -101,6 +106,9 @@ export function ClipsPage() {
               />
               <div className="mb-1 text-xs font-medium">qa_result</div>
               <JsonBlock value={open.qa_result} />
+              <div className="mt-4">
+                <ComplianceCell clip={open} />
+              </div>
             </>
           )}
         </DialogContent>

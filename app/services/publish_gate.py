@@ -9,6 +9,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.campaign import Campaign
 from app.models.clip import Clip
 from app.models.clip_publication import ClipPublication
 from app.models.social_account import SOCIAL_PLATFORM_VALUES, SocialAccount
@@ -101,6 +102,19 @@ def approve_clip_publish(
     clip = db.get(Clip, clip_id)
     if clip is None:
         raise PublishGateError(f"Clip {clip_id} not found")
+
+    # 2c: the campaign state gates publishing too. candidate_lifecycle refuses
+    # to approve candidates of archived/parked/needs_review campaigns; the
+    # publish gate must not become the way around it.
+    campaign = db.get(Campaign, clip.campaign_id)
+    if campaign is not None:
+        from app.services.rules.gate import is_blocked
+
+        if campaign.status in ("archived", "parked", "needs_review") or is_blocked(campaign):
+            raise PublishGateError(
+                f"campaign {campaign.id} is not workable (status '{campaign.status}', "
+                "rules pending human review or archived)"
+            )
 
     if clip.qa_status != "pass":
         raise PublishGateError(

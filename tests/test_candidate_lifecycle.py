@@ -377,6 +377,49 @@ def test_approve_endpoint_404(client, auth_headers):
     assert r.status_code == 404
 
 
+def test_approve_endpoint_409_campaign_archived(client, auth_headers):
+    """2c: the API maps the un-workable-campaign guard to 409 (archived)."""
+    from app.models.asset import Asset, AssetStatus
+    from app.models.campaign import Campaign
+    from app.models.candidate import Candidate, CandidateStatus
+
+    db = SessionLocal()
+    try:
+        c = Campaign(
+            name=f"lc-{uuid.uuid4().hex[:6]}",
+            source_provider="whop",
+            status="archived",
+            source_instructions="Make 30-60s clips in english.",
+        )
+        db.add(c)
+        db.commit()
+        a = Asset(
+            campaign_id=c.id, source_url="https://example.com/v",
+            source_provider="youtube", source_id="x", asset_type="video",
+            status=AssetStatus.TRANSCRIBED.value, duration_seconds=300.0,
+            extra_metadata={"transcription": {"text": "hello"}},
+        )
+        db.add(a)
+        db.commit()
+        db.refresh(a)
+        cand = Candidate(
+            campaign_id=c.id, asset_id=a.id,
+            start_time=10.0, end_time=40.0,
+            score=0.8, reasoning="x",
+            status=CandidateStatus.PENDING.value,
+            extra_metadata={},
+        )
+        db.add(cand)
+        db.commit()
+        cand_id = str(cand.id)
+    finally:
+        db.close()
+
+    r = client.post(f"/candidates/{cand_id}/approve", headers=auth_headers)
+    assert r.status_code == 409, r.text
+    assert "not workable" in r.json()["detail"]
+
+
 def test_reject_endpoint(client, auth_headers):
     cid, aid = _seed(client, auth_headers)
     cand = _create_candidate(client, auth_headers, cid, aid, 10.0, 40.0)

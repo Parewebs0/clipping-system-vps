@@ -1,6 +1,8 @@
 """Milestone 1 — approve_publish gate."""
 import uuid
+
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.config import settings
 from app.db.database import SessionLocal
@@ -19,7 +21,7 @@ def _make_clip(**overrides):
     try:
         c = Campaign(
             name=f"test_pub_{uuid.uuid4().hex[:8]}",
-            status=CampaignStatus.SCORED.value,
+            status=overrides.pop("campaign_status", CampaignStatus.SCORED.value),
             source_provider="whop",
             source_url=f"https://whop.com/{uuid.uuid4()}",
             source_metadata={},
@@ -129,6 +131,39 @@ def test_approve_requires_the_human_checklist_once():
         assert again is True
     finally:
         db.close()
+
+
+def test_approve_blocked_by_unworkable_campaign():
+    """2c: archived/parked/needs_review campaigns cannot approve publish —
+    the publish gate must not become the way around candidate_lifecycle."""
+    made_campaign_ids = []
+    try:
+        for status in ("archived", "parked", "needs_review"):
+            clip_id = _make_clip(campaign_status=status)
+            db = SessionLocal()
+            try:
+                clip = db.get(Clip, clip_id)
+                made_campaign_ids.append(clip.campaign_id)
+                try:
+                    approve_clip_publish(db, clip_id)
+                    assert False, f"expected PublishGateError for campaign status {status}"
+                except PublishGateError as e:
+                    assert "not workable" in str(e), str(e)
+            finally:
+                db.close()
+    finally:
+        # needs_review leftovers would be auto-released by gate_campaigns in
+        # later tests (campaigns are the only rows that gate scans globally).
+        db = SessionLocal()
+        try:
+            if made_campaign_ids:
+                db.execute(
+                    text("DELETE FROM campaigns WHERE id = ANY(:ids)"),
+                    {"ids": made_campaign_ids},
+                )
+                db.commit()
+        finally:
+            db.close()
 
 
 def test_approve_rejects_not_pending_upload():
