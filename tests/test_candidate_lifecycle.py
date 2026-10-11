@@ -145,10 +145,13 @@ def test_approve_creates_render_job(db):
     assert job.payload["start_time"] == 10.0
     assert job.payload["end_time"] == 40.0
     assert job.payload["format"]  # not empty
-    # #41: worker render_spec v2 keys
-    for k in ("captions", "watermark", "on_screen_text", "render_spec"):
+    # render_spec v3: v2 keys plus loudnorm policy (server still accepts v2 results)
+    for k in ("captions", "watermark", "on_screen_text", "render_spec", "audio"):
         assert k in job.payload
-    assert job.payload["render_spec"]["version"] == 2
+    assert job.payload["render_spec"]["version"] == 3
+    assert job.payload["audio"]["normalize"] is True
+    assert job.payload["audio"]["target_lufs"] == -14
+    assert job.payload["audio"]["true_peak_db"] == -1
 
 
 def test_approve_out_of_window_rejects(db):

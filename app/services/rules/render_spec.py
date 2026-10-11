@@ -1,11 +1,14 @@
-"""#41: render_spec v2 — what the worker must burn into the clip, from the RuleSet.
+"""#41 / MOLI-35: render_spec v3 — what the worker must burn into the clip.
 
-Same keys as the Windows worker (Parewebs0/clipping-windows-worker#4):
+Same keys as the Windows worker, plus loudnorm policy:
   captions{enabled, segments[{start,end,text,words}], brand_dictionary, style}
   watermark{enabled, url, position, width, start, end}
   on_screen_text{enabled, items[{text,start,end,position}]}
+  audio{original_only, normalize, target_lufs, true_peak_db}
   render_spec{version, required{...}}  ← read back by the post-render verifier
 Times are relative to the clip start.
+v2 worker results stay valid; v3 adds applied.audio (loudnorm -14 LUFS / -1 dBTP
+unless audio.original_only).
 """
 from __future__ import annotations
 
@@ -14,7 +17,9 @@ from typing import Any, Optional
 
 from app.services.rules.schema import RuleSet, load_ruleset
 
-RENDER_SPEC_VERSION = 2
+RENDER_SPEC_VERSION = 3
+LOUDNORM_TARGET_LUFS = -14
+LOUDNORM_TRUE_PEAK_DB = -1
 _URL = re.compile(r"https?://\S+")
 DEFAULT_LOGO_SECONDS = 3.0
 
@@ -128,6 +133,13 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
     if rs.logo.as_cta and rs.logo.cta_text:
         items.append({"text": rs.logo.cta_text[:120], "start": max(0.0, dur - 3.0), "end": dur, "position": "center"})
     on_screen_text = {"enabled": bool(items), "items": items}
+    original_only = bool(rs.audio.original_only)
+    audio = {
+        "original_only": original_only,
+        "normalize": not original_only,
+        "target_lufs": LOUDNORM_TARGET_LUFS,
+        "true_peak_db": LOUDNORM_TRUE_PEAK_DB,
+    }
     required = {
         "captions": bool(rs.captions.required),
         "brand_dictionary": list(rs.captions.brand_dictionary),
@@ -142,5 +154,6 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "captions": captions,
         "watermark": watermark,
         "on_screen_text": on_screen_text,
+        "audio": audio,
         "render_spec": {"version": RENDER_SPEC_VERSION, "ruleset_version": rs.version, "required": required},
     }
