@@ -10,6 +10,8 @@ import type {
   JobRecent,
   Overview,
   Pipeline,
+  ShadowRunDetail,
+  ShadowRunList,
   Videos,
 } from './types'
 
@@ -26,6 +28,8 @@ export const keys = {
   videos: ['videos'] as const,
   clips: (f: { qa_status?: string; campaign_id?: number }) => ['clips', f] as const,
   candidates: (f: { status?: string; campaign_id?: number }) => ['candidates', f] as const,
+  shadowRuns: ['shadow-runs'] as const,
+  shadowRun: (id: string) => ['shadow-run', id] as const,
 }
 
 export const useOverview = () =>
@@ -91,4 +95,17 @@ export const useCandidates = (f: { status?: string; campaign_id?: number }) =>
   useQuery({
     queryKey: keys.candidates(f),
     queryFn: () => api<Candidates>(`/mission-control/candidates${qs({ limit: 500, ...f })}`),
+  })
+
+export const useShadowRuns = () =>
+  useQuery({
+    queryKey: keys.shadowRuns,
+    queryFn: () => api<ShadowRunList>('/mission-control/shadow/runs'),
+  })
+
+export const useShadowRun = (id: string) =>
+  useQuery({
+    queryKey: keys.shadowRun(id),
+    queryFn: () => api<ShadowRunDetail>(`/mission-control/shadow/runs/${id}`),
+    enabled: Boolean(id),
   })

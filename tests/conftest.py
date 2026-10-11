@@ -73,7 +73,12 @@ def auth_headers() -> dict:
 
 @pytest.fixture(autouse=True)
 def _clean_jobs_table():
-    """Clean jobs table before every test to ensure isolation."""
+    """Clean jobs table before every test to ensure isolation.
+
+    Every test gets a wipe: leftover rows leaked across tests with the
+    request-guard variant (MOLI-38) and broke test_worker_next_returns_204.
+    Shadow tests never use the DB anyway; the cleaner just deletes jobs.
+    """
     session = SessionLocal()
     try:
         session.execute(text("DELETE FROM jobs"))

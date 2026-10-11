@@ -305,6 +305,8 @@ def test_no_write_verbs_in_router():
         "/mission-control/pipeline/{campaign_id}",
         "/mission-control/videos",
         "/mission-control/clips",
+        "/mission-control/shadow/runs",
+        "/mission-control/shadow/runs/{run_id}",
     }
     missing = expected - paths
     assert not missing, f"missing endpoints: {missing}; saw: {paths}"

@@ -52,6 +52,11 @@ export function fmtUsd(n?: number | null, digits = 4): string {
   return `$${n.toFixed(digits)}`
 }
 
+export function fmtPct(n?: number | null, digits = 1): string {
+  if (n == null) return '—'
+  return `${n.toFixed(digits)}%`
+}
+
 export function hostOf(url?: string | null): string {
   if (!url) return ''
   try {

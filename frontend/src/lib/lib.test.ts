@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtAgo, fmtBytes, fmtDuration, hostOf } from './format'
+import { fmtAgo, fmtBytes, fmtDuration, fmtPct, hostOf } from './format'
 import { filterCampaigns } from './campaigns'
 import { CAMPAIGN_STATUS_ORDER, errorHint, ERROR_HINTS } from './status'
 import { whopSummary } from './whop'
@@ -14,6 +14,8 @@ describe('format', () => {
     expect(fmtDuration(42)).toBe('42s')
     expect(hostOf('https://www.youtube.com/watch?v=1')).toBe('youtube.com')
     expect(fmtAgo(new Date(Date.now() - 120_000).toISOString())).toBe('hace 2 min')
+    expect(fmtPct(75)).toBe('75.0%')
+    expect(fmtPct(null)).toBe('—')
   })
 })
 

@@ -1,0 +1,4 @@
+# Shadow LangGraph clip-decider. NOT installed in the production image.
+# pip install -r requirements-shadow.txt
+langgraph==1.2.14
+langchain-core==1.6.9

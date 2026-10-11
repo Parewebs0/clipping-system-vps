@@ -103,6 +103,57 @@ def _hook_end(raw, duration: float | None = None) -> float | None:
     return value
 
 
+def segment_lines(segs, limit: int = 80) -> list[str]:
+    """Format transcript segments the way the live decider prompt expects."""
+    lines: list[str] = []
+    for s in (segs or [])[:limit]:
+        if not isinstance(s, dict):
+            continue
+        lines.append(f"{s.get('start',0):.1f}-{s.get('end',0):.1f} {(s.get('text') or '').strip()}")
+    return lines
+
+
+def build_prompt(*, dmin: float, dmax: float, duration: float, brief: str, segments) -> str:
+    """Pure prompt builder. Slice applies to the segment block only (live behavior)."""
+    brief = brief or "- (none beyond duration/format)"
+    return PROMPT.format(dmin=dmin, dmax=dmax, duration=duration, brief=brief) + "\n".join(segment_lines(segments))[:5000]
+
+
+def parse_clips(data, dmin: float, dmax: float) -> list[dict]:
+    """Pure parse of a Grok JSON payload into candidate fields. No DB writes."""
+    clips = data.get("clips") if isinstance(data, dict) else None
+    if not clips:
+        return []
+    out: list[dict] = []
+    for clip in clips[:2]:
+        start = float(clip.get("start") or 0)
+        end = float(clip.get("end") or 0)
+        if end - start < max(3.0, dmin * 0.5):
+            continue
+        if end - start > dmax + 1:
+            end = start + dmax
+        title = str(clip.get("title") or "")[:100]
+        caption = str(clip.get("caption") or clip.get("reason") or "")[:800]
+        extra = {
+            "source": "grok_clip_decider",
+            "kind": "speech",
+            "title": title,
+            "caption": caption,
+            "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
+        }
+        hook_end = _hook_end(clip.get("hook_end"), end - start)
+        if hook_end is not None:
+            extra["hook_end"] = hook_end
+        out.append({
+            "start": round(start, 2),
+            "end": round(end, 2),
+            "score": 0.7,
+            "reason": str(clip.get("reason") or "grok")[:500],
+            "extra": extra,
+        })
+    return out
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=1)
@@ -140,11 +191,7 @@ def main() -> int:
             campaign = db.get(Campaign, asset.campaign_id)
             dmin, dmax = campaign_duration_window(campaign)
             segs = tx.get("segments") or []
-            lines = []
-            for s in segs[:80]:
-                if not isinstance(s, dict):
-                    continue
-                lines.append(f"{s.get('start',0):.1f}-{s.get('end',0):.1f} {(s.get('text') or '').strip()}")
+            lines = segment_lines(segs)
             duration = float(asset.duration_seconds or 0) or dmax
             brief = decider_brief(campaign) or "- (none beyond duration/format)"
             rs = ruleset(campaign)

@@ -1011,6 +1011,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mission-control/shadow/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shadow Runs
+         * @description List JSONL shadow reports on disk. Read-only, no database.
+         */
+        get: operations["shadow_runs_mission_control_shadow_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mission-control/shadow/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shadow Run Detail
+         * @description One shadow run: side-by-side current vs graph, plus node path.
+         */
+        get: operations["shadow_run_detail_mission_control_shadow_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mission-control/videos": {
         parameters: {
             query?: never;
@@ -2699,6 +2739,172 @@ export interface components {
              * @default false
              */
             waive_unsupported: boolean;
+        };
+        /** ShadowAssetOut */
+        ShadowAssetOut: {
+            /** Asset Id */
+            asset_id: string;
+            /** Campaign Id */
+            campaign_id?: number | null;
+            current: components["schemas"]["ShadowSideOut"];
+            diff: components["schemas"]["ShadowDiffOut"];
+            /** Generated At */
+            generated_at?: string | null;
+            graph: components["schemas"]["ShadowGraphSideOut"];
+            /** Label */
+            label?: string | null;
+        };
+        /** ShadowDiffOut */
+        ShadowDiffOut: {
+            /**
+             * Iou
+             * @default 0
+             */
+            iou: number;
+            /**
+             * N Clips Delta
+             * @default 0
+             */
+            n_clips_delta: number;
+            /**
+             * Title Similarity
+             * @default 0
+             */
+            title_similarity: number;
+        };
+        /** ShadowGraphSideOut */
+        ShadowGraphSideOut: {
+            /** Approval Note */
+            approval_note?: string | null;
+            /** Approval Reason */
+            approval_reason?: string | null;
+            /**
+             * Asked More Context
+             * @default false
+             */
+            asked_more_context: boolean;
+            /** Captions */
+            captions?: string[];
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Context Iteration
+             * @default 0
+             */
+            context_iteration: number;
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
+            /** Decision */
+            decision?: string | null;
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Graph Path */
+            graph_path?: string[];
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
+            /** N Clips */
+            n_clips: number;
+            /** Stake Usd */
+            stake_usd?: number | null;
+            /** Titles */
+            titles?: string[];
+            /** Windows */
+            windows?: number[][];
+            /**
+             * Would Request Approval
+             * @default false
+             */
+            would_request_approval: boolean;
+        };
+        /** ShadowRunDetailOut */
+        ShadowRunDetailOut: {
+            /** Assets */
+            assets?: components["schemas"]["ShadowAssetOut"][];
+            /** Cost Usd Total */
+            cost_usd_total: number;
+            /** Filename */
+            filename: string;
+            /** Generated At */
+            generated_at?: string | null;
+            /** Id */
+            id: string;
+            /** Latency Ms Total */
+            latency_ms_total: number;
+            /** Match Pct */
+            match_pct: number;
+            /** Mean Iou */
+            mean_iou: number;
+            /** N Assets */
+            n_assets: number;
+            /**
+             * N Would Request Approval
+             * @default 0
+             */
+            n_would_request_approval: number;
+        };
+        /** ShadowRunListOut */
+        ShadowRunListOut: {
+            /** Count */
+            count: number;
+            /** Items */
+            items: components["schemas"]["ShadowRunSummaryOut"][];
+        };
+        /** ShadowRunSummaryOut */
+        ShadowRunSummaryOut: {
+            /** Cost Usd Total */
+            cost_usd_total: number;
+            /** Filename */
+            filename: string;
+            /** Generated At */
+            generated_at?: string | null;
+            /** Id */
+            id: string;
+            /** Latency Ms Total */
+            latency_ms_total: number;
+            /** Match Pct */
+            match_pct: number;
+            /** Mean Iou */
+            mean_iou: number;
+            /** N Assets */
+            n_assets: number;
+            /**
+             * N Would Request Approval
+             * @default 0
+             */
+            n_would_request_approval: number;
+        };
+        /** ShadowSideOut */
+        ShadowSideOut: {
+            /** Captions */
+            captions?: string[];
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
+            /** Decision */
+            decision?: string | null;
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
+            /** N Clips */
+            n_clips: number;
+            /** Titles */
+            titles?: string[];
+            /** Windows */
+            windows?: number[][];
         };
         /** SocialAccountOut */
         SocialAccountOut: {
@@ -4885,6 +5091,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PipelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shadow_runs_mission_control_shadow_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShadowRunListOut"];
+                };
+            };
+        };
+    };
+    shadow_run_detail_mission_control_shadow_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShadowRunDetailOut"];
                 };
             };
             /** @description Validation Error */
