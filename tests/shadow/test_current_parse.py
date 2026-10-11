@@ -14,13 +14,30 @@ def _mod():
     return module
 
 
-def test_build_prompt_slices_segments_only():
+def test_build_decider_prompt_slices_segments_only():
     mod = _mod()
     segs = [{"start": 0, "end": 1, "text": "hello " + ("x" * 6000)}]
-    prompt = mod.build_prompt(dmin=15, dmax=45, duration=90, brief="", segments=segs)
+    lines = mod.segment_lines(segs)
+    prompt = (
+        mod.build_decider_prompt(
+            dmin=15,
+            dmax=45,
+            duration=90,
+            brief="",
+            copy_rules="- No campaign copy rules.",
+        )
+        + "\n".join(lines)[:5000]
+    )
     assert "duration_min=15" in prompt
-    assert "none beyond duration/format" in prompt
-    prefix = mod.PROMPT.format(dmin=15, dmax=45, duration=90, brief="- (none beyond duration/format)")
+    # The live decider appends a 5000-char slice of the segment block; the
+    # segment line format is start-end space text.
+    prefix = mod.build_decider_prompt(
+        dmin=15,
+        dmax=45,
+        duration=90,
+        brief="",
+        copy_rules="- No campaign copy rules.",
+    )
     assert len(prompt) - len(prefix) == 5000
 
 

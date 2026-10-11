@@ -267,7 +267,8 @@ def load_from_db(limit: int, asset_id: str | None) -> list[dict[str, Any]]:
 
 
 def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
-    from app.services.rules.runtime import decider_brief, duration_window
+    from app.services.publish_copy import clip_score, copy_rules_for_prompt
+    from app.services.rules.runtime import decider_brief, ruleset, duration_window
     from types import SimpleNamespace
 
     campaign = SimpleNamespace(**packed["campaign"])
@@ -277,11 +278,43 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
     segs = tx.get("segments") or []
     duration = float(asset.get("duration_seconds") or 0) or dmax
     brief = decider_brief(campaign) or "- (none beyond duration/format)"
-    prompt = mod.build_prompt(dmin=dmin, dmax=dmax, duration=duration, brief=brief, segments=segs)
+    rs = ruleset(campaign)
+    copy_rules = copy_rules_for_prompt(rs)
+    prompt = mod.build_decider_prompt(
+        dmin=dmin, dmax=dmax, duration=duration, brief=brief, copy_rules=copy_rules,
+    ) + "\n".join(mod.segment_lines(segs))[:5000]
     t0 = time.monotonic()
     data, stats = llm(prompt)
     latency_ms = int((time.monotonic() - t0) * 1000)
-    parsed = mod.parse_clips(data, dmin, dmax)
+    prepared = mod.prepare_clips(
+        (data.get("clips") if isinstance(data, dict) else None), dmin, dmax
+    )
+    # Live (#67) stores every clip: copy-failing ones become needs_review candidates.
+    reviewed = mod.review_clip_copies(prepared, rs, retry=None)
+    parsed = []
+    for c in reviewed:
+        start = float(c.get("start") or 0)
+        end = float(c.get("end") or 0)
+        hook_end = mod._hook_end(c.get("hook_end"), end - start)
+        extra = {
+            "source": "grok_clip_decider",
+            "kind": "speech",
+            "title": str(c.get("title") or "")[:100],
+            "caption": str(c.get("caption") or c.get("reason") or "")[:800],
+            "on_screen_text": str(c.get("on_screen_text") or "")[:120],
+        }
+        if hook_end is not None:
+            extra["hook_end"] = hook_end
+        if c.get("copy_status") == "needs_review":
+            extra["copy_status"] = c["copy_status"]
+            extra["copy_reason"] = c.get("copy_reason")
+        parsed.append({
+            "start": round(start, 2),
+            "end": round(end, 2),
+            "score": clip_score(end - start, dmin, dmax, c.get("score")),
+            "reason": str(c.get("reason") or "grok")[:500],
+            "extra": extra,
+        })
     return {
         "clips": parsed,
         "prompt_chars": len(prompt),

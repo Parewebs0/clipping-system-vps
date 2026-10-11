@@ -145,10 +145,13 @@ def test_approve_creates_render_job(db):
     assert job.payload["start_time"] == 10.0
     assert job.payload["end_time"] == 40.0
     assert job.payload["format"]  # not empty
-    # #41: worker render_spec v2 keys
-    for k in ("captions", "watermark", "on_screen_text", "render_spec"):
+    # render_spec v3: v2 keys plus loudnorm policy (server still accepts v2 results)
+    for k in ("captions", "watermark", "on_screen_text", "render_spec", "audio"):
         assert k in job.payload
-    assert job.payload["render_spec"]["version"] == 2
+    assert job.payload["render_spec"]["version"] == 3
+    assert job.payload["audio"]["normalize"] is True
+    assert job.payload["audio"]["target_lufs"] == -14
+    assert job.payload["audio"]["true_peak_db"] == -1
 
 
 def test_approve_out_of_window_rejects(db):
@@ -375,6 +378,49 @@ def test_approve_endpoint_404(client, auth_headers):
         f"/candidates/{uuid.uuid4()}/approve", headers=auth_headers
     )
     assert r.status_code == 404
+
+
+def test_approve_endpoint_409_campaign_archived(client, auth_headers):
+    """2c: the API maps the un-workable-campaign guard to 409 (archived)."""
+    from app.models.asset import Asset, AssetStatus
+    from app.models.campaign import Campaign
+    from app.models.candidate import Candidate, CandidateStatus
+
+    db = SessionLocal()
+    try:
+        c = Campaign(
+            name=f"lc-{uuid.uuid4().hex[:6]}",
+            source_provider="whop",
+            status="archived",
+            source_instructions="Make 30-60s clips in english.",
+        )
+        db.add(c)
+        db.commit()
+        a = Asset(
+            campaign_id=c.id, source_url="https://example.com/v",
+            source_provider="youtube", source_id="x", asset_type="video",
+            status=AssetStatus.TRANSCRIBED.value, duration_seconds=300.0,
+            extra_metadata={"transcription": {"text": "hello"}},
+        )
+        db.add(a)
+        db.commit()
+        db.refresh(a)
+        cand = Candidate(
+            campaign_id=c.id, asset_id=a.id,
+            start_time=10.0, end_time=40.0,
+            score=0.8, reasoning="x",
+            status=CandidateStatus.PENDING.value,
+            extra_metadata={},
+        )
+        db.add(cand)
+        db.commit()
+        cand_id = str(cand.id)
+    finally:
+        db.close()
+
+    r = client.post(f"/candidates/{cand_id}/approve", headers=auth_headers)
+    assert r.status_code == 409, r.text
+    assert "not workable" in r.json()["detail"]
 
 
 def test_reject_endpoint(client, auth_headers):

@@ -1920,7 +1920,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "approved" | "rejected" | "rendered" | "superseded";
+            status: "pending" | "approved" | "rejected" | "rendered" | "superseded" | "needs_review";
             /** Title */
             title?: string | null;
             /** Transcript Excerpt */

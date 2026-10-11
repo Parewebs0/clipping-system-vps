@@ -41,7 +41,12 @@ class CandidateStateError(ValueError):
 
 
 # States from which a manual/agent approval may proceed.
-APPROVABLE_STATES = frozenset({CandidateStatus.PENDING.value, CandidateStatus.APPROVED.value})
+# needs_review is a copy failure a person can still accept or reject.
+APPROVABLE_STATES = frozenset({
+    CandidateStatus.PENDING.value,
+    CandidateStatus.APPROVED.value,
+    CandidateStatus.NEEDS_REVIEW.value,
+})
 
 
 def _now() -> datetime:
@@ -215,7 +220,7 @@ def approve_candidate(
         "language": spec.language,
         "ruleset_version": spec.extra.get("ruleset_version"),
     }
-    # #41: captions / logo / on-screen text from the RuleSet (worker render_spec v2).
+    # Captions / logo / on-screen text / loudnorm from the RuleSet (render_spec v3).
     from app.services.rules.render_spec import build_render_spec
 
     render_payload.update(build_render_spec(campaign, asset, candidate))

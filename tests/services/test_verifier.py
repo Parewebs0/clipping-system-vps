@@ -73,6 +73,56 @@ def test_old_worker_without_metadata_fails():
     assert "render.metadata" in r["failed"]
 
 
+def _loudnorm_audio(*, normalized: bool, original_only: bool = False, target_lufs: int = -14, true_peak_db: int = -1):
+    if normalized:
+        return {"normalized": True, "original_only": False, "filter": "loudnorm",
+                "target_lufs": target_lufs, "true_peak_db": true_peak_db}
+    return {"normalized": False, "original_only": original_only, "filter": None,
+            "reason": "audio.original_only" if original_only else "skipped"}
+
+
+def test_v2_and_v3_are_accepted_and_loudnorm_starts_at_v3():
+    """v2 results stay valid without applied.audio. v3 checks loudnorm unless original_only."""
+    rs = _rs()
+    v2 = _verify(rs)
+    assert v2["status"] == "pass"
+    assert not any(c["rule"] == "audio.loudnorm" for c in v2["checks"])
+
+    v3 = {**GOOD_RESULT, "render_spec_version": 3, "applied": {
+        **GOOD_RESULT["applied"], "audio": _loudnorm_audio(normalized=True),
+    }}
+    ok = _verify(rs, result=v3)
+    assert ok["status"] == "pass", ok["failed"]
+    assert any(c["rule"] == "audio.loudnorm" and c["status"] == "pass" for c in ok["checks"])
+
+    missing = {**GOOD_RESULT, "render_spec_version": 3}
+    assert "audio.loudnorm" in _verify(rs, result=missing)["failed"]
+    quiet = {**GOOD_RESULT, "render_spec_version": 3, "applied": {
+        **GOOD_RESULT["applied"], "audio": _loudnorm_audio(normalized=True, target_lufs=-16),
+    }}
+    assert "audio.loudnorm" in _verify(rs, result=quiet)["failed"]
+
+    # no_added_music still normalizes; only original_only skips loudnorm.
+    rs.audio.no_added_music = True
+    assert "audio.loudnorm" in _verify(rs, result=missing)["failed"]
+    assert "audio.loudnorm" not in _verify(rs, result=v3)["failed"]
+
+    rs.audio.original_only = True
+    kept = {**GOOD_RESULT, "render_spec_version": 3, "applied": {
+        **GOOD_RESULT["applied"], "audio": _loudnorm_audio(normalized=False, original_only=True),
+    }}
+    kept_rep = _verify(rs, result=kept)
+    assert "audio.loudnorm" not in kept_rep["failed"]
+    assert any(c["rule"] == "audio.loudnorm" and c["status"] == "pass" for c in kept_rep["checks"])
+    touched = _verify(rs, result=v3)
+    assert "audio.loudnorm" in touched["failed"]
+
+    silent = {**v3, "probe": {**v3["probe"], "has_audio": False}}
+    silent_rep = _verify(rs, result=silent)
+    assert any(c["rule"] == "audio.loudnorm" and c["status"] == "n/a" for c in silent_rep["checks"])
+    assert "audio" in silent_rep["failed"] and "audio.loudnorm" not in silent_rep["failed"]
+
+
 def test_copy_failures():
     rs = _rs()
     bad = check_copy(rs, "youtube", "Cheap house", "#casita #boxabl Nice house #Ad")

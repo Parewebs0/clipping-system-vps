@@ -51,14 +51,28 @@ def _worker_result(spec, *, width=1080, height=1920, audio=True, duration=25.0, 
     if text_override is not None:
         text = text_override
     wm = spec["watermark"]
+    policy = spec.get("audio") if isinstance(spec.get("audio"), dict) else {}
+    original_only = bool(policy.get("original_only"))
+    if not audio:
+        applied_audio = {"normalized": False, "original_only": original_only, "reason": "no_audio"}
+    elif original_only:
+        applied_audio = {"normalized": False, "original_only": True, "filter": None,
+                         "reason": "audio.original_only"}
+    else:
+        applied_audio = {
+            "normalized": True, "original_only": False, "filter": "loudnorm",
+            "target_lufs": policy.get("target_lufs", -14),
+            "true_peak_db": policy.get("true_peak_db", -1),
+        }
     return {
-        "render_spec_version": 2,
+        "render_spec_version": 3,
         "probe": {"width": width, "height": height, "fps": 30.0, "has_audio": audio, "duration": duration},
         "applied": {
             "captions": {"applied": cap["enabled"], "events": 6 if cap["enabled"] else 0, "text": text},
             "on_screen_text": {"applied": spec["on_screen_text"]["enabled"],
                                "texts": [{"text": i["text"]} for i in spec["on_screen_text"]["items"]]},
             "watermark": {"applied": wm["enabled"] if logo is None else logo, "position": wm["position"]},
+            "audio": applied_audio,
         },
     }
 

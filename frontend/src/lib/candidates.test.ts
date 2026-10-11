@@ -22,6 +22,8 @@ describe('candidate helpers', () => {
 
   it('mirrors the backend approve/reject guards', () => {
     expect(canApprove({ status: 'pending', render_job_id: null })).toBe(true)
+    expect(canApprove({ status: 'needs_review', render_job_id: null })).toBe(true)
+    expect(canReject({ status: 'needs_review', render_job_id: null })).toBe(true)
     expect(canApprove({ status: 'approved', render_job_id: null })).toBe(true)
     expect(canApprove({ status: 'approved', render_job_id: 'j' })).toBe(false)
     for (const s of ['rejected', 'rendered', 'superseded'] as const) {
