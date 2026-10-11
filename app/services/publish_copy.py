@@ -180,3 +180,166 @@ def paid_promotion(campaign: Any) -> bool:
 def platform_mentions(campaign: Any, platform: str) -> list[str]:
     rs = _rs(campaign)
     return list(rs.copy_rules.mentions_by_platform.get(platform) or []) if rs else []
+
+
+def copy_targets(rs: Any) -> list[str]:
+    """Platforms whose caption the decider must satisfy. X is ignored (#54)."""
+    if rs is None:
+        return ["youtube"]
+    return copy_platforms(getattr(rs, "platforms", None)) or ["youtube"]
+
+
+def copy_rules_for_prompt(rs: Any) -> str:
+    """Copy rules the decider prompt must state before it asks for a caption.
+
+    Covers ordered hashtags, mentions per platform, FTC, exact_caption and
+    prohibited terms.
+    """
+    if rs is None:
+        return "- No campaign copy rules. Write 2-3 caption lines. No prices. Do not start with [whop]."
+    cp = rs.copy_rules
+    targets = copy_targets(rs)
+    lines = [
+        "Write ONE title and ONE caption. The same caption is checked on every platform listed here.",
+        "- Platforms checked: " + ", ".join(targets),
+    ]
+    if cp.exact_caption:
+        lines.append("- exact_caption: the caption must contain this text verbatim: " + cp.exact_caption.strip())
+    if cp.must_mention_any:
+        lines.append("- must_mention_any: the title or caption must include at least one of: " + ", ".join(cp.must_mention_any))
+    for platform, mentions in (cp.mentions_by_platform or {}).items():
+        if mentions:
+            lines.append(f"- mentions ({platform}): include each of these exactly: " + ", ".join(mentions))
+    hs = cp.hashtags
+    if hs.ordered:
+        ordered = " ".join(h if str(h).startswith("#") else f"#{h}" for h in hs.ordered)
+        where = "after the caption text, never before it" if hs.position == "after_text" else "anywhere in the caption"
+        if hs.max_extra == 0:
+            extra = "No extra hashtags."
+        elif hs.max_extra is not None:
+            extra = f"At most {hs.max_extra} extra hashtags."
+        else:
+            extra = "Extra hashtags are allowed."
+        lines.append(f"- hashtags: use these in this order, {where}: {ordered}. {extra}")
+    ftc = cp.ftc
+    if ftc.required or ftc.tokens:
+        tokens = ftc.tokens or ["#Ad"]
+        bits = [f"include one of: {', '.join(tokens)}"]
+        if ftc.own_line:
+            bits.append("on its own line, with nothing else on that line")
+        if ftc.first_after_text:
+            bits.append("as the first element after the caption text, not before the text")
+        lines.append("- FTC: " + "; ".join(bits) + ".")
+    if rs.prohibitions.terms:
+        lines.append("- prohibitions: the title, caption and on_screen_text must not contain: " + ", ".join(rs.prohibitions.terms))
+    lines.append("- No prices. Do not start with [whop].")
+    return "\n".join(lines)
+
+
+def format_copy_failures(failures: list[dict]) -> str:
+    """One line the retry prompt can quote. Rule name plus the verifier detail."""
+    parts: list[str] = []
+    for row in failures:
+        detail = str(row.get("detail") or "").strip()
+        rule = str(row.get("rule") or "copy")
+        parts.append(f"{rule} ({detail})" if detail else rule)
+    return "; ".join(parts)
+
+
+def copy_failures(rs: Any, title: str, description: str, extra_text: str = "") -> list[dict]:
+    """Failed ``check_copy`` rows for every platform this campaign publishes to."""
+    if rs is None:
+        return []
+    from app.services.rules.verifier import check_copy
+
+    seen: set[tuple[str, str]] = set()
+    out: list[dict] = []
+    for platform in copy_targets(rs):
+        for row in check_copy(rs, platform, title, description, extra_text):
+            if row.get("status") != "fail":
+                continue
+            key = (str(row.get("rule") or ""), str(row.get("detail") or ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(row)
+    return out
+
+
+def _clip_text(clip: dict) -> tuple[str, str, str]:
+    title = str(clip.get("title") or "")[:100]
+    caption = str(clip.get("caption") or clip.get("reason") or "")[:800]
+    overlay = str(clip.get("on_screen_text") or "")[:120]
+    return title, caption, overlay
+
+
+def review_clip_copies(clips: list[dict], rs: Any, *, retry) -> list[dict]:
+    """Validate each clip caption. Retry the model once when any clip fails.
+
+    ``retry(failure_text)`` is called at most once and must return the
+    replacement clip list. A clip that still fails is ``copy_status``
+    ``needs_review`` and ``copy_reason`` names the failed checks.
+    Without a RuleSet every clip is pending and ``retry`` is not called.
+    """
+    def _annotate(clip: dict, attempts: int) -> dict:
+        title, caption, overlay = _clip_text(clip)
+        fails = copy_failures(rs, title, caption, overlay)
+        out = dict(clip)
+        out["title"] = title
+        out["caption"] = caption
+        out["on_screen_text"] = overlay
+        out["copy_status"] = "needs_review" if fails else "pending"
+        out["copy_reason"] = format_copy_failures(fails) if fails else None
+        out["copy_attempts"] = attempts
+        return out
+
+    attempts = 1
+    if rs is not None and retry is not None:
+        first = [_annotate(c, 1) for c in clips]
+        failed = [f"clip {i}: {c['copy_reason']}" for i, c in enumerate(first) if c["copy_reason"]]
+        if failed:
+            replacement = retry("\n".join(failed))
+            if isinstance(replacement, list) and replacement:
+                clips = replacement
+            attempts = 2
+    return [_annotate(c, attempts) for c in clips]
+
+
+def clip_score(length: float, dmin: float, dmax: float, model_score: Any = None) -> float:
+    """Confidence in ``[0, 1]``, rounded to 2 decimals. Not a fixed constant.
+
+    Duration fit is ``1`` when ``length`` is the midpoint of ``[dmin, dmax]``,
+    and it falls linearly by the distance from that midpoint divided by
+    ``dmax`` (0 once the window is a full ``dmax`` away from the midpoint).
+    Two windows of different lengths therefore get different scores.
+
+    A numeric model score is clamped to ``[0, 1]`` and averaged with the fit.
+    Anything else (missing, blank, non-numeric) is ignored and the fit is
+    the score on its own.
+    """
+    try:
+        length_f = max(0.0, float(length))
+        dmax_f = float(dmax)
+        dmin_f = float(dmin)
+    except (TypeError, ValueError):
+        return 0.0
+    if dmax_f <= 0:
+        fit = 1.0 if length_f == 0 else 0.0
+    else:
+        mid = (max(dmin_f, 0.0) + dmax_f) / 2.0
+        fit = max(0.0, 1.0 - abs(length_f - mid) / dmax_f)
+    parsed = _model_score(model_score)
+    value = fit if parsed is None else (parsed + fit) / 2.0
+    return round(min(1.0, max(0.0, value)), 2)
+
+
+def _model_score(raw: Any) -> float | None:
+    if raw is None or isinstance(raw, bool) or raw == "":
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if value != value:  # NaN
+        return None
+    return min(1.0, max(0.0, value))

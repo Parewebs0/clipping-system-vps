@@ -38,6 +38,7 @@ class CandidateStatus(str, enum.Enum):
     REJECTED = "rejected"                     # failed rules, won't be rendered
     RENDERED = "rendered"                     # render job dispatched/finished
     SUPERSEDED = "superseded"                 # another candidate overrode this one
+    NEEDS_REVIEW = "needs_review"             # decider copy failed check_copy twice
 
 
 CANDIDATE_STATUS_VALUES = tuple(s.value for s in CandidateStatus)

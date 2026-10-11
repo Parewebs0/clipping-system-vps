@@ -7,8 +7,10 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models.candidate import CANDIDATE_STATUS_VALUES
 
-VALID_STATUSES = {"pending", "approved", "rejected", "rendered", "superseded"}
+
+VALID_STATUSES = set(CANDIDATE_STATUS_VALUES)
 
 
 class CandidateCreate(BaseModel):
