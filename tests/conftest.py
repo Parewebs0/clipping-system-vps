@@ -72,13 +72,13 @@ def auth_headers() -> dict:
 
 
 @pytest.fixture(autouse=True)
-def _clean_jobs_table(request):
+def _clean_jobs_table():
     """Clean jobs table before every test to ensure isolation.
 
-    tests/shadow is marked no_db and must never open a session.
+    Every test gets a wipe: leftover rows leaked across tests with the
+    request-guard variant (MOLI-38) and broke test_worker_next_returns_204.
+    Shadow tests never use the DB anyway; the cleaner just deletes jobs.
     """
-    if request.node.get_closest_marker("no_db"):
-        return
     session = SessionLocal()
     try:
         session.execute(text("DELETE FROM jobs"))
