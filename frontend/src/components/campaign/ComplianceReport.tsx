@@ -5,6 +5,7 @@ import type { McClip } from '@/api/types'
 import { ToneBadge } from '@/components/common/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { checklistText } from '@/lib/compliance'
 import type { Tone } from '@/lib/status'
 
 type Check = { rule: string; status: string; expected?: unknown; actual?: unknown; how?: string; detail?: string; platform?: string }
@@ -101,17 +102,24 @@ export function ComplianceCell({ clip, campaignId }: { clip: McClip; campaignId?
         {!approved && reviewIdx.length > 0 && (
           <div className="space-y-1">
             <div className="text-sm font-medium">Checklist antes de aprobar la publicación</div>
+            <p className="text-muted-foreground text-xs">
+              Reglas humanas de esta campaña (hook, edición, prohibiciones temáticas y checks manuales). Márcalas solo si el clip las cumple.
+            </p>
             {reviewIdx.map((i) => (
-              <label key={i} className="flex items-center gap-2 text-sm">
+              <label key={i} className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"
+                  className="mt-1"
                   checked={picked.has(i)}
                   onChange={() => toggle(i)}
                   aria-label={`checklist ${checks[i].rule} ${i}`}
                 />
-                <span className="font-mono text-xs">
-                  {checks[i].rule}
-                  {checks[i].platform ? ` (${checks[i].platform})` : ''}
+                <span>
+                  <span className="font-mono text-xs">
+                    {checks[i].rule}
+                    {checks[i].platform ? ` (${checks[i].platform})` : ''}
+                  </span>
+                  <span className="block whitespace-pre-wrap">{checklistText(checks[i])}</span>
                 </span>
               </label>
             ))}
