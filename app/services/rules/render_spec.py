@@ -1,9 +1,12 @@
 """#41 / MOLI-35: render_spec v3 — what the worker must burn into the clip.
 
 Same keys as the Windows worker, plus loudnorm policy:
-  captions{enabled, segments[{start,end,text,words}], brand_dictionary, style}
+  captions{enabled, segments[{start,end,text,words}], brand_dictionary, style,
+           keywords, emojis}
+  captions.style{preset, highlight_color, uppercase?, font?, emoji, censor}
+    preset classic (default) is the static burn-in. karaoke | pop | bold opt in.
   watermark{enabled, url, position, width, start, end}
-  on_screen_text{enabled, items[{text,start,end,position}]}
+  on_screen_text{enabled, entrance, items[{text,start,end,position,entrance?}]}
   audio{original_only, normalize, target_lufs, true_peak_db}
   decider{chunk_chars, candidates_per_chunk, top_n, overlap}  ← VPS clip-decider; worker ignores
   render_spec{version, required{...}}  ← read back by the post-render verifier
@@ -27,11 +30,35 @@ LOUDNORM_TRUE_PEAK_DB = -1
 DEFAULT_DECIDER = DeciderOptions().as_dict()
 _URL = re.compile(r"https?://\S+")
 DEFAULT_LOGO_SECONDS = 3.0
+_CAPTION_PRESETS = {"classic", "karaoke", "pop", "bold"}
+_DEFAULT_HIGHLIGHT = "&H0000FFFF"
+
+
+def _clip_word(w: dict, start: float, end: float, dur: float, seg_speaker: Optional[str]) -> Optional[dict]:
+    try:
+        ws, we = float(w["start"]), float(w["end"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if we <= start or ws >= end:
+        return None
+    text = str(w.get("word") or w.get("text") or "").strip()
+    if not text:
+        return None
+    entry = {
+        "start": round(max(0.0, ws - start), 3),
+        "end": round(min(dur, we - start), 3),
+        "word": text,
+    }
+    speaker = w.get("speaker") or seg_speaker
+    if speaker:
+        entry["speaker"] = str(speaker)
+    return entry
 
 
 def clip_segments(asset, start: float, end: float) -> list[dict]:
     """Transcript segments overlapping [start, end], shifted to clip time."""
     tx = ((getattr(asset, "extra_metadata", None) or {}).get("transcription") or {})
+    flat_words = [w for w in (tx.get("words") or []) if isinstance(w, dict)]
     out: list[dict] = []
     dur = end - start
     for seg in tx.get("segments") or []:
@@ -41,16 +68,25 @@ def clip_segments(asset, start: float, end: float) -> list[dict]:
             continue
         if s1 <= start or s0 >= end:
             continue
+        seg_speaker = str(seg["speaker"]) if seg.get("speaker") else None
+        nested = [w for w in (seg.get("words") or []) if isinstance(w, dict)]
+        # Older transcripts keep WhisperX timings only on transcription.words.
+        if nested:
+            source_words = nested
+        else:
+            source_words = []
+            for w in flat_words:
+                try:
+                    ws = float(w["start"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if s0 <= ws < s1:
+                    source_words.append(w)
         words = []
-        for w in seg.get("words") or []:
-            try:
-                ws, we = float(w["start"]), float(w["end"])
-            except (KeyError, TypeError, ValueError):
-                continue
-            if we <= start or ws >= end:
-                continue
-            words.append({"start": round(max(0.0, ws - start), 3), "end": round(min(dur, we - start), 3),
-                          "word": str(w.get("word") or w.get("text") or "").strip()})
+        for w in source_words:
+            entry = _clip_word(w, start, end, dur, seg_speaker)
+            if entry:
+                words.append(entry)
         text = str(seg.get("text") or "").strip()
         if words:
             text = " ".join(w["word"] for w in words)
@@ -63,8 +99,11 @@ def clip_segments(asset, start: float, end: float) -> list[dict]:
                 text = " ".join(toks[a:b])
         if not text:
             continue
-        out.append({"start": round(max(0.0, s0 - start), 3), "end": round(min(dur, s1 - start), 3),
-                    "text": text, **({"words": words} if words else {})})
+        segment = {"start": round(max(0.0, s0 - start), 3), "end": round(min(dur, s1 - start), 3),
+                   "text": text, **({"words": words} if words else {})}
+        if seg_speaker:
+            segment["speaker"] = seg_speaker
+        out.append(segment)
     return out
 
 
@@ -96,17 +135,132 @@ def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
     return m.group(0).rstrip(").,") if m else None
 
 
+def _rules_overrides(campaign) -> dict:
+    raw = (getattr(campaign, "source_metadata", None) or {}).get("rules_overrides") or {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def caption_style(rs: RuleSet, campaign) -> dict[str, Any]:
+    """Worker style. Omitted font/uppercase means the preset's own default.
+
+    `rules_overrides.captions_style` wins over the ruleset so a campaign can
+    pick karaoke/pop/bold without re-extracting the brief.
+    """
+    preset = str(getattr(rs.captions, "preset", None) or "classic").strip().lower()
+    if preset not in _CAPTION_PRESETS:
+        preset = "classic"
+    style: dict[str, Any] = {
+        "position": "bottom",
+        "max_words": 4,
+        "preset": preset,
+        "highlight_color": str(rs.captions.highlight_color or _DEFAULT_HIGHLIGHT),
+        "emoji": bool(rs.captions.emoji),
+        "censor": {
+            "words": [str(w).strip() for w in (rs.captions.censor_words or []) if str(w).strip()],
+            "beep": bool(rs.captions.censor_beep),
+        },
+    }
+    if rs.captions.uppercase is not None:
+        style["uppercase"] = bool(rs.captions.uppercase)
+    if rs.captions.font:
+        style["font"] = str(rs.captions.font).strip()
+    custom = _rules_overrides(campaign).get("captions_style")
+    if isinstance(custom, dict):
+        if custom.get("preset"):
+            name = str(custom["preset"]).strip().lower()
+            if name in _CAPTION_PRESETS:
+                style["preset"] = name
+        if custom.get("highlight_color"):
+            style["highlight_color"] = str(custom["highlight_color"])
+        if "uppercase" in custom and custom["uppercase"] is not None:
+            style["uppercase"] = bool(custom["uppercase"])
+        if custom.get("font"):
+            style["font"] = str(custom["font"]).strip()
+        if "emoji" in custom and custom["emoji"] is not None:
+            style["emoji"] = bool(custom["emoji"])
+        censor = custom.get("censor")
+        if isinstance(censor, dict):
+            style["censor"] = {
+                "words": [str(w).strip() for w in (censor.get("words") or []) if str(w).strip()],
+                "beep": bool(censor.get("beep")),
+            }
+        elif isinstance(censor, list):
+            style["censor"] = {"words": [str(w).strip() for w in censor if str(w).strip()], "beep": False}
+    return style
+
+
+def _meta_list(meta: dict, key: str, limit: int) -> list:
+    raw = meta.get(key) if isinstance(meta, dict) else None
+    if not isinstance(raw, list):
+        return []
+    return list(raw)[:limit]
+
+
+def caption_keywords(meta: dict) -> list[str]:
+    """Up to 3 short words. Blanks and overlong tokens are skipped, not truncated."""
+    raw = meta.get("keywords") if isinstance(meta, dict) else None
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        text = str(item or "").strip()
+        if not text or len(text) > 40:
+            continue
+        out.append(text)
+        if len(out) >= 3:
+            break
+    return out
+
+
+def caption_emojis(meta: dict, start: float, end: float) -> list[dict]:
+    """Decider emoji cues, shifted to clip time when they carry absolute times."""
+    out: list[dict] = []
+    dur = end - start
+    for item in _meta_list(meta, "emojis", 4):
+        if isinstance(item, str):
+            item = {"emoji": item}
+        if not isinstance(item, dict):
+            continue
+        emoji = str(item.get("emoji") or item.get("char") or "").strip()
+        if not emoji or len(emoji) > 16 or not any(ord(ch) > 127 for ch in emoji):
+            continue
+        cue: dict[str, Any] = {"emoji": emoji}
+        keyword = str(item.get("keyword") or "").strip()
+        if keyword:
+            cue["keyword"] = keyword[:40]
+        if item.get("start") is not None:
+            try:
+                rel = float(item["start"]) - start
+                rel_end = float(item["end"]) - start if item.get("end") is not None else rel + 1.2
+            except (TypeError, ValueError):
+                rel = None
+            else:
+                if rel < dur and rel_end > 0:
+                    cue["start"] = round(max(0.0, rel), 3)
+                    cue["end"] = round(min(dur, max(rel_end, rel + 0.4)), 3)
+        if "keyword" in cue or "start" in cue:
+            out.append(cue)
+        if len(out) >= 2:
+            break
+    return out
+
+
 def build_render_spec(campaign, asset, candidate, *, captions_default: bool = True) -> dict[str, Any]:
     rs = load_ruleset(campaign.source_metadata or {}) or RuleSet()
     start, end = float(candidate.start_time), float(candidate.end_time)
     dur = round(end - start, 3)
     segs = clip_segments(asset, start, end)
     cap_enabled = bool(segs) and (rs.captions.required or captions_default)
+    meta = candidate.extra_metadata or {}
+    if not isinstance(meta, dict):
+        meta = {}
     captions = {
         "enabled": cap_enabled,
         "segments": segs if cap_enabled else [],
         "brand_dictionary": list(rs.captions.brand_dictionary),
-        "style": {"position": "bottom", "max_words": 4},
+        "style": caption_style(rs, campaign),
+        "keywords": caption_keywords(meta),
+        "emojis": caption_emojis(meta, start, end),
     }
     # Logo
     url = logo_url(campaign, rs) if rs.logo.required else None
@@ -125,11 +279,18 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         wm_end = dur
     watermark = {"enabled": bool(url), "url": url, "position": rs.logo.position, "width": 220,
                  "start": wm_start, "end": wm_end}
-    # On-screen text: decider text + literal must_include + CTA
+    # On-screen text: decider text + literal must_include + CTA.
+    # entrance animates the hook only. Default off = the static overlay.
+    entrance = bool(rs.on_screen_text.entrance)
+    if "on_screen_entrance" in _rules_overrides(campaign):
+        entrance = bool(_rules_overrides(campaign).get("on_screen_entrance"))
     items: list[dict] = []
-    decided = str(((candidate.extra_metadata or {}).get("on_screen_text")) or "").strip()
+    decided = str((meta.get("on_screen_text")) or "").strip()
     if decided:
-        items.append({"text": decided[:120], "start": 0.0, "end": min(dur, 4.0), "position": "top"})
+        hook = {"text": decided[:120], "start": 0.0, "end": min(dur, 4.0), "position": "top"}
+        if entrance:
+            hook["entrance"] = True
+        items.append(hook)
     have = " ".join(i["text"].lower() for i in items)
     for m in rs.on_screen_text.must_include:
         if m.lower() not in have:
@@ -137,7 +298,7 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
             have += " " + m.lower()
     if rs.logo.as_cta and rs.logo.cta_text:
         items.append({"text": rs.logo.cta_text[:120], "start": max(0.0, dur - 3.0), "end": dur, "position": "center"})
-    on_screen_text = {"enabled": bool(items), "items": items}
+    on_screen_text = {"enabled": bool(items), "entrance": entrance, "items": items}
     original_only = bool(rs.audio.original_only)
     audio = {
         "original_only": original_only,

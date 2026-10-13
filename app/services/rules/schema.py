@@ -53,13 +53,28 @@ class LanguageRule(Rule):
 
 
 class CaptionsRule(Rule):
-    """Burned-in subtitles."""
+    """Burned-in subtitles.
+
+    Style defaults keep the static burn-in. `preset` is one of
+    classic | karaoke | pop | bold. `uppercase` and `font` are optional
+    overrides; omitted means the preset decides. `emoji` paints decider
+    emoji cues as PNG overlays. `censor_words` are replaced with `***`
+    (`censor_beep` adds a tone under those words).
+    """
     brand_dictionary: list[str] = Field(default_factory=list)  # exact spellings (e.g. "BOXABL")
+    preset: Literal["classic", "karaoke", "pop", "bold"] = "classic"
+    highlight_color: Optional[str] = None
+    uppercase: Optional[bool] = None
+    font: Optional[str] = None
+    emoji: bool = False
+    censor_words: list[str] = Field(default_factory=list)
+    censor_beep: bool = False
 
 
 class OnScreenTextRule(Rule):
     must_include: list[str] = Field(default_factory=list)
     guidance: Optional[str] = None
+    entrance: bool = False  # hook line slides/fades in; off keeps the static overlay
 
 
 class LogoRule(Rule):
