@@ -81,7 +81,7 @@ def logo_url(campaign, rs: RuleSet) -> Optional[str]:
 
 
 def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
-    overrides = ((getattr(campaign, "source_metadata", None) or {}).get("rules_overrides") or {})
+    overrides = ((campaign.source_metadata or {}).get("rules_overrides") or {})
     if isinstance(overrides, dict) and overrides.get("logo_url"):
         return str(overrides["logo_url"])
     if rs.logo.url:
@@ -91,18 +91,38 @@ def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
     return m.group(0).rstrip(").,") if m else None
 
 
+def _branding(campaign, rs: RuleSet) -> dict[str, Any]:
+    """Branding block for the worker (MOLI-54), {} when unconfigured.
+
+    The worker treats an empty block exactly as before, so behaviour is
+    unchanged by default.
+    """
+    from app.services.rules.branding import resolve
+
+    try:
+        return dict(resolve(campaign, rs) or {})
+    except Exception:  # noqa: BLE001 - branding must never break the render spec
+        return {}
+
+
 def build_render_spec(campaign, asset, candidate, *, captions_default: bool = True) -> dict[str, Any]:
     rs = load_ruleset(campaign.source_metadata or {}) or RuleSet()
     start, end = float(candidate.start_time), float(candidate.end_time)
     dur = round(end - start, 3)
     segs = clip_segments(asset, start, end)
     cap_enabled = bool(segs) and (rs.captions.required or captions_default)
+    branding = _branding(campaign, rs)
     captions = {
         "enabled": cap_enabled,
         "segments": segs if cap_enabled else [],
         "brand_dictionary": list(rs.captions.brand_dictionary),
         "style": {"position": "bottom", "max_words": 4},
     }
+    # Brand template values override the default caption style (MOLI-54).
+    if branding.get("position"):
+        captions["style"]["position"] = str(branding["position"])
+    if branding.get("max_words"):
+        captions["style"]["max_words"] = max(1, int(branding["max_words"]))
     # Logo
     url = logo_url(campaign, rs) if rs.logo.required else None
     secs = float(rs.logo.min_seconds or DEFAULT_LOGO_SECONDS)
@@ -151,6 +171,7 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "width": 1080, "height": 1920,
     }
     return {
+        "branding": branding,
         "captions": captions,
         "watermark": watermark,
         "on_screen_text": on_screen_text,

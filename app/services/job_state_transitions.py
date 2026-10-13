@@ -9,6 +9,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.asset import Asset, AssetStatus
+from app.models.campaign import Campaign
 from app.models.clip import Clip, ClipQAStatus, ClipStatus
 from app.models.job import Job, JobStatus  # JobType is a string, not enum
 from app.services.job_service import create_job
@@ -45,6 +46,32 @@ def _asset_id_from_payload(payload: dict) -> Optional[str]:
     if not val:
         val = payload.get("source_asset_id") if isinstance(payload, dict) else None
     return val
+
+
+def _brand_initial_prompt(db: Session, asset: Asset) -> Optional[str]:
+    """brand_dictionary as WhisperX initial_prompt (MOLI-54).
+
+    Vocabulary-only: names/spellings joined by spaces, capped (WhisperX keeps
+    ~224 tokens of prompt context). Never contains instructions — it just
+    biases the spelling of brand terms. Returns None when there is nothing.
+    """
+    try:
+        campaign = db.get(Campaign, asset.campaign_id)
+        if campaign is None:
+            return None
+        from app.services.rules.schema import load_ruleset
+
+        rs = load_ruleset(campaign.source_metadata or {})
+        if rs is None:
+            return None
+        words = [str(w).strip() for w in (rs.captions.brand_dictionary or []) if str(w).strip()]
+        if not words:
+            return None
+        prompt = " ".join(words)
+        return prompt[:900] or None
+    except Exception:  # noqa: BLE001 - a broken branding config never blocks transcription
+        logger.warning("brand initial_prompt failed for asset %s", asset.id, exc_info=True)
+        return None
 
 
 def on_download_completed(
@@ -110,6 +137,9 @@ def on_download_completed(
                 "video_path": asset.local_path or asset.source_url,
                 "source_url": asset.source_url,
                 "language": meta.get("language"),
+                # MOLI-54: brand vocabulary biases WhisperX spellings
+                # ("boxabl" → "BOXABL") without conditioning the words.
+                "initial_prompt": _brand_initial_prompt(db, asset),
             },
             priority=job.priority,
             max_attempts=job.max_attempts,
