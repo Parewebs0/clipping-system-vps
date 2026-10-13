@@ -30,6 +30,7 @@ def main() -> int:
     from app.models.asset import Asset
     from app.models.job import Job
     from app.services.job_service import create_job
+    from app.services.job_state_transitions import build_transcribe_payload
 
     db = SessionLocal()
     created = 0
@@ -78,14 +79,7 @@ def main() -> int:
             create_job(
                 db,
                 job_type="transcribe",
-                payload={
-                    "asset_id": str(asset.id),
-                    "campaign_id": str(asset.campaign_id),
-                    "video": asset.local_path,
-                    "video_path": asset.local_path,
-                    "source_url": asset.source_url,
-                    "language": meta.get("language"),
-                },
+                payload=build_transcribe_payload(asset, meta),
                 priority=5,
                 max_attempts=3,
             )

@@ -68,6 +68,7 @@ def test_download_completed_marks_asset_and_creates_transcribe(db):
     )
     assert len(transcribe_jobs) == 1
     assert transcribe_jobs[0].payload["asset_id"] == str(aid)
+    assert transcribe_jobs[0].payload["diarization"] is True
 
 
 def test_transcribe_completed_marks_asset_and_stores_transcription(db):

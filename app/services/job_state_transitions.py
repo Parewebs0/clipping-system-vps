@@ -20,6 +20,24 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def build_transcribe_payload(asset, meta: dict | None = None) -> dict:
+    """Worker transcribe payload. Diarization is on so reframe can follow the speaker.
+
+    The worker already treats a diarization failure as non-fatal.
+    """
+    meta = meta or {}
+    video = asset.local_path or asset.source_url
+    return {
+        "asset_id": str(asset.id),
+        "campaign_id": str(asset.campaign_id),
+        "video": video,
+        "video_path": video,
+        "source_url": asset.source_url,
+        "language": meta.get("language"),
+        "diarization": True,
+    }
+
+
 def _update_asset_status(db: Session, asset: Asset, new_status: str) -> None:
     if new_status not in (
         AssetStatus.PENDING.value,
@@ -103,14 +121,7 @@ def on_download_completed(
         create_job(
             db,
             job_type="transcribe",
-            payload={
-                "asset_id": str(asset.id),
-                "campaign_id": str(asset.campaign_id),
-                "video": asset.local_path or asset.source_url,
-                "video_path": asset.local_path or asset.source_url,
-                "source_url": asset.source_url,
-                "language": meta.get("language"),
-            },
+            payload=build_transcribe_payload(asset, meta),
             priority=job.priority,
             max_attempts=job.max_attempts,
         )
