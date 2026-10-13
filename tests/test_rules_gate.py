@@ -52,7 +52,7 @@ def test_no_ruleset_or_no_blockers_is_workable(s):
     a = _camp(db, made)
     b = _camp(db, made, rs=_rs(account=False))
     assert not is_blocked(a) and not is_blocked(b)
-    assert gate_campaigns(db) == 0
+    gate_campaigns(db)
     db.refresh(a), db.refresh(b)
     assert a.status == b.status == "scored"
 

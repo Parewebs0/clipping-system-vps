@@ -106,6 +106,7 @@ class CampaignListItem(BaseModel):
     score_min_to_run: Optional[float] = None
     briefing_error: Optional[PipelineError] = None
     resolve_error: Optional[PipelineError] = None
+    last_synced_at: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -130,6 +131,8 @@ class CampaignDetailCampaign(BaseModel):
     clips_published: int
     briefing_error: Optional[PipelineError] = None
     resolve_error: Optional[PipelineError] = None
+    last_synced_at: Optional[str] = None
+    budget_history: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

@@ -332,6 +332,8 @@ def detail_summary(detail: dict) -> dict[str, Any]:
         "requirement": cf.get("requirement") or {},
         "rules": cf.get("rules") or {},
         "reference_material": cf.get("referenceMaterial") or [],
+        "launch_date": detail.get("launchDate") or detail.get("createdAt"),
+        "ends_at": detail.get("endsAt") or detail.get("endDate") or detail.get("expiresAt"),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
     }
 

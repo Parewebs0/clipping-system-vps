@@ -474,6 +474,14 @@
               }
             ]
           },
+          "budget_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Budget History",
+            "type": "array"
+          },
           "clips_approved": {
             "title": "Clips Approved",
             "type": "integer"
@@ -496,6 +504,17 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
           },
           "name": {
             "title": "Name",
@@ -564,6 +583,7 @@
           },
           "status": {
             "enum": [
+              "queued",
               "discovered",
               "briefed",
               "assets_resolved",
@@ -711,6 +731,17 @@
             "title": "Id",
             "type": "integer"
           },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -843,6 +874,7 @@
           },
           "status": {
             "enum": [
+              "queued",
               "discovered",
               "briefed",
               "assets_resolved",
@@ -1182,6 +1214,7 @@
           },
           "status": {
             "enum": [
+              "queued",
               "discovered",
               "briefed",
               "assets_resolved",

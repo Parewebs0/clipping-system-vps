@@ -44,9 +44,9 @@ ALLOWED_CAMPAIGN_SOURCES = (CampaignSource.WHOP.value, CampaignSource.MANUAL.val
 
 class CampaignStatus(str, enum.Enum):
     # Pipeline v2 statuses (added 2026-09-17). Must stay in sync with
-    # alembic/versions/0011_campaign_status_pipeline_v2.py which mirrors
-    # the same values into the ck_campaigns_status check constraint.
-    DISCOVERED = "discovered"           # paso 1: minimal upsert only
+    # alembic ck_campaigns_status (latest: 0023_campaign_queue_sync).
+    QUEUED = "queued"                   # #72: discovered and scored, waiting for a processing slot
+    DISCOVERED = "discovered"           # paso 1: activated into the pipeline; brief-reader picks it up
     BRIEFED = "briefed"                 # paso 3a: brief-reader wrote rules
     ASSETS_RESOLVED = "assets_resolved" # paso 3b: drive-resolver expanded folders
     SCORED = "scored"                   # paso 3c: campaign-scorer wrote score
@@ -55,8 +55,8 @@ class CampaignStatus(str, enum.Enum):
     NEEDS_REVIEW = "needs_review"  # #37: rules gate (unsupported rule / unconfirmed human requirement) (0020)
     FAILED_BRIEF = "failed_brief"       # paso 3a: brief unreadable
     FAILED_RESOLVE = "failed_resolve"   # paso 3b: drive access denied
-    ARCHIVED = "archived"               # manual (Mission Control): out of the pipeline (0017)
-    PARKED = "parked"                   # auto (campaign_closed_tick): closed/exhausted/unfit on source (0018)
+    ARCHIVED = "archived"               # manual, or Whop closed / gone / budget empty (#72, 0017)
+    PARKED = "parked"                   # auto: remaining budget under the threshold, or unfit (0018, #72)
 
 
 CAMPAIGN_STATUS_VALUES = tuple(s.value for s in CampaignStatus)
@@ -91,6 +91,13 @@ class Campaign(Base):
     assets_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     clips_approved: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     clips_published: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+    # #72: last successful Whop detail read, and a short remaining-budget series
+    # ({at, remaining_usd, cpm_usd, spent_pct, whop_status}, capped at 60).
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    budget_history: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb"), default=list
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

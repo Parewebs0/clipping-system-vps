@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fmtAgo, fmtBytes, fmtDuration, fmtPct, hostOf } from './format'
-import { filterCampaigns } from './campaigns'
+import { filterCampaigns, formatRemainingUsd } from './campaigns'
 import { CAMPAIGN_STATUS_ORDER, errorHint, ERROR_HINTS } from './status'
 import { whopSummary } from './whop'
 import type { CampaignListItem } from '@/api/types'
@@ -49,6 +49,17 @@ describe('whopSummary', () => {
   it('uses the minimum payout rate as best CPM', () => {
     expect(whopSummary({ payouts: [{ rate_cents: 300 }, { rate_cents: 150 }] }).bestCpm).toBe(1.5)
   })
+  it('prefers the refreshed target rate and reads remaining budget', () => {
+    const w = whopSummary({
+      economics: { remaining_usd: 9000, target_rate_usd: 2.5 },
+      payouts: [{ rate_cents: 100 }],
+    })
+    expect(w.bestCpm).toBe(2.5)
+    expect(w.remainingUsd).toBe(9000)
+    expect(whopSummary({ economics: { remaining_usd: 0 } }).remainingUsd).toBe(0)
+    expect(formatRemainingUsd(null)).toBe('—')
+    expect(formatRemainingUsd(0)).not.toBe('—')
+  })
   it('survives garbage', () => {
     expect(whopSummary(null).org).toBe('')
     expect(whopSummary({ platforms: 'nope' }).platforms).toEqual([])
@@ -66,5 +77,16 @@ describe('filterCampaigns', () => {
     expect(filterCampaigns(items, 'scored', '').map((c) => c.id)).toEqual([1])
     expect(filterCampaigns(items, 'all', 'org x').map((c) => c.id)).toEqual([1])
     expect(filterCampaigns(items, 'all', '2').map((c) => c.id)).toEqual([2])
+  })
+  it('keeps queued and review on the main view and files archived and parked away', () => {
+    const more = [
+      ...items,
+      { ...base, id: 3, name: 'Queue', status: 'queued' },
+      { ...base, id: 4, name: 'Review', status: 'needs_review' },
+      { ...base, id: 5, name: 'Old', status: 'archived' },
+      { ...base, id: 6, name: 'Hold', status: 'parked' },
+    ] as CampaignListItem[]
+    expect(filterCampaigns(more, 'live', '').map((c) => c.id)).toEqual([1, 2, 3, 4])
+    expect(filterCampaigns(more, 'archive', '').map((c) => c.id)).toEqual([5, 6])
   })
 })

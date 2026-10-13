@@ -111,6 +111,12 @@ def main(argv=None) -> int:
             .order_by(Campaign.id.asc())
             .all()
         )
+        # #72: only the top DISCOVERY_MAX_ACTIVE workable campaigns, by score,
+        # receive new download jobs. needs_review is not workable, so it does
+        # not take a slot. Render jobs already running are not touched.
+        from app.services.discovery.slots import rank_for_download
+        cap = int(os.environ.get("DISCOVERY_MAX_ACTIVE", "3"))
+        campaigns = rank_for_download(campaigns, cap)
         for c in campaigns:
             assets = (
                 db.query(Asset)

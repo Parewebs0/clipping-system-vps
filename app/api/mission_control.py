@@ -317,7 +317,7 @@ def campaigns_list(
                     c.id, c.name, c.status, c.source_provider, c.source_url,
                     c.source_id, c.source_metadata, c.spec,
                     c.assets_count, c.clips_approved, c.clips_published,
-                    c.created_at, c.updated_at,
+                    c.created_at, c.updated_at, c.last_synced_at,
                     COUNT(DISTINCT a.id) AS assets_total,
                     COUNT(DISTINCT CASE WHEN a.status = 'transcribed' THEN a.id END)
                         AS assets_transcribed,
@@ -364,6 +364,7 @@ def campaigns_list(
                     **_score_fields(sm),
                     "briefing_error": _norm_error(sm.get("briefing_error")),
                     "resolve_error": _norm_error(sm.get("resolve_error")),
+                    "last_synced_at": _iso(r.last_synced_at),
                     "created_at": _iso(r.created_at),
                     "updated_at": _iso(r.updated_at),
                 }
@@ -390,7 +391,7 @@ def campaign_detail(
                 SELECT id, name, status, source_provider, source_url, source_id,
                        source_metadata, source_instructions, spec,
                        assets_count, clips_approved, clips_published,
-                       created_at, updated_at
+                       created_at, updated_at, last_synced_at, budget_history
                 FROM campaigns
                 WHERE id = :id
                 """
@@ -421,6 +422,8 @@ def campaign_detail(
             "clips_published": c.clips_published,
             "briefing_error": briefing_error_out,
             "resolve_error": resolve_error_out,
+            "last_synced_at": _iso(c.last_synced_at),
+            "budget_history": list(c.budget_history or []),
             "created_at": _iso(c.created_at),
             "updated_at": _iso(c.updated_at),
         }

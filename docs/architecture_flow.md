@@ -22,10 +22,16 @@ Servicios externos: Whop API · xAI Grok · Google Docs público · Google Drive
 
 ```
 0/1  whop_discovery.py  (08:15 y 20:15 Madrid)
-     Whop API → UPSERT campaigns (name, cpm, prize_pool, source_url, source_metadata.discovered)
-     Solo inserta si hay < MAX_ACTIVE (3) campañas activas
-     (activas = discovered | briefed | assets_resolved | scored)
-     → status='discovered'
+     Refresca TODAS las campañas Whop no archivadas (presupuesto restante, CPM,
+     fechas, estado Whop, last_synced_at, budget_history)
+     Las nuevas entran sin tope en status='queued' y esperan con su puntuación
+     Activa a status='discovered' solo hasta MAX_ACTIVE (3), de mayor a menor
+     Activas = discovered | briefed | assets_resolved | scored
+     needs_review no ocupa hueco
+     Cerrada, desaparecida o sin presupuesto → archived (no se borra)
+     Restante bajo MIN_REMAINING_BUDGET_USD (500) o MIN_REMAINING_BUDGET_PCT (10) → parked
+     No cancela renders en curso; deja de encolar trabajo nuevo
+     Log: discovery refreshed=… entered=… archived=… parked=… activated=…
       ↓
 3a   brief_reader_tick.py  (cada 15 min, 1 campaña)
      Lee source_metadata.discovered + descarga Google Docs públicos del brief

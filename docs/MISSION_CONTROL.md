@@ -27,7 +27,7 @@ npm run typecheck && npm run lint && npm test && npm run build
 `npm run build` escribe en `../app/static/mission-control/` (ignorado en git).
 
 ## Páginas
-Overview · Campañas (filtro por estado, búsqueda) · Detalle (resumen Whop, errores 3a/3b con acción sugerida,
+Overview · Campañas (por defecto «En curso»: en pipeline, en cola y en revisión; «Archivo» solo archivadas y aparcadas; presupuesto restante y último sync; filtro por estado y búsqueda) · Detalle (resumen Whop con presupuesto restante, último sync e historial reciente, errores 3a/3b con acción sugerida,
 coste LLM, tabs Assets / Pipeline / Clips / Jobs activos / Reglas y score / Metadata) · Jobs · Vídeos · Clips.
 
 ## Escritura (issue #10)
