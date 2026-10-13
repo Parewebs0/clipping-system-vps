@@ -79,7 +79,7 @@ def main() -> int:
             create_job(
                 db,
                 job_type="transcribe",
-                payload=build_transcribe_payload(asset, meta),
+                payload=build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
                 priority=5,
                 max_attempts=3,
             )

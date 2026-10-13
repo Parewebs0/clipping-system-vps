@@ -9,6 +9,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.asset import Asset, AssetStatus
+from app.models.campaign import Campaign
 from app.models.clip import Clip, ClipQAStatus, ClipStatus
 from app.models.job import Job, JobStatus  # JobType is a string, not enum
 from app.services.job_service import create_job
@@ -20,10 +21,26 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def build_transcribe_payload(asset, meta: dict | None = None) -> dict:
-    """Worker transcribe payload. Diarization is on so reframe can follow the speaker.
+def reframe_wants_diarization(campaign) -> bool:
+    """Pyannote only runs when this campaign's reframe mode is not the center crop."""
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if not isinstance(meta, dict):
+        return False
+    overrides = meta.get("rules_overrides")
+    if not isinstance(overrides, dict):
+        return False
+    reframe = overrides.get("reframe")
+    if not isinstance(reframe, dict):
+        return False
+    mode = str(reframe.get("mode") or "center").strip().lower()
+    return mode != "center"
 
-    The worker already treats a diarization failure as non-fatal.
+
+def build_transcribe_payload(asset, meta: dict | None = None, campaign=None) -> dict:
+    """Worker transcribe payload.
+
+    Diarization is on only when the campaign opted into a reframe mode other
+    than center. The worker already treats a diarization failure as non-fatal.
     """
     meta = meta or {}
     video = asset.local_path or asset.source_url
@@ -34,7 +51,7 @@ def build_transcribe_payload(asset, meta: dict | None = None) -> dict:
         "video_path": video,
         "source_url": asset.source_url,
         "language": meta.get("language"),
-        "diarization": True,
+        "diarization": reframe_wants_diarization(campaign),
     }
 
 
@@ -121,7 +138,7 @@ def on_download_completed(
         create_job(
             db,
             job_type="transcribe",
-            payload=build_transcribe_payload(asset, meta),
+            payload=build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
             priority=job.priority,
             max_attempts=job.max_attempts,
         )
