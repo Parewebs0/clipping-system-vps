@@ -2,7 +2,9 @@
 """Speech clip-decider. One Grok JSON call per transcript chunk of an asset.
 
 The full WhisperX transcript is chunked (see ``decider.chunk_chars``) with
-overlap, 3–4 windows per chunk, then merged by IoU. Captions are checked
+overlap, 3–4 windows per chunk, then merged by IoU. At most
+``decider.max_chunks`` windows are scored per asset (default 12); a longer
+split is sampled evenly, first and last included. Captions are checked
 with verifier.check_copy; a failure is retried once per chunk. A second
 failure stores the candidate as needs_review. The score is clip_score from
 hook/flow/value/fit sub-scores (duration fit if those are missing)."""
@@ -200,10 +202,11 @@ def collect_clips(
     ruleset=None,
     retry_enabled: bool = True,
 ) -> list[dict]:
-    """One LLM call per transcript chunk, then IoU merge and phrase snap."""
+    """One LLM call per transcript chunk (at most ``options.max_chunks``), then IoU merge and phrase snap."""
     from app.services.decider import (
         MAX_SEGMENT_BLOCK_CHARS,
         chunk_segments,
+        limit_chunks,
         merge_by_iou,
         parse_subscores,
         snap_window,
@@ -211,7 +214,7 @@ def collect_clips(
     )
     from app.services.publish_copy import clip_score, review_clip_copies
 
-    chunks = chunk_segments(segments, options)
+    chunks = limit_chunks(chunk_segments(segments, options), options)
     n_chunks = max(1, len(chunks))
     collected: list[dict] = []
     for ch in chunks:
@@ -321,7 +324,8 @@ def main() -> int:
             opts = decider_options(campaign)
             print(
                 f"asset={asset.id} campaign={asset.campaign_id} calling grok "
-                f"segs={len(segs)} chunk_chars={opts.chunk_chars} n={opts.candidates_per_chunk}"
+                f"segs={len(segs)} chunk_chars={opts.chunk_chars} "
+                f"n={opts.candidates_per_chunk} max_chunks={opts.max_chunks}"
             )
             if args.dry_run:
                 done += 1

@@ -72,5 +72,5 @@ Mission Control (solo lectura): `#/shadow` lista ejecuciones y `#/shadow/:id` el
 pytest tests/shadow tests/services/test_decider_hook.py -q
 ```
 
-`tests/shadow` lleva el marker `no_db` y no abre sesión. Un test lee el árbol
+`tests/shadow` lleva el marker `no_db` solo en esa carpeta y no abre sesión. Un test lee el árbol
 `app/shadow` y falla si aparece `commit`, `flush` o `approve_candidate`.

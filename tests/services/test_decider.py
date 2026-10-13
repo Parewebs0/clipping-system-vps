@@ -15,6 +15,7 @@ from app.services.decider import (
     DeciderOptions,
     chunk_segments,
     decider_options,
+    limit_chunks,
     merge_by_iou,
     snap_window,
     window_iou,
@@ -231,6 +232,53 @@ def test_decider_options_chunk_chars_zero_is_legacy():
     opts = decider_options(SimpleNamespace(source_metadata={"decider": {"chunk_chars": 0}}))
     assert opts.chunk_chars == 0
     assert decider_options().chunk_chars == 4000
+    assert decider_options().max_chunks == 12
+    capped = decider_options(SimpleNamespace(source_metadata={"decider": {"max_chunks": 4}}))
+    assert capped.max_chunks == 4
+    bogus = decider_options(SimpleNamespace(source_metadata={"decider": {"max_chunks": "nope"}}))
+    assert bogus.max_chunks == 12
+
+
+def test_max_chunks_caps_calls_and_keeps_both_ends():
+    segs = long_transcript(minutes=40)
+    opts = DeciderOptions(chunk_chars=180, max_chunks=12, top_n=20)
+    raw = chunk_segments(segs, opts)
+    assert len(raw) > 12
+    kept = limit_chunks(raw, opts)
+    assert len(kept) == 12
+    assert kept[0]["block"] == raw[0]["block"]
+    assert kept[-1]["block"] == raw[-1]["block"]
+    assert [c["index"] for c in kept] == list(range(12))
+
+    mod = _tick()
+    seen: list[tuple[dict, str]] = []
+
+    def _call(prompt: str, meta: dict) -> dict:
+        seen.append((meta, prompt))
+        return _llm_from_chunk(prompt, meta)
+
+    clips = mod.collect_clips(
+        segments=segs,
+        dmin=15,
+        dmax=45,
+        duration=segs[-1]["end"],
+        brief="",
+        copy_rules="",
+        options=opts,
+        call_llm=_call,
+        ruleset=None,
+        retry_enabled=False,
+    )
+    assert len(seen) == 12
+    assert {meta["n_chunks"] for meta, _ in seen} == {12}
+    assert seen[0][0]["chunk"] == 0
+    assert seen[-1][0]["chunk"] == 11
+    tail = seen[-1][1].split("Transcript segments", 1)[-1]
+    tail_times = [(float(a), float(b)) for a, b in re.findall(r"(\d+\.\d+)-(\d+\.\d+)", tail)]
+    assert tail_times
+    assert tail_times[-1][1] >= segs[-1]["end"] - 15
+    assert clips
+    assert any(c["start"] >= segs[-1]["end"] / 2 for c in clips)
 
 
 def test_before_after_same_long_video(tmp_path):
@@ -279,33 +327,5 @@ def test_before_after_same_long_video(tmp_path):
     for c in payload["after"]:
         lines.append(f"| {c['start']:.1f} | {c['end']:.1f} | {c['score']} | {c['title']} |")
     (REPORT_DIR / "before-after.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    _draw_timeline(REPORT_DIR / "before-after.png", duration, payload["before"], payload["after"])
-    assert (REPORT_DIR / "before-after.png").is_file()
-
-
-def _draw_timeline(path: Path, duration: float, before: list[dict], after: list[dict]) -> None:
-    from PIL import Image, ImageDraw, ImageFont
-
-    w, h = 1280, 360
-    img = Image.new("RGB", (w, h), (18, 18, 22))
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.load_default()
-    margin = 60
-    bar_w = w - 2 * margin
-
-    def _x(t: float) -> int:
-        return margin + int(bar_w * min(1.0, max(0.0, t / duration)))
-
-    draw.text((margin, 16), "Before (legacy first window)", fill=(200, 200, 200), font=font)
-    draw.rectangle([margin, 48, margin + bar_w, 88], outline=(80, 80, 90))
-    for c in before:
-        draw.rectangle([_x(c["start"]), 50, max(_x(c["end"]), _x(c["start"]) + 4), 86], fill=(180, 70, 70))
-    draw.text((margin, 120), "After (full video, chunked)", fill=(200, 200, 200), font=font)
-    draw.rectangle([margin, 152, margin + bar_w, 192], outline=(80, 80, 90))
-    for c in after:
-        draw.rectangle([_x(c["start"]), 154, max(_x(c["end"]), _x(c["start"]) + 4), 190], fill=(70, 160, 110))
-    draw.text((margin, 220), "0:00", fill=(140, 140, 150), font=font)
-    draw.text((_x(duration / 2) - 20, 220), f"{duration/120:.0f}:00", fill=(140, 140, 150), font=font)
-    draw.text((margin + bar_w - 40, 220), f"{duration/60:.0f}:00", fill=(140, 140, 150), font=font)
-    draw.text((margin, 280), "Red = candidates the old 5 000-char cap could see. Green = full-video chunks.", fill=(160, 160, 170), font=font)
-    img.save(path)
+    assert (REPORT_DIR / "before-after.md").is_file()
+    assert (REPORT_DIR / "before-after.json").is_file()

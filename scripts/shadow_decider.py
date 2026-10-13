@@ -264,7 +264,7 @@ def load_from_db(limit: int, asset_id: str | None) -> list[dict[str, Any]]:
 def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
     from types import SimpleNamespace
 
-    from app.services.decider import MAX_SEGMENT_BLOCK_CHARS, chunk_segments, decider_options
+    from app.services.decider import MAX_SEGMENT_BLOCK_CHARS, chunk_segments, decider_options, limit_chunks
     from app.services.publish_copy import copy_rules_for_prompt
     from app.services.rules.runtime import decider_brief, duration_window, ruleset
 
@@ -278,7 +278,7 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
     rs = ruleset(campaign)
     copy_rules = copy_rules_for_prompt(rs)
     opts = decider_options(campaign)
-    chunks = chunk_segments(segs, opts)
+    chunks = limit_chunks(chunk_segments(segs, opts), opts)
     prompt_chars = 0
     cost = 0.0
     latency_ms = 0

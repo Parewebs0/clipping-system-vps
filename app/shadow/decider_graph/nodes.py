@@ -15,6 +15,7 @@ from app.services.decider import (
     MAX_SEGMENT_BLOCK_CHARS,
     chunk_segments,
     decider_options,
+    limit_chunks,
     merge_by_iou,
     parse_subscores,
     snap_window,
@@ -324,7 +325,7 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
     dmax = float(state.get("duration_max") or 45)
     duration = float(state.get("video_duration") or 0) or dmax
     opts = decider_options(_campaign_ns(state.get("campaign") or {}), {"decider": state.get("decider_options") or {}})
-    chunks = chunk_segments(segs, opts)
+    chunks = limit_chunks(chunk_segments(segs, opts), opts)
     n_chunks = max(1, len(chunks))
     calls = list(state.get("llm_calls") or [])
     similar = list(state.get("similar_examples") or [])

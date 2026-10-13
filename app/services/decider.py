@@ -17,6 +17,7 @@ DEFAULT_CHUNK_CHARS = 4000
 DEFAULT_CANDIDATES_PER_CHUNK = 3
 DEFAULT_TOP_N = 8
 DEFAULT_OVERLAP = 0.10
+DEFAULT_MAX_CHUNKS = 12
 DEFAULT_IOU_THRESHOLD = 0.5
 DEFAULT_PHRASE_SHIFT = 2.0
 
@@ -31,10 +32,13 @@ class DeciderOptions:
     candidates_per_chunk: int = DEFAULT_CANDIDATES_PER_CHUNK
     top_n: int = DEFAULT_TOP_N
     overlap: float = DEFAULT_OVERLAP
+    max_chunks: int = DEFAULT_MAX_CHUNKS
     iou_threshold: float = DEFAULT_IOU_THRESHOLD
     phrase_shift: float = DEFAULT_PHRASE_SHIFT
 
     def as_dict(self) -> dict[str, float | int]:
+        # Shared with the worker render payload. max_chunks is a VPS call
+        # budget, not an ffmpeg knob, so it stays off this dict.
         return {
             "chunk_chars": int(self.chunk_chars),
             "candidates_per_chunk": int(self.candidates_per_chunk),
@@ -67,6 +71,8 @@ def decider_options(campaign: Any = None, spec: Mapping[str, Any] | None = None)
 
     Missing keys keep the new full-video defaults. ``chunk_chars=0`` restores
     the old single window (first 80 segments, 5 000 characters).
+    ``max_chunks`` (default 12) caps how many of those windows are sent to
+    the model for one asset.
     """
     raw: dict[str, Any] = {}
     if campaign is not None:
@@ -92,6 +98,7 @@ def decider_options(campaign: Any = None, spec: Mapping[str, Any] | None = None)
         ),
         top_n=_int(raw.get("top_n"), DEFAULT_TOP_N, minimum=1),
         overlap=_float(raw.get("overlap"), DEFAULT_OVERLAP, minimum=0.0, maximum=0.9),
+        max_chunks=_int(raw.get("max_chunks"), DEFAULT_MAX_CHUNKS, minimum=1),
         iou_threshold=_float(
             raw.get("iou_threshold"), DEFAULT_IOU_THRESHOLD, minimum=0.0, maximum=1.0
         ),
@@ -179,6 +186,32 @@ def chunk_segments(
             nxt = j
         i = nxt
     return chunks
+
+
+def limit_chunks(
+    chunks: Sequence[Mapping[str, Any]],
+    options: DeciderOptions | None = None,
+) -> list[dict[str, Any]]:
+    """Keep at most ``max_chunks`` windows (default 12) for one asset.
+
+    When the split is longer than the cap, windows are sampled evenly and
+    always include the first and the last, so a long video still yields a
+    second-half candidate without an unbounded Grok loop.
+    """
+    items = [dict(ch) for ch in chunks]
+    if not items:
+        return []
+    cap = max(1, int((options or DeciderOptions()).max_chunks))
+    if len(items) <= cap:
+        return items
+    if cap == 1:
+        picked = [items[len(items) // 2]]
+    else:
+        span = len(items) - 1
+        picked = [items[(k * span) // (cap - 1)] for k in range(cap)]
+    for index, chunk in enumerate(picked):
+        chunk["index"] = index
+    return picked
 
 
 def _segments_covering_block(
