@@ -4,6 +4,10 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.no_db
+
 
 def _mod():
     path = Path(__file__).resolve().parents[2] / "scripts" / "grok_clip_decider_tick.py"
@@ -15,9 +19,14 @@ def _mod():
 
 
 def test_build_decider_prompt_slices_segments_only():
+    from app.services.decider import MAX_SEGMENT_BLOCK_CHARS, chunk_segments
+
     mod = _mod()
     segs = [{"start": 0, "end": 1, "text": "hello " + ("x" * 6000)}]
-    lines = mod.segment_lines(segs)
+    chunks = chunk_segments(segs)
+    assert chunks
+    block = chunks[0]["block"]
+    assert len(block) <= MAX_SEGMENT_BLOCK_CHARS
     prompt = (
         mod.build_decider_prompt(
             dmin=15,
@@ -26,11 +35,9 @@ def test_build_decider_prompt_slices_segments_only():
             brief="",
             copy_rules="- No campaign copy rules.",
         )
-        + "\n".join(lines)[:5000]
+        + block
     )
     assert "duration_min=15" in prompt
-    # The live decider appends a 5000-char slice of the segment block; the
-    # segment line format is start-end space text.
     prefix = mod.build_decider_prompt(
         dmin=15,
         dmax=45,
@@ -38,7 +45,8 @@ def test_build_decider_prompt_slices_segments_only():
         brief="",
         copy_rules="- No campaign copy rules.",
     )
-    assert len(prompt) - len(prefix) == 5000
+    assert len(prompt) - len(prefix) == len(block)
+    assert len(block) == MAX_SEGMENT_BLOCK_CHARS
 
 
 def test_parse_clips_matches_live_filters():
@@ -59,10 +67,14 @@ def test_parse_clips_matches_live_filters():
         ]
     }
     parsed = mod.parse_clips(data, dmin=15, dmax=45)
-    assert len(parsed) == 1
+    assert len(parsed) == 2
     clip = parsed[0]
     assert clip["start"] == 0.0
     assert clip["end"] == 45.0  # clamped to dmax
-    assert clip["score"] == 0.7
+    from app.services.publish_copy import clip_score
+
+    assert clip["score"] == clip_score(45, 15, 45, None)
+    assert clip["score"] != 0.7
     assert clip["extra"]["hook_end"] == 1.5
     assert clip["extra"]["source"] == "grok_clip_decider"
+    assert parsed[1]["start"] == 10.0

@@ -305,7 +305,13 @@ def review_clip_copies(clips: list[dict], rs: Any, *, retry) -> list[dict]:
     return [_annotate(c, attempts) for c in clips]
 
 
-def clip_score(length: float, dmin: float, dmax: float, model_score: Any = None) -> float:
+def clip_score(
+    length: float,
+    dmin: float,
+    dmax: float,
+    model_score: Any = None,
+    subscores: Any = None,
+) -> float:
     """Confidence in ``[0, 1]``, rounded to 2 decimals. Not a fixed constant.
 
     Duration fit is ``1`` when ``length`` is the midpoint of ``[dmin, dmax]``,
@@ -313,9 +319,10 @@ def clip_score(length: float, dmin: float, dmax: float, model_score: Any = None)
     ``dmax`` (0 once the window is a full ``dmax`` away from the midpoint).
     Two windows of different lengths therefore get different scores.
 
-    A numeric model score is clamped to ``[0, 1]`` and averaged with the fit.
-    Anything else (missing, blank, non-numeric) is ignored and the fit is
-    the score on its own.
+    When ``subscores`` carries hook/flow/value/fit (each 0–1), the result is
+    their mean. Missing keys fall back to duration fit (and ``fit`` prefers
+    the model ``fit`` when present). A lone numeric ``model_score`` is still
+    averaged with the duration fit. Anything non-numeric is ignored.
     """
     try:
         length_f = max(0.0, float(length))
@@ -324,13 +331,36 @@ def clip_score(length: float, dmin: float, dmax: float, model_score: Any = None)
     except (TypeError, ValueError):
         return 0.0
     if dmax_f <= 0:
-        fit = 1.0 if length_f == 0 else 0.0
+        duration_fit = 1.0 if length_f == 0 else 0.0
     else:
         mid = (max(dmin_f, 0.0) + dmax_f) / 2.0
-        fit = max(0.0, 1.0 - abs(length_f - mid) / dmax_f)
+        duration_fit = max(0.0, 1.0 - abs(length_f - mid) / dmax_f)
     parsed = _model_score(model_score)
-    value = fit if parsed is None else (parsed + fit) / 2.0
+    parts = _subscore_parts(subscores, duration_fit=duration_fit, fallback=parsed)
+    if parts is not None:
+        value = sum(parts) / len(parts)
+    else:
+        value = duration_fit if parsed is None else (parsed + duration_fit) / 2.0
     return round(min(1.0, max(0.0, value)), 2)
+
+
+def _subscore_parts(
+    raw: Any, *, duration_fit: float, fallback: float | None
+) -> list[float] | None:
+    if not isinstance(raw, dict):
+        return None
+    from app.services.decider import parse_subscores
+
+    parsed = parse_subscores(raw if any(k in raw for k in ("hook", "flow", "value", "fit")) else {"subscores": raw})
+    if all(v is None for v in parsed.values()):
+        return None
+    default = fallback if fallback is not None else duration_fit
+    return [
+        parsed["hook"] if parsed["hook"] is not None else default,
+        parsed["flow"] if parsed["flow"] is not None else default,
+        parsed["value"] if parsed["value"] is not None else default,
+        parsed["fit"] if parsed["fit"] is not None else duration_fit,
+    ]
 
 
 def _model_score(raw: Any) -> float | None:

@@ -1,8 +1,12 @@
 """#41 — render_spec v2 built from the RuleSet (same keys as the worker)."""
 from types import SimpleNamespace
 
+import pytest
+
+pytestmark = pytest.mark.no_db
+
 from app.services.rules.enforcement import assign_enforcement
-from app.services.rules.render_spec import build_render_spec, clip_segments
+from app.services.rules.render_spec import DEFAULT_DECIDER, build_render_spec, clip_segments
 from app.services.rules.schema import RuleSet
 
 
@@ -92,6 +96,21 @@ def test_audio_policy_bumps_spec_to_v3():
     assert skipped["audio"]["original_only"] is True
     assert skipped["audio"]["normalize"] is False
     assert skipped["render_spec"]["version"] == 3
+
+
+def test_spec_includes_decider_defaults():
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    out = build_render_spec(_camp(RuleSet()), SimpleNamespace(extra_metadata={}), cand)
+    assert out["decider"] == DEFAULT_DECIDER
+    assert out["decider"]["chunk_chars"] == 4000
+    assert out["decider"]["candidates_per_chunk"] == 3
+    assert out["decider"]["top_n"] == 8
+    camp = _camp(RuleSet())
+    camp.source_metadata["decider"] = {"chunk_chars": 0, "candidates_per_chunk": 2, "top_n": 2}
+    legacy = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert legacy["decider"]["chunk_chars"] == 0
+    assert legacy["decider"]["candidates_per_chunk"] == 2
+    assert legacy["decider"]["top_n"] == 2
 
 
 def test_spec_logo_required_without_url_is_flagged():

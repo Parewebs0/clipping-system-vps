@@ -31,7 +31,7 @@ flowchart TD
 | `propose_clips` | LLM con salida Pydantic (`ProposedClip`). Sin LLM/key: heurística. |
 | `score_clips` | Score 0–1 + checks: duración en ventana, hook, `verifier.check_copy`. |
 | `need_more_context` | Arista condicional. Máximo 1 iteración. Lee candidatos de otras campañas. |
-| `decide` | 0–2 clips o `none` con motivo. |
+| `decide` | 0–`decider.top_n` clips (default 8) o `none` con motivo. |
 | `human_approval` | `interrupt()` si CPM × vistas (o presupuesto) > `SHADOW_APPROVAL_THRESHOLD`. En sombra no espera: deja `"habría pedido aprobación"`. |
 | `report` | JSON en el estado. Nunca `commit`/`flush`. |
 

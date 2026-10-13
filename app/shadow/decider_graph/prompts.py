@@ -2,20 +2,22 @@
 
 SYSTEM = "Return only valid JSON. No markdown."
 
-USER = """Pick 1 or 2 clip windows from this transcript for short-form video.
+USER = """Pick up to {n} clip windows from this transcript chunk for short-form video.
 Rules: duration_min={dmin}, duration_max={dmax} seconds. Format 9:16.
 Stay inside video_duration={duration}. Prefer complete phrases.
+This is chunk {chunk}/{chunks} covering {chunk_start:.1f}-{chunk_end:.1f}s. Only pick windows inside this chunk.
 
 Campaign rules (must be respected):
 {brief}
 
 Return JSON matching:
-{{"clips":[{{"start":0.0,"end":20.0,"title":"max 80 chars hook","caption":"2-3 lines, no prices, no [whop]","on_screen_text":"short overlay or empty","hook_end":1.5,"reason":"why this window"}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"title":"max 80 chars hook","caption":"2-3 lines, no prices, no [whop]","on_screen_text":"short overlay or empty","hook_end":1.5,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80}}]}}
+hook, flow, value and fit are 0-1 sub-scores for THIS window. Score each clip on its own. Do not reuse one number.
 hook_end is optional: seconds from the clip start where the hook ends. Omit the key when unsure. Do not guess.
 
 {similar}
 
-Transcript segments (start,end,text):
+Transcript segments (start,end,text) for this chunk only:
 {segments}
 """
 
@@ -28,7 +30,14 @@ def build_propose_prompt(
     brief: str,
     segment_block: str,
     similar_examples: list[dict] | None = None,
+    n: int = 3,
+    chunk: int = 1,
+    chunks: int = 1,
+    chunk_start: float = 0.0,
+    chunk_end: float = 0.0,
 ) -> str:
+    from app.services.decider import MAX_SEGMENT_BLOCK_CHARS
+
     similar = ""
     if similar_examples:
         lines = []
@@ -39,10 +48,15 @@ def build_propose_prompt(
             )
         similar = "Similar campaigns (read-only, for calibration):\n" + "\n".join(lines)
     return USER.format(
+        n=int(n),
         dmin=dmin,
         dmax=dmax,
         duration=duration,
         brief=brief or "- (none beyond duration/format)",
         similar=similar,
-        segments=segment_block[:5000],
+        chunk=int(chunk),
+        chunks=int(chunks),
+        chunk_start=float(chunk_start),
+        chunk_end=float(chunk_end) if chunk_end else float(duration or 0),
+        segments=segment_block[:MAX_SEGMENT_BLOCK_CHARS],
     )

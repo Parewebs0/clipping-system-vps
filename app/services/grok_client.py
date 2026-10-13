@@ -11,6 +11,13 @@ import httpx
 from app.services.llm_usage import record_usage
 
 
+def _usage_extra(model: str, prompt: str, extra: dict[str, Any] | None) -> dict[str, Any]:
+    out: dict[str, Any] = {"requested_model": model, "prompt_chars": len(prompt)}
+    if extra:
+        out.update(extra)
+    return out
+
+
 def grok_chat_json(
     prompt: str,
     *,
@@ -18,6 +25,7 @@ def grok_chat_json(
     stage: str | None = None,
     campaign_id: int | None = None,
     asset_id: Any = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     key = os.environ.get("XAI_API_KEY") or ""
     if not key:
@@ -55,6 +63,7 @@ def grok_chat_json(
             model=model, usage=None, latency_ms=int((time.monotonic() - t0) * 1000),
             stage=stage, campaign_id=campaign_id, asset_id=asset_id,
             ok=False, error=f"{type(e).__name__}: {e}",
+            extra=_usage_extra(model, prompt, extra),
         )
         raise
     record_usage(
@@ -62,7 +71,7 @@ def grok_chat_json(
         usage=data.get("usage"),
         latency_ms=int((time.monotonic() - t0) * 1000),
         stage=stage, campaign_id=campaign_id, asset_id=asset_id,
-        extra={"requested_model": model, "prompt_chars": len(prompt)},
+        extra=_usage_extra(model, prompt, extra),
     )
     content = data["choices"][0]["message"]["content"]
     if isinstance(content, list):
