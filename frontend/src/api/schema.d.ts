@@ -1484,6 +1484,10 @@ export interface components {
             last_synced_at?: string | null;
             /** Name */
             name: string;
+            /** Prize Pool Usd */
+            prize_pool_usd?: number | null;
+            /** Remaining Usd */
+            remaining_usd?: number | null;
             resolve_error?: components["schemas"]["PipelineError"] | null;
             /** Source Id */
             source_id?: string | null;
@@ -1504,6 +1508,8 @@ export interface components {
             spec: {
                 [key: string]: unknown;
             };
+            /** Spent Pct */
+            spent_pct?: number | null;
             /**
              * Status
              * @enum {string}
@@ -1562,6 +1568,10 @@ export interface components {
             priority_tie_break?: unknown | null;
             /** Priority Tier */
             priority_tier?: number | null;
+            /** Prize Pool Usd */
+            prize_pool_usd?: number | null;
+            /** Remaining Usd */
+            remaining_usd?: number | null;
             resolve_error?: components["schemas"]["PipelineError"] | null;
             /** Score Eligible */
             score_eligible?: boolean | null;
@@ -1584,6 +1594,8 @@ export interface components {
             spec: {
                 [key: string]: unknown;
             };
+            /** Spent Pct */
+            spent_pct?: number | null;
             /**
              * Status
              * @enum {string}

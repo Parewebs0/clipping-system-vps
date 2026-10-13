@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useCampaigns } from '@/api/queries'
 import { CreateCampaignDialog } from '@/components/campaign/CreateCampaignDialog'
+import { BudgetBar } from '@/components/campaign/BudgetBar'
 import { PageHeader } from '@/components/common/PageHeader'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/common/States'
 import { CampaignStatusBadge, ScoreBadge, ToneBadge } from '@/components/common/StatusBadge'
@@ -12,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { fmtAgo, fmtDate } from '@/lib/format'
 import { CAMPAIGN_STATUS_ORDER, campaignStatusMeta } from '@/lib/status'
-import { ARCHIVE_FILTER, LIVE_FILTER, filterCampaigns, formatRemainingUsd } from '@/lib/campaigns'
+import { ARCHIVE_FILTER, LIVE_FILTER, filterCampaigns } from '@/lib/campaigns'
 import { whopSummary } from '@/lib/whop'
 
 export function CampaignsPage() {
@@ -117,7 +118,14 @@ export function CampaignsPage() {
                             <ScoreBadge score={c.priority_score} eligible={c.score_eligible} minToRun={c.score_min_to_run} />
                           </TableCell>
                           <TableCell className="text-xs">{c.source_provider}</TableCell>
-                          <TableCell className="text-right text-xs tabular-nums">{formatRemainingUsd(w.remainingUsd)}</TableCell>
+                          <TableCell className="pr-4 text-right">
+                            <BudgetBar
+                              className="text-xs"
+                              remaining={c.remaining_usd}
+                              original={c.prize_pool_usd}
+                              spent={c.spent_pct}
+                            />
+                          </TableCell>
                           <TableCell className="text-muted-foreground text-right text-xs whitespace-nowrap" title={fmtDate(c.last_synced_at)}>
                             {fmtAgo(c.last_synced_at)}
                           </TableCell>

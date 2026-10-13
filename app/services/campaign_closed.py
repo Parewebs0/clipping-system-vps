@@ -140,6 +140,25 @@ def append_budget_point(history: list | None, point: dict) -> list:
     return history[-HISTORY_MAX:]
 
 
+def merge_prize_pool(current: float | None, incoming: Any) -> float | None:
+    """Original prize pool merge (MOLI-56).
+
+    Keeps the first-seen total; a refresh only bumps it up, because Whop
+    top-ups raise the budget while remaining/original must stay consistent
+    with spent_pct (both come from the same current total). Invalid or
+    non-positive values never overwrite an existing one.
+    """
+    try:
+        val = float(incoming) if incoming is not None else None
+    except (TypeError, ValueError):
+        val = None
+    if val is None or val <= 0:
+        return current
+    if current is None:
+        return round(val, 2)
+    return round(max(current, val), 2)
+
+
 def _budget_point(now: datetime, econ: dict, summ: dict) -> dict:
     return {
         "at": now.isoformat(),
@@ -173,6 +192,10 @@ def apply_refresh(campaign, reasons: list[str], econ: dict, summ: dict, *, now: 
         if summ.get("status"):
             meta["status"] = summ["status"]
     meta["closed_check"] = {"at": now_iso, "reasons": reasons}
+    campaign.prize_pool_usd = merge_prize_pool(
+        getattr(campaign, "prize_pool_usd", None),
+        econ.get("budget_usd") if isinstance(econ, dict) else None,
+    )
     if outcome == "parked":
         meta["park"] = {"at": now_iso, "reasons": reasons, "previous_status": campaign.status}
     elif outcome == "archived":
