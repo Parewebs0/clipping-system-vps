@@ -9,6 +9,7 @@ from app.models.campaign import CAMPAIGN_STATUS_VALUES
 from app.services.campaign_transitions import MANUAL_TRANSITIONS
 
 FORWARD = {  # transitions only the pipeline ticks may do
+    ("queued", "discovered"),
     ("discovered", "briefed"), ("discovered", "scored"), ("briefed", "assets_resolved"),
     ("briefed", "scored"), ("assets_resolved", "scored"), ("failed_brief", "briefed"),
     ("failed_resolve", "assets_resolved"), ("blocked_no_assets", "scored"),

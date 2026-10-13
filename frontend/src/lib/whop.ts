@@ -12,6 +12,7 @@ export interface WhopSummary {
   platforms: string[]
   bestCpm: number | null
   prizePool: number | null
+  remainingUsd: number | null
   refs: { url: string; label?: string }[]
   whopStatus?: string
   detailUrl?: string
@@ -20,17 +21,22 @@ export interface WhopSummary {
 export function whopSummary(sourceMetadata: unknown): WhopSummary {
   const sm = asDict(sourceMetadata)
   const d = asDict(sm.discovered)
+  const econ = asDict(sm.economics)
   const pick = (k: string) => (sm[k] !== undefined && sm[k] !== null && sm[k] !== '' ? sm[k] : d[k])
   const payouts = asList(pick('payouts')).map(asDict)
-  let bestCpm: number | null = null
-  for (const p of payouts) {
-    const c = typeof p.rate_cents === 'number' ? p.rate_cents / 100 : null
-    if (c != null && (bestCpm == null || c < bestCpm)) bestCpm = c
+  const targetRate = Number(econ.target_rate_usd)
+  let bestCpm: number | null = Number.isFinite(targetRate) && targetRate > 0 ? targetRate : null
+  if (bestCpm == null) {
+    for (const p of payouts) {
+      const c = typeof p.rate_cents === 'number' ? p.rate_cents / 100 : null
+      if (c != null && (bestCpm == null || c < bestCpm)) bestCpm = c
+    }
   }
   if (bestCpm == null) {
     const c = Number(pick('cpm_usd_per_1k'))
     bestCpm = Number.isFinite(c) && c > 0 ? c : null
   }
+  const remaining = Number(econ.remaining_usd)
   const prize = Number(pick('prize_pool_usd'))
   const refs = asList(pick('reference_materials'))
     .map((r) => (typeof r === 'string' ? { url: r } : { url: String(asDict(r).url ?? ''), label: (asDict(r).label ?? asDict(r).title) as string | undefined }))
@@ -41,6 +47,7 @@ export function whopSummary(sourceMetadata: unknown): WhopSummary {
     platforms: asList(pick('platforms')).map(String),
     bestCpm,
     prizePool: Number.isFinite(prize) && prize > 0 ? prize : null,
+    remainingUsd: Number.isFinite(remaining) ? remaining : null,
     refs,
     whopStatus: pick('status') ? String(pick('status')) : undefined,
     detailUrl: d.detail_url ? String(d.detail_url) : undefined,

@@ -19,8 +19,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CandidatesPanel } from '@/components/candidates/CandidatesPanel'
 import { fmtDate, fmtUsd } from '@/lib/format'
+import { formatRemainingUsd } from '@/lib/campaigns'
 import { campaignStatusMeta, errorHint } from '@/lib/status'
 import { whopSummary } from '@/lib/whop'
+
+function BudgetTrail({ history }: { history?: unknown }) {
+  const rows = Array.isArray(history) ? history.slice(-5).reverse() : []
+  if (rows.length === 0) return null
+  return (
+    <div className="mt-3 space-y-1">
+      <p className="text-muted-foreground text-xs">Historial de presupuesto</p>
+      {rows.map((raw, i) => {
+        const p = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+        const at = typeof p.at === 'string' ? p.at : null
+        const remaining = typeof p.remaining_usd === 'number' ? p.remaining_usd : null
+        return (
+          <div key={`${at ?? ''}-${i}`} className="flex justify-between gap-3 text-xs">
+            <span className="text-muted-foreground">{fmtDate(at)}</span>
+            <span className="tabular-nums">{formatRemainingUsd(remaining)}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 function ErrorPanel({ title, err }: { title: string; err?: PipelineError | null }) {
   if (!err) return null
@@ -62,8 +84,11 @@ function Summary({ d }: { d: CampaignDetail }) {
               ['Plataformas', w.platforms.join(', ') || '—'],
               ['Mejor CPM', w.bestCpm != null ? `$${w.bestCpm.toFixed(2)}` : '—'],
               ['Prize pool', w.prizePool != null ? `$${w.prizePool.toLocaleString('es-ES')}` : '—'],
+              ['Presupuesto restante', formatRemainingUsd(w.remainingUsd)],
+              ['Último sync', fmtDate(c.last_synced_at)],
             ]}
           />
+          <BudgetTrail history={c.budget_history} />
         </CardContent>
       </Card>
       <Card>

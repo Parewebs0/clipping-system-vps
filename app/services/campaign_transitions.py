@@ -30,6 +30,9 @@ PARKED = S.PARKED.value
 
 # from -> allowed manual targets
 MANUAL_TRANSITIONS: dict[str, tuple[str, ...]] = {
+    # Queue is not in the pipeline yet. A human can only take it out;
+    # whop_discovery promotes queued → discovered when a slot is free.
+    S.QUEUED.value: (ARCHIVED,),
     S.DISCOVERED.value: (ARCHIVED,),
     S.BRIEFED.value: (S.DISCOVERED.value, ARCHIVED),
     S.ASSETS_RESOLVED.value: (S.BRIEFED.value, S.DISCOVERED.value, ARCHIVED),
@@ -49,6 +52,7 @@ MANUAL_TRANSITIONS: dict[str, tuple[str, ...]] = {
 
 # Which tick consumes each status (shown in the UI / docs).
 CONSUMED_BY: dict[str, Optional[str]] = {
+    S.QUEUED.value: "whop_discovery (activa las de mayor puntuación si hay hueco)",
     S.DISCOVERED.value: "brief_reader_tick (3a)",
     S.BRIEFED.value: "drive_resolver_tick (3b)",
     S.ASSETS_RESOLVED.value: "campaign_scorer_tick (3c)",
@@ -64,14 +68,15 @@ CONSUMED_BY: dict[str, Optional[str]] = {
 
 # What happens next when a human moves a campaign *to* this status.
 EFFECT: dict[str, str] = {
+    S.QUEUED.value: "En cola, con la puntuación del descubrimiento. Entra al pipeline cuando hay hueco, de mayor a menor puntuación.",
     S.DISCOVERED.value: "El brief-reader (3a) volverá a leer el brief en su próximo tick (llamada LLM).",
     S.BRIEFED.value: "El resolver (3b) volverá a resolver los enlaces y crear assets.",
     S.ASSETS_RESOLVED.value: "El scorer (3c) recalculará el score con los assets actuales.",
     S.BLOCKED_NO_ASSETS.value: "Aparcada: download_enqueue_tick deja de encolar descargas nuevas (los jobs ya encolados siguen).",
-    PARKED: "Aparcada (cerrada, agotada o no apta en origen): ningún tick la procesa y no cuenta para el límite de discovery.",
+    PARKED: "Aparcada (presupuesto bajo el umbral, o no apta en origen): ningún tick la procesa y no cuenta para el límite de discovery. Los renders en curso siguen; no se encola trabajo nuevo.",
     S.BLOCKED_LOW_SCORE.value: "Aparcada por puntuación baja (tiene assets): no se encolan descargas. Motivo en score.block_reason.",
     S.NEEDS_REVIEW.value: "Revisión manual de reglas: no se descarga ni renderiza hasta que se confirmen los requisitos humanos (o se aparque si hay reglas no soportadas).",
-    ARCHIVED: "Sale del pipeline: ningún tick la procesa y no cuenta para el límite de campañas activas de discovery. Los jobs ya encolados no se cancelan.",
+    ARCHIVED: "Sale del pipeline (manual, o porque Whop la cerró, desapareció o se quedó sin presupuesto). No cuenta como activa. Los renders en curso siguen; no se encola trabajo nuevo.",
 }
 
 HISTORY_MAX = 50

@@ -16,7 +16,8 @@ type Meta = { label: string; tone: Tone; help?: string }
 
 // Order = pipeline order (left → right). Mirrors app/models/campaign.py.
 export const CAMPAIGN_STATUS: Record<CampaignStatus, Meta> = {
-  discovered: { label: 'Descubierta', tone: 'slate', help: 'Paso 1: upsert mínimo; la recoge el brief-reader (3a).' },
+  queued: { label: 'En cola', tone: 'slate', help: 'Descubierta y puntuada. Espera un hueco para entrar al pipeline (brief → descarga), de mayor a menor puntuación.' },
+  discovered: { label: 'Descubierta', tone: 'slate', help: 'Paso 1: activada; la recoge el brief-reader (3a).' },
   briefed: { label: 'Brief leído', tone: 'amber', help: 'Paso 3a: reglas y enlaces extraídos; la recoge el resolver (3b).' },
   assets_resolved: { label: 'Assets resueltos', tone: 'sky', help: 'Paso 3b: assets creados; la recoge el scorer (3c).' },
   scored: { label: 'Puntuada', tone: 'emerald', help: 'Paso 3c: score ≥ umbral; download_enqueue encola descargas.' },
@@ -25,8 +26,8 @@ export const CAMPAIGN_STATUS: Record<CampaignStatus, Meta> = {
   blocked_low_score: { label: 'Puntuación baja', tone: 'rose', help: '3c: tiene assets pero score < 50, tarifa de la plataforma de publicación < mínimo o host no soportado. Motivo en score.block_reason.' },
   failed_brief: { label: 'Fallo brief', tone: 'rose', help: '3a: brief ilegible o sin materiales.' },
   failed_resolve: { label: 'Fallo resolve', tone: 'rose', help: '3b: sin vídeos ingeribles / acceso denegado.' },
-  parked: { label: 'Aparcada', tone: 'zinc', help: 'Auto (tick de cerradas): pausada, agotada o no apta en origen. Motivo en el historial.' },
-  archived: { label: 'Archivada', tone: 'zinc', help: 'Manual: fuera del pipeline, ningún tick la procesa.' },
+  parked: { label: 'Aparcada', tone: 'zinc', help: 'Presupuesto bajo el umbral, o no apta en origen. Sigue en la base. No se encola trabajo nuevo; los renders en curso siguen.' },
+  archived: { label: 'Archivada', tone: 'zinc', help: 'Fuera del pipeline: manual, o Whop la cerró, desapareció o se quedó sin presupuesto. No se encola trabajo nuevo; los renders en curso siguen.' },
 }
 
 export const CAMPAIGN_STATUS_ORDER = Object.keys(CAMPAIGN_STATUS) as CampaignStatus[]

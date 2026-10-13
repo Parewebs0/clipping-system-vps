@@ -1468,6 +1468,10 @@ export interface components {
             /** Assets Count */
             assets_count: number;
             briefing_error?: components["schemas"]["PipelineError"] | null;
+            /** Budget History */
+            budget_history?: {
+                [key: string]: unknown;
+            }[];
             /** Clips Approved */
             clips_approved: number;
             /** Clips Published */
@@ -1476,6 +1480,8 @@ export interface components {
             created_at?: string | null;
             /** Id */
             id: number;
+            /** Last Synced At */
+            last_synced_at?: string | null;
             /** Name */
             name: string;
             resolve_error?: components["schemas"]["PipelineError"] | null;
@@ -1502,7 +1508,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "queued" | "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1540,6 +1546,8 @@ export interface components {
             created_at?: string | null;
             /** Id */
             id: number;
+            /** Last Synced At */
+            last_synced_at?: string | null;
             /** Name */
             name: string;
             /** Priority Breakdown */
@@ -1580,7 +1588,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "queued" | "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
             /** Updated At */
             updated_at?: string | null;
         };
@@ -1696,7 +1704,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
+            status: "queued" | "discovered" | "briefed" | "assets_resolved" | "scored" | "blocked_no_assets" | "blocked_low_score" | "needs_review" | "failed_brief" | "failed_resolve" | "archived" | "parked";
         };
         /** CampaignRulesetOut */
         CampaignRulesetOut: {

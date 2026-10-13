@@ -10,15 +10,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { fmtAgo } from '@/lib/format'
+import { fmtAgo, fmtDate } from '@/lib/format'
 import { CAMPAIGN_STATUS_ORDER, campaignStatusMeta } from '@/lib/status'
-import { filterCampaigns } from '@/lib/campaigns'
+import { ARCHIVE_FILTER, LIVE_FILTER, filterCampaigns, formatRemainingUsd } from '@/lib/campaigns'
 import { whopSummary } from '@/lib/whop'
 
 export function CampaignsPage() {
   const { data, error, isLoading } = useCampaigns()
   const [params, setParams] = useSearchParams()
-  const status = params.get('status') ?? 'all'
+  const status = params.get('status') ?? LIVE_FILTER
   const [q, setQ] = useState('')
   const navigate = useNavigate()
 
@@ -28,6 +28,10 @@ export function CampaignsPage() {
     for (const c of items) m[c.status] = (m[c.status] ?? 0) + 1
     return m
   }, [items])
+  const liveCount = useMemo(
+    () => items.filter((c) => c.status !== 'archived' && c.status !== 'parked').length,
+    [items],
+  )
   const rows = useMemo(() => filterCampaigns(items, status, q), [items, status, q])
   const statuses = [...CAMPAIGN_STATUS_ORDER, ...Object.keys(counts).filter((s) => !(CAMPAIGN_STATUS_ORDER as string[]).includes(s))]
 
@@ -39,8 +43,14 @@ export function CampaignsPage() {
       {data && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Tabs value={status} onValueChange={(v) => setParams(v === 'all' ? {} : { status: v })}>
+            <Tabs value={status} onValueChange={(v) => setParams(v === LIVE_FILTER ? {} : { status: v })}>
               <TabsList className="h-auto flex-wrap">
+                <TabsTrigger value={LIVE_FILTER}>
+                  En curso <span className="text-muted-foreground ml-1 tabular-nums">{liveCount}</span>
+                </TabsTrigger>
+                <TabsTrigger value={ARCHIVE_FILTER}>
+                  Archivo <span className="text-muted-foreground ml-1 tabular-nums">{items.length - liveCount}</span>
+                </TabsTrigger>
                 <TabsTrigger value="all">
                   Todas <span className="text-muted-foreground ml-1 tabular-nums">{items.length}</span>
                 </TabsTrigger>
@@ -69,6 +79,8 @@ export function CampaignsPage() {
                       <TableHead>Estado</TableHead>
                       <TableHead>Score</TableHead>
                       <TableHead>Origen</TableHead>
+                      <TableHead className="text-right">Presupuesto</TableHead>
+                      <TableHead className="text-right">Sync</TableHead>
                       <TableHead className="text-right">Assets</TableHead>
                       <TableHead className="text-right">Clips QA</TableHead>
                       <TableHead className="pr-4 text-right">Actualizada</TableHead>
@@ -105,6 +117,10 @@ export function CampaignsPage() {
                             <ScoreBadge score={c.priority_score} eligible={c.score_eligible} minToRun={c.score_min_to_run} />
                           </TableCell>
                           <TableCell className="text-xs">{c.source_provider}</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">{formatRemainingUsd(w.remainingUsd)}</TableCell>
+                          <TableCell className="text-muted-foreground text-right text-xs whitespace-nowrap" title={fmtDate(c.last_synced_at)}>
+                            {fmtAgo(c.last_synced_at)}
+                          </TableCell>
                           <TableCell className="text-right text-xs tabular-nums">
                             {c.assets_transcribed}/{c.assets_total}
                           </TableCell>
