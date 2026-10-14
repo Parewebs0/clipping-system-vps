@@ -98,6 +98,39 @@ def test_audio_policy_bumps_spec_to_v3():
     assert skipped["render_spec"]["version"] == 3
 
 
+def test_cleanup_is_off_unless_the_campaign_opts_in():
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    out = build_render_spec(_camp(RuleSet()), SimpleNamespace(extra_metadata={}), cand)
+    assert out["cleanup"] == {
+        "fillers": False,
+        "max_pause_ms": None,
+        "bad_takes": False,
+        "filler_list": None,
+    }
+    camp = _camp(RuleSet())
+    camp.source_metadata["cleanup"] = {
+        "fillers": True,
+        "max_pause_ms": 600,
+        "bad_takes": "yes",
+        "filler_list": ["eh", "o sea"],
+    }
+    opted = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert opted["cleanup"] == {
+        "fillers": True,
+        "max_pause_ms": 600,
+        "bad_takes": True,
+        "filler_list": ["eh", "o sea"],
+    }
+    camp.source_metadata["cleanup"] = {"max_pause_ms": 0, "fillers": "nope", "filler_list": {"es": ["eh"]}}
+    invalid = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert invalid["cleanup"]["fillers"] is False
+    assert invalid["cleanup"]["max_pause_ms"] is None
+    assert invalid["cleanup"]["filler_list"] == {"es": ["eh"]}
+    camp.source_metadata["cleanup"] = {"filler_list": {"es": "eh"}}
+    as_phrase = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert as_phrase["cleanup"]["filler_list"] == {"es": ["eh"]}
+
+
 def test_spec_includes_decider_defaults():
     cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
     out = build_render_spec(_camp(RuleSet()), SimpleNamespace(extra_metadata={}), cand)
