@@ -4,12 +4,18 @@ Same keys as the Windows worker, plus loudnorm policy:
   captions{enabled, segments[{start,end,text,words}], brand_dictionary, style}
   watermark{enabled, url, position, width, start, end}
   on_screen_text{enabled, items[{text,start,end,position}]}
-  audio{original_only, normalize, target_lufs, true_peak_db}
+  audio{original_only, normalize, target_lufs, true_peak_db,
+        enhance{engine: none|deepfilter|resemble, strength}}
   decider{chunk_chars, candidates_per_chunk, top_n, overlap}  ← VPS clip-decider; worker ignores
   render_spec{version, required{...}}  ← read back by the post-render verifier
 Times are relative to the clip start.
 v2 worker results stay valid; v3 adds applied.audio (loudnorm -14 LUFS / -1 dBTP
 unless audio.original_only).
+
+audio.enhance defaults to engine ``none`` (loudnorm only, same as before MOLI-52).
+Set it from ``source_metadata.audio.enhance`` or, if present,
+``rules_overrides.audio_enhance``. ``original_only`` forces engine ``none``:
+the worker also refuses to enhance that track.
 """
 from __future__ import annotations
 
@@ -22,6 +28,8 @@ from app.services.rules.schema import RuleSet, load_ruleset
 RENDER_SPEC_VERSION = 3
 LOUDNORM_TARGET_LUFS = -14
 LOUDNORM_TRUE_PEAK_DB = -1
+ENHANCE_ENGINES = ("none", "deepfilter", "resemble")
+DEFAULT_ENHANCE = {"engine": "none", "strength": 1.0}
 # MOLI-48: same keys as the Windows worker (`app/jobs/render.py`).
 # chunk_chars=0 restores the old first-80-segments / 5 000-char window.
 DEFAULT_DECIDER = DeciderOptions().as_dict()
@@ -96,6 +104,30 @@ def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
     return m.group(0).rstrip(").,") if m else None
 
 
+def audio_enhance(campaign) -> dict[str, Any]:
+    """Campaign knob for ``audio.enhance``. Unknown engines fall back to none."""
+    raw: dict[str, Any] = {}
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if isinstance(meta, dict):
+        audio = meta.get("audio")
+        if isinstance(audio, dict) and isinstance(audio.get("enhance"), dict):
+            raw = dict(audio["enhance"])
+        overrides = meta.get("rules_overrides")
+        if isinstance(overrides, dict) and isinstance(overrides.get("audio_enhance"), dict):
+            raw = dict(overrides["audio_enhance"])
+    engine = str(raw.get("engine") or "none").strip().lower()
+    if engine not in ENHANCE_ENGINES:
+        engine = "none"
+    try:
+        strength = float(raw.get("strength", DEFAULT_ENHANCE["strength"]))
+    except (TypeError, ValueError):
+        strength = float(DEFAULT_ENHANCE["strength"])
+    if strength != strength:  # NaN
+        strength = float(DEFAULT_ENHANCE["strength"])
+    strength = min(1.0, max(0.0, strength))
+    return {"engine": engine, "strength": round(strength, 3)}
+
+
 def build_render_spec(campaign, asset, candidate, *, captions_default: bool = True) -> dict[str, Any]:
     rs = load_ruleset(campaign.source_metadata or {}) or RuleSet()
     start, end = float(candidate.start_time), float(candidate.end_time)
@@ -144,6 +176,8 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "normalize": not original_only,
         "target_lufs": LOUDNORM_TARGET_LUFS,
         "true_peak_db": LOUDNORM_TRUE_PEAK_DB,
+        # original_only wins over a campaign enhance setting: do not ask the worker to touch the track.
+        "enhance": dict(DEFAULT_ENHANCE) if original_only else audio_enhance(campaign),
     }
     required = {
         "captions": bool(rs.captions.required),
