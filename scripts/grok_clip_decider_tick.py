@@ -55,8 +55,11 @@ def build_decider_prompt(
     chunks: int = 1,
     chunk_start: float = 0.0,
     chunk_end: float = 0.0,
+    ask_broll: bool = False,
 ) -> str:
-    return PROMPT.format(
+    from app.services.production import with_broll_hint
+
+    text = PROMPT.format(
         n=int(n),
         dmin=dmin,
         dmax=dmax,
@@ -68,6 +71,7 @@ def build_decider_prompt(
         chunk_start=float(chunk_start),
         chunk_end=float(chunk_end) if chunk_end else float(duration or 0),
     )
+    return with_broll_hint(text, ask_broll)
 
 
 def retry_prompt(base: str, failures: str) -> str:
@@ -179,6 +183,11 @@ def parse_clips(data, dmin: float, dmax: float, limit: int | None = None) -> lis
         hook_end = _hook_end(clip.get("hook_end"), end - start)
         if hook_end is not None:
             extra["hook_end"] = hook_end
+        from app.services.production import normalize_broll_marks
+
+        marks = normalize_broll_marks(clip.get("broll"), clip_duration=end - start, source_start=start)
+        if marks:
+            extra["broll_marks"] = marks
         out.append({
             "start": round(start, 2),
             "end": round(end, 2),
@@ -201,6 +210,7 @@ def collect_clips(
     call_llm,
     ruleset=None,
     retry_enabled: bool = True,
+    ask_broll: bool = False,
 ) -> list[dict]:
     """One LLM call per transcript chunk (at most ``options.max_chunks``), then IoU merge and phrase snap."""
     from app.services.decider import (
@@ -230,6 +240,7 @@ def collect_clips(
             chunks=n_chunks,
             chunk_start=ch["start"],
             chunk_end=ch["end"],
+            ask_broll=ask_broll,
         ) + block
         meta = {
             "chunk": ch["index"],
@@ -274,6 +285,15 @@ def collect_clips(
                 end - start, dmin, dmax, clip.get("score"), clip["subscores"] or None
             )
             clip["chunk_index"] = ch["index"]
+            from app.services.production import normalize_broll_marks
+
+            marks = normalize_broll_marks(
+                clip.get("broll") if clip.get("broll") is not None else clip.get("broll_marks"),
+                clip_duration=end - start,
+                source_start=start,
+            )
+            if marks:
+                clip["broll_marks"] = marks
             collected.append(clip)
     merged = merge_by_iou(collected, threshold=options.iou_threshold)
     return take_top_n(merged, options.top_n)
@@ -292,6 +312,7 @@ def main() -> int:
     from app.models.candidate import Candidate
     from app.models.job import Job  # noqa: F401
     from app.services.decider import decider_options
+    from app.services.production import broll_requested
     from app.services.grok_client import grok_chat_json
     from app.services.publish_copy import copy_rules_for_prompt
     from app.services.silent_clip_cutter import campaign_duration_window, is_speech, transcript_text
@@ -360,6 +381,7 @@ def main() -> int:
                 options=opts,
                 call_llm=_call_llm,
                 ruleset=rs,
+                ask_broll=broll_requested(campaign),
             )
             if not reviewed:
                 print("no clips")
@@ -386,6 +408,8 @@ def main() -> int:
                 hook_end = _hook_end(clip.get("hook_end"), end - start)
                 if hook_end is not None:
                     extra["hook_end"] = hook_end
+                if clip.get("broll_marks"):
+                    extra["broll_marks"] = clip["broll_marks"]
                 reasoning = str(clip.get("reason") or "grok")
                 if status == "needs_review" and clip.get("copy_reason"):
                     # Motive first so a long model reason cannot push it off the 500-char cut.

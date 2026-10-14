@@ -2607,6 +2607,12 @@
       },
       "ClipOut": {
         "properties": {
+          "analytics": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Analytics",
+            "type": "object"
+          },
           "asset_id": {
             "format": "uuid",
             "title": "Asset Id",

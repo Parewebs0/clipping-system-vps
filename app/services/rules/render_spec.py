@@ -6,6 +6,10 @@ Same keys as the Windows worker, plus loudnorm policy:
   on_screen_text{enabled, items[{text,start,end,position}]}
   audio{original_only, normalize, target_lufs, true_peak_db}
   decider{chunk_chars, candidates_per_chunk, top_n, overlap}  ← VPS clip-decider; worker ignores
+  broll{enabled, provider, placement, max_inserts, opacity, marks}  ← off by default
+  music{enabled, track, volume, ducking}  ← off; suppressed when audio.original_only
+  transitions{enabled, effect, duration_s}  ← off; worker uses ffmpeg xfade
+  sfx{enabled, gain, library, events}  ← off; CC0 library on the worker
   render_spec{version, required{...}}  ← read back by the post-render verifier
 Times are relative to the clip start.
 v2 worker results stay valid; v3 adds applied.audio (loudnorm -14 LUFS / -1 dBTP
@@ -17,6 +21,7 @@ import re
 from typing import Any, Optional
 
 from app.services.decider import DeciderOptions, decider_options
+from app.services.production import production_blocks
 from app.services.rules.schema import RuleSet, load_ruleset
 
 RENDER_SPEC_VERSION = 3
@@ -145,6 +150,12 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "target_lufs": LOUDNORM_TARGET_LUFS,
         "true_peak_db": LOUDNORM_TRUE_PEAK_DB,
     }
+    production = production_blocks(
+        campaign,
+        candidate,
+        original_only=original_only,
+        no_added_music=bool(rs.audio.no_added_music),
+    )
     required = {
         "captions": bool(rs.captions.required),
         "brand_dictionary": list(rs.captions.brand_dictionary),
@@ -160,6 +171,10 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "watermark": watermark,
         "on_screen_text": on_screen_text,
         "audio": audio,
+        "broll": production["broll"],
+        "music": production["music"],
+        "transitions": production["transitions"],
+        "sfx": production["sfx"],
         "decider": decider_options(campaign).as_dict(),
         "render_spec": {"version": RENDER_SPEC_VERSION, "ruleset_version": rs.version, "required": required},
     }

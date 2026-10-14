@@ -23,6 +23,8 @@ class ProposedClip(BaseModel):
     value: float | None = None
     fit: float | None = None
     score: float | None = None
+    # Optional stock-footage marks. Dropped when the campaign did not ask.
+    broll: Any = None
 
 
 class ProposeClipsResponse(BaseModel):
