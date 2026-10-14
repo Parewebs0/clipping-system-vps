@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fmtAgo, fmtBytes, fmtDuration, fmtPct, hostOf } from './format'
-import { filterCampaigns, formatRemainingUsd } from './campaigns'
+import { filterCampaigns, formatPrizePool, formatRemainingUsd, spentPct } from './campaigns'
 import { CAMPAIGN_STATUS_ORDER, errorHint, ERROR_HINTS } from './status'
 import { whopSummary } from './whop'
 import type { CampaignListItem } from '@/api/types'
@@ -63,6 +63,31 @@ describe('whopSummary', () => {
   it('survives garbage', () => {
     expect(whopSummary(null).org).toBe('')
     expect(whopSummary({ platforms: 'nope' }).platforms).toEqual([])
+  })
+})
+
+describe('prize pool restante / original (MOLI-56)', () => {
+  it('renders remaining over original', () => {
+    // Node may run with small ICU (no es-ES grouping), so expectations are
+    // built from the same formatter; the contract is order + ' / ' separator.
+    expect(formatPrizePool(3850, 5000)).toBe(`${formatRemainingUsd(3850)} / ${formatRemainingUsd(5000)}`)
+    expect(formatPrizePool(3850, 5000).indexOf(formatRemainingUsd(3850))).toBe(0)
+    expect(formatPrizePool(0, 5000)).toBe(`${formatRemainingUsd(0)} / ${formatRemainingUsd(5000)}`)
+    expect(formatPrizePool(999, null)).toBe(formatRemainingUsd(999))
+    expect(formatPrizePool(null, 5000)).toBe(formatRemainingUsd(5000))
+    expect(formatPrizePool(NaN, 5000)).toBe(formatRemainingUsd(5000))
+    expect(formatPrizePool(null, null)).toBe('—')
+    expect(formatPrizePool(-500, 0)).toBe('$-500')
+    expect(formatRemainingUsd(null)).toBe('—')
+  })
+  it('derives and clamps the spent percentage', () => {
+    expect(spentPct(23, 3850, 5000)).toBe(23)
+    expect(spentPct(null, 2500, 5000)).toBe(50)
+    expect(spentPct(null, 6000, 5000)).toBe(0) // clamp: remaining above original
+    expect(spentPct(120, 0, 0)).toBe(100) // clamp negative remaining over zero pool
+    expect(spentPct(null, null, null)).toBeNull()
+    expect(spentPct(null, 1000, null)).toBeNull()
+    expect(spentPct(null, 1000, 0)).toBeNull()
   })
 })
 

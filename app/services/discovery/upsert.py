@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.asset import Asset
 from app.models.campaign import Campaign, CampaignStatus
+from app.services.campaign_closed import merge_prize_pool
 from app.services.discovery.models import DiscoveredCampaign
 
 logger = logging.getLogger(__name__)
@@ -160,8 +161,14 @@ def upsert_campaign(
     if discovered.detail:
         metadata["detail"] = dict(discovered.detail)
 
+    # MOLI-56: original prize pool. Take the card value, fall back to the
+    # economics total; merge_prize_pool only bumps an existing value up.
+    pool = merge_prize_pool(None, discovered.prize_pool_usd)
+    pool = merge_prize_pool(pool, (discovered.economics or {}).get("budget_usd"))
+
     if existing is not None:
         existing.source_metadata = {**(existing.source_metadata or {}), **metadata}
+        existing.prize_pool_usd = merge_prize_pool(existing.prize_pool_usd, pool)
         existing.source_url = discovered.detail_url
         # Backfill representative name if the row predates this convention
         # (e.g. legacy rows from before the rename).
@@ -208,6 +215,7 @@ def upsert_campaign(
         source_metadata=metadata,
         source_instructions=discovered.description,
         spec={},
+        prize_pool_usd=pool,
     )
     db.add(c)
     db.commit()

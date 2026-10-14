@@ -107,6 +107,9 @@ class CampaignListItem(BaseModel):
     briefing_error: Optional[PipelineError] = None
     resolve_error: Optional[PipelineError] = None
     last_synced_at: Optional[str] = None
+    prize_pool_usd: Optional[float] = None
+    remaining_usd: Optional[float] = None
+    spent_pct: Optional[float] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -133,6 +136,9 @@ class CampaignDetailCampaign(BaseModel):
     resolve_error: Optional[PipelineError] = None
     last_synced_at: Optional[str] = None
     budget_history: List[Dict[str, Any]] = Field(default_factory=list)
+    prize_pool_usd: Optional[float] = None
+    remaining_usd: Optional[float] = None
+    spent_pct: Optional[float] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
