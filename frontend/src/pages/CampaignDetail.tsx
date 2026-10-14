@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CandidatesPanel } from '@/components/candidates/CandidatesPanel'
+import { BudgetBar } from '@/components/campaign/BudgetBar'
 import { fmtDate, fmtUsd } from '@/lib/format'
 import { formatRemainingUsd } from '@/lib/campaigns'
 import { campaignStatusMeta, errorHint } from '@/lib/status'
@@ -83,8 +84,15 @@ function Summary({ d }: { d: CampaignDetail }) {
               ['Estado Whop', w.whopStatus ?? '—'],
               ['Plataformas', w.platforms.join(', ') || '—'],
               ['Mejor CPM', w.bestCpm != null ? `$${w.bestCpm.toFixed(2)}` : '—'],
-              ['Prize pool', w.prizePool != null ? `$${w.prizePool.toLocaleString('es-ES')}` : '—'],
-              ['Presupuesto restante', formatRemainingUsd(w.remainingUsd)],
+              [
+                'Prize pool',
+                <BudgetBar
+                  key="pool"
+                  remaining={c.remaining_usd}
+                  original={c.prize_pool_usd}
+                  spent={c.spent_pct}
+                />,
+              ],
               ['Último sync', fmtDate(c.last_synced_at)],
             ]}
           />

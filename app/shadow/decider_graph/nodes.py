@@ -11,6 +11,17 @@ import time
 from types import SimpleNamespace
 from typing import Any, Literal
 
+from app.services.decider import (
+    MAX_SEGMENT_BLOCK_CHARS,
+    chunk_segments,
+    decider_options,
+    limit_chunks,
+    merge_by_iou,
+    parse_subscores,
+    snap_window,
+    take_top_n,
+    window_iou,
+)
 from app.shadow.decider_graph.prompts import SYSTEM, build_propose_prompt
 from app.shadow.decider_graph.state import DeciderState, ProposeClipsResponse, ShadowRuntime
 
@@ -57,12 +68,6 @@ def wrap_db(db: Any) -> Any:
     if db is None or isinstance(db, ReadOnlySession):
         return db
     return ReadOnlySession(db)
-
-
-def window_iou(a: tuple[float, float], b: tuple[float, float]) -> float:
-    inter = max(0.0, min(a[1], b[1]) - max(a[0], b[0]))
-    union = max(a[1], b[1]) - min(a[0], b[0])
-    return inter / union if union else 0.0
 
 
 def _campaign_ns(campaign: dict[str, Any]) -> SimpleNamespace:
@@ -188,17 +193,24 @@ def extract_rules(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
     dmin, dmax = campaign_duration_window(camp)
     brief = decider_brief(camp) or "- (none beyond duration/format)"
     duration = float(state.get("video_duration") or 0) or dmax
+    opts = decider_options(camp)
     return {
         "ruleset": rs.dump() if rs is not None else {},
         "duration_min": float(dmin),
         "duration_max": float(dmax),
         "brief": brief,
         "video_duration": duration,
+        "decider_options": opts.as_dict(),
     }
 
 
 def heuristic_propose(
-    segments: list[dict[str, Any]], dmin: float, dmax: float, duration: float
+    segments: list[dict[str, Any]],
+    dmin: float,
+    dmax: float,
+    duration: float,
+    *,
+    limit: int = 8,
 ) -> list[dict[str, Any]]:
     """Deterministic fallback when no LLM is configured (offline / tests / no key)."""
     usable = []
@@ -222,7 +234,7 @@ def heuristic_propose(
         }]
     clips: list[dict[str, Any]] = []
     i = 0
-    while i < len(usable) and len(clips) < 2:
+    while i < len(usable) and len(clips) < max(1, int(limit)):
         start = usable[i][0]
         end = start
         texts: list[str] = []
@@ -309,48 +321,80 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
     if state.get("error"):
         return {"proposed_clips": []}
     segs = list(state.get("segments") or [])
-    block = "\n".join(
-        f"{s.get('start', 0):.1f}-{s.get('end', 0):.1f} {(s.get('text') or '').strip()}"
-        for s in segs[:80]
-        if isinstance(s, dict)
-    )
-    prompt = build_propose_prompt(
-        dmin=float(state.get("duration_min") or 15),
-        dmax=float(state.get("duration_max") or 45),
-        duration=float(state.get("video_duration") or 0),
-        brief=str(state.get("brief") or ""),
-        segment_block=block,
-        similar_examples=list(state.get("similar_examples") or []),
-    )
-    calls = list(state.get("llm_calls") or [])
     dmin = float(state.get("duration_min") or 15)
     dmax = float(state.get("duration_max") or 45)
     duration = float(state.get("video_duration") or 0) or dmax
+    opts = decider_options(_campaign_ns(state.get("campaign") or {}), {"decider": state.get("decider_options") or {}})
+    chunks = limit_chunks(chunk_segments(segs, opts), opts)
+    n_chunks = max(1, len(chunks))
+    calls = list(state.get("llm_calls") or [])
+    similar = list(state.get("similar_examples") or [])
+    collected: list[dict[str, Any]] = []
+    use_heuristic = runtime.llm is None and not (os.environ.get("XAI_API_KEY") or "")
 
-    if runtime.llm is None and not (os.environ.get("XAI_API_KEY") or ""):
-        clips = heuristic_propose(segs, dmin, dmax, duration)
-        calls.append({
-            "stage": "propose_clips",
-            "model": "heuristic",
-            "cost_usd": 0.0,
-            "latency_ms": 0,
-            "prompt_chars": len(prompt),
-        })
-        return {"proposed_clips": clips, "llm_calls": calls}
+    for ch in chunks or [{"index": 0, "block": "", "start": 0.0, "end": duration, "segments": segs}]:
+        block = str(ch.get("block") or "")[:MAX_SEGMENT_BLOCK_CHARS]
+        prompt = build_propose_prompt(
+            dmin=dmin,
+            dmax=dmax,
+            duration=duration,
+            brief=str(state.get("brief") or ""),
+            segment_block=block,
+            similar_examples=similar,
+            n=opts.candidates_per_chunk,
+            chunk=int(ch.get("index") or 0) + 1,
+            chunks=n_chunks,
+            chunk_start=float(ch.get("start") or 0),
+            chunk_end=float(ch.get("end") or duration),
+        )
+        if use_heuristic:
+            clips = heuristic_propose(
+                list(ch.get("segments") or segs), dmin, dmax, duration, limit=opts.candidates_per_chunk
+            )
+            calls.append({
+                "stage": "propose_clips",
+                "model": "heuristic",
+                "cost_usd": 0.0,
+                "latency_ms": 0,
+                "prompt_chars": len(prompt),
+                "chunk_index": ch.get("index"),
+                "n_chunks": n_chunks,
+            })
+        else:
+            t0 = time.monotonic()
+            raw, stats = _call_llm(prompt, runtime)
+            stats = dict(stats or {})
+            stats.setdefault("latency_ms", int((time.monotonic() - t0) * 1000))
+            stats["stage"] = "propose_clips"
+            stats["prompt_chars"] = len(prompt)
+            stats["chunk_index"] = ch.get("index")
+            stats["n_chunks"] = n_chunks
+            calls.append(stats)
+            try:
+                parsed = ProposeClipsResponse.model_validate(raw if isinstance(raw, dict) else {"clips": []})
+            except Exception:
+                parsed = ProposeClipsResponse(clips=[])
+            clips = [c.model_dump() for c in parsed.clips[: opts.candidates_per_chunk]]
+        for clip in clips:
+            start, end = snap_window(
+                float(clip.get("start") or 0),
+                float(clip.get("end") or 0),
+                segs,
+                max_shift=opts.phrase_shift,
+            )
+            clip["start"] = start
+            clip["end"] = end
+            clip["subscores"] = {k: v for k, v in parse_subscores(clip).items() if v is not None}
+            from app.services.publish_copy import clip_score
 
-    t0 = time.monotonic()
-    raw, stats = _call_llm(prompt, runtime)
-    stats = dict(stats or {})
-    stats.setdefault("latency_ms", int((time.monotonic() - t0) * 1000))
-    stats["stage"] = "propose_clips"
-    stats["prompt_chars"] = len(prompt)
-    calls.append(stats)
-    try:
-        parsed = ProposeClipsResponse.model_validate(raw if isinstance(raw, dict) else {"clips": []})
-    except Exception:
-        parsed = ProposeClipsResponse(clips=[])
-    clips = [c.model_dump() for c in parsed.clips[:2]]
-    return {"proposed_clips": clips, "llm_calls": calls}
+            clip["score"] = clip_score(
+                end - start, dmin, dmax, clip.get("score"), clip["subscores"] or None
+            )
+            clip["chunk_index"] = ch.get("index")
+            collected.append(clip)
+
+    merged = merge_by_iou(collected, threshold=opts.iou_threshold)
+    return {"proposed_clips": take_top_n(merged, opts.top_n), "llm_calls": calls}
 
 
 def _duration_score(length: float, dmin: float, dmax: float) -> tuple[bool, float]:
@@ -418,12 +462,20 @@ def score_one(
             except (KeyError, TypeError, ValueError):
                 continue
         score = min(1.0, score + 0.10 * best_iou)
+    from app.services.publish_copy import clip_score as combined_clip_score
+
+    subs = {k: v for k, v in parse_subscores(clip).items() if v is not None}
+    if clip.get("subscores") and isinstance(clip["subscores"], dict):
+        subs = {**subs, **{k: v for k, v in clip["subscores"].items() if v is not None}}
+    combined = combined_clip_score(length, dmin, dmax, clip.get("score"), subs or None)
     scored = dict(clip)
     scored.update({
         "start": round(start, 2),
         "end": round(end, 2),
         "duration": round(length, 2),
         "score": round(score, 4),
+        "clip_score": combined,
+        "subscores": subs,
         "checks": {
             "duration_ok": duration_ok,
             "hook_ok": hook_ok,
@@ -510,7 +562,15 @@ def need_more_context(state: DeciderState, runtime: ShadowRuntime) -> dict[str, 
 
 
 def decide(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]:
-    scored = sorted(state.get("scored_clips") or [], key=lambda c: c.get("score") or 0, reverse=True)
+    opts = decider_options(
+        _campaign_ns(state.get("campaign") or {}),
+        {"decider": state.get("decider_options") or {}},
+    )
+    scored = sorted(
+        state.get("scored_clips") or [],
+        key=lambda c: (c.get("clip_score") if c.get("clip_score") is not None else c.get("score") or 0),
+        reverse=True,
+    )
     picked: list[dict[str, Any]] = []
     for clip in scored:
         checks = clip.get("checks") or {}
@@ -521,7 +581,7 @@ def decide(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]:
         if float(clip.get("score") or 0) < MIN_PICK_SCORE:
             continue
         picked.append(clip)
-        if len(picked) >= 2:
+        if len(picked) >= opts.top_n:
             break
     if not picked:
         reason = "ningún clip pasó duración, copy y umbral de score"

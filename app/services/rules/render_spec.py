@@ -7,6 +7,7 @@ Same keys as the Windows worker, plus loudnorm policy:
   audio{original_only, normalize, target_lufs, true_peak_db}
   reframe{mode, layout, smoothing, sample_fps, speakers}
       mode=center + layout=single keeps the worker's historical center crop.
+  decider{chunk_chars, candidates_per_chunk, top_n, overlap}  ← VPS clip-decider; worker ignores
   render_spec{version, required{...}}  ← read back by the post-render verifier
 Times are relative to the clip start.
 v2 worker results stay valid; v3 adds applied.audio (loudnorm -14 LUFS / -1 dBTP
@@ -17,6 +18,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
+from app.services.decider import DeciderOptions, decider_options
 from app.services.rules.schema import RuleSet, load_ruleset
 
 RENDER_SPEC_VERSION = 3
@@ -25,6 +27,9 @@ LOUDNORM_TRUE_PEAK_DB = -1
 _OUTPUT_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 _REFRAME_MODES = {"center", "face", "object", "auto"}
 _REFRAME_LAYOUTS = {"single", "split", "screenshare", "fit", "auto"}
+# MOLI-48: same keys as the Windows worker (`app/jobs/render.py`).
+# chunk_chars=0 restores the old first-80-segments / 5 000-char window.
+DEFAULT_DECIDER = DeciderOptions().as_dict()
 _URL = re.compile(r"https?://\S+")
 DEFAULT_LOGO_SECONDS = 3.0
 
@@ -226,5 +231,6 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "on_screen_text": on_screen_text,
         "audio": audio,
         "reframe": reframe_config(campaign, asset, start, end),
+        "decider": decider_options(campaign).as_dict(),
         "render_spec": {"version": RENDER_SPEC_VERSION, "ruleset_version": rs.version, "required": required},
     }

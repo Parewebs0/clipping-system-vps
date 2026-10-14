@@ -2,6 +2,10 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.no_db
+
 
 def _mod():
     path = Path(__file__).resolve().parents[2] / "scripts" / "grok_clip_decider_tick.py"

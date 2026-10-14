@@ -520,6 +520,28 @@
             "title": "Name",
             "type": "string"
           },
+          "prize_pool_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prize Pool Usd"
+          },
+          "remaining_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Usd"
+          },
           "resolve_error": {
             "anyOf": [
               {
@@ -580,6 +602,17 @@
             "additionalProperties": true,
             "title": "Spec",
             "type": "object"
+          },
+          "spent_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spent Pct"
           },
           "status": {
             "enum": [
@@ -800,6 +833,28 @@
             ],
             "title": "Priority Tier"
           },
+          "prize_pool_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prize Pool Usd"
+          },
+          "remaining_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Usd"
+          },
           "resolve_error": {
             "anyOf": [
               {
@@ -871,6 +926,17 @@
             "additionalProperties": true,
             "title": "Spec",
             "type": "object"
+          },
+          "spent_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spent Pct"
           },
           "status": {
             "enum": [

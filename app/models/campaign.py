@@ -14,7 +14,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, func, text
+from sqlalchemy import CheckConstraint, DateTime, Float, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -98,6 +98,11 @@ class Campaign(Base):
     budget_history: Mapped[list] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb"), default=list
     )
+
+    # MOLI-56: original total prize pool (USD). First-seen value at discovery;
+    # only ever bumped up when a Whop top-up raises the total, never down.
+    # Old rows are backfilled from source_metadata by migration 0024.
+    prize_pool_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

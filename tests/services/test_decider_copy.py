@@ -7,6 +7,10 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.no_db
+
 from app.services.publish_copy import (
     clip_score,
     copy_failures,
@@ -164,6 +168,12 @@ def test_clip_score_follows_the_window_and_is_not_a_constant():
     assert clip_score(30, 15, 45, 0.2) == 0.6
     assert clip_score(30, 15, 45, "later") == 1.0
     assert clip_score(30, 15, 45, True) == 1.0
+    # Sub-scores hook/flow/value/fit replace the duration+model blend.
+    high = clip_score(30, 15, 45, None, {"hook": 1, "flow": 1, "value": 1, "fit": 1})
+    low = clip_score(30, 15, 45, None, {"hook": 0.2, "flow": 0.1, "value": 0.0, "fit": 0.3})
+    assert high == 1.0
+    assert low == 0.15
+    assert high != low
 
 
 def test_decider_prompt_carries_copy_rules_and_drops_the_fixed_score():
@@ -190,8 +200,20 @@ def test_decider_prompt_carries_copy_rules_and_drops_the_fixed_score():
         ],
         15,
         45,
+        limit=2,
     )
-    # The decider still looks at the first two model clips, then drops a window that is too short.
+    # limit=2 is the old per-call cap; a window that is too short is dropped after the slice.
     assert len(kept) == 1
     assert kept[0]["end"] == 45
     assert kept[0]["caption"] == "too long"
+    three = mod.prepare_clips(
+        [
+            {"start": 0, "end": 20},
+            {"start": 20, "end": 40},
+            {"start": 40, "end": 60},
+        ],
+        15,
+        45,
+        limit=3,
+    )
+    assert len(three) == 3

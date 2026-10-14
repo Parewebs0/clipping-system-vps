@@ -131,6 +131,38 @@ def _score_fields(sm: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _budget_fields(
+    sm: Dict[str, Any],
+    history: Optional[List[Any]] = None,
+    column_pool: Any = None,
+) -> Dict[str, Any]:
+    """Money block for the UI (MOLI-56): original pool + refreshed remaining.
+
+    Original: the campaigns.prize_pool_usd column (0024), falling back to
+    source_metadata.prize_pool_usd for rows not yet backfilled. remaining_usd
+    and spent_pct are refreshed by every discovery pass into
+    source_metadata.economics; the last budget_history point (0023) is the
+    belt-and-braces fallback when economics is empty.
+    """
+    econ = sm.get("economics") if isinstance(sm.get("economics"), dict) else {}
+    remaining = _num(econ.get("remaining_usd"))
+    spent = _num(econ.get("spent_pct"))
+    if (remaining is None or spent is None) and history:
+        for point in reversed(history):
+            if not isinstance(point, dict):
+                continue
+            if remaining is None:
+                remaining = _num(point.get("remaining_usd"))
+            if spent is None:
+                spent = _num(point.get("spent_pct"))
+            if remaining is not None and spent is not None:
+                break
+    pool = _num(column_pool)
+    if pool is None:
+        pool = _num(sm.get("prize_pool_usd"))
+    return {"prize_pool_usd": pool, "remaining_usd": remaining, "spent_pct": spent}
+
+
 def _llm_summary(db: Session, where: str = "1=1", params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Aggregate llm_usage rows (migration 0015). `where` is a static SQL
     fragment built in this module only (never user input)."""
@@ -318,6 +350,7 @@ def campaigns_list(
                     c.source_id, c.source_metadata, c.spec,
                     c.assets_count, c.clips_approved, c.clips_published,
                     c.created_at, c.updated_at, c.last_synced_at,
+                    c.prize_pool_usd,
                     COUNT(DISTINCT a.id) AS assets_total,
                     COUNT(DISTINCT CASE WHEN a.status = 'transcribed' THEN a.id END)
                         AS assets_transcribed,
@@ -362,6 +395,7 @@ def campaigns_list(
                     "clips_approved_qa": r.clips_approved_qa,
                     "clips_published": r.clips_published,
                     **_score_fields(sm),
+                    **_budget_fields(sm, column_pool=r.prize_pool_usd),
                     "briefing_error": _norm_error(sm.get("briefing_error")),
                     "resolve_error": _norm_error(sm.get("resolve_error")),
                     "last_synced_at": _iso(r.last_synced_at),
@@ -391,7 +425,8 @@ def campaign_detail(
                 SELECT id, name, status, source_provider, source_url, source_id,
                        source_metadata, source_instructions, spec,
                        assets_count, clips_approved, clips_published,
-                       created_at, updated_at, last_synced_at, budget_history
+                       created_at, updated_at, last_synced_at, budget_history,
+                       prize_pool_usd
                 FROM campaigns
                 WHERE id = :id
                 """
@@ -424,6 +459,7 @@ def campaign_detail(
             "resolve_error": resolve_error_out,
             "last_synced_at": _iso(c.last_synced_at),
             "budget_history": list(c.budget_history or []),
+            **_budget_fields(sm, list(c.budget_history or []), column_pool=c.prize_pool_usd),
             "created_at": _iso(c.created_at),
             "updated_at": _iso(c.updated_at),
         }
