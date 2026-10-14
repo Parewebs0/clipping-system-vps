@@ -18,6 +18,11 @@ class ProposedClip(BaseModel):
     on_screen_text: str = ""
     hook_end: float | None = None
     reason: str = ""
+    hook: float | None = None
+    flow: float | None = None
+    value: float | None = None
+    fit: float | None = None
+    score: float | None = None
 
 
 class ProposeClipsResponse(BaseModel):
@@ -56,6 +61,7 @@ class DeciderState(TypedDict, total=False):
     duration_min: float
     duration_max: float
     brief: str
+    decider_options: dict[str, Any]
     proposed_clips: list[dict[str, Any]]
     scored_clips: list[dict[str, Any]]
     similar_examples: list[dict[str, Any]]

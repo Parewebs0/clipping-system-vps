@@ -5,6 +5,7 @@ Same keys as the Windows worker, plus loudnorm policy:
   watermark{enabled, url, position, width, start, end}
   on_screen_text{enabled, items[{text,start,end,position}]}
   audio{original_only, normalize, target_lufs, true_peak_db}
+  decider{chunk_chars, candidates_per_chunk, top_n, overlap}  ← VPS clip-decider; worker ignores
   render_spec{version, required{...}}  ← read back by the post-render verifier
 Times are relative to the clip start.
 v2 worker results stay valid; v3 adds applied.audio (loudnorm -14 LUFS / -1 dBTP
@@ -15,11 +16,15 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
+from app.services.decider import DeciderOptions, decider_options
 from app.services.rules.schema import RuleSet, load_ruleset
 
 RENDER_SPEC_VERSION = 3
 LOUDNORM_TARGET_LUFS = -14
 LOUDNORM_TRUE_PEAK_DB = -1
+# MOLI-48: same keys as the Windows worker (`app/jobs/render.py`).
+# chunk_chars=0 restores the old first-80-segments / 5 000-char window.
+DEFAULT_DECIDER = DeciderOptions().as_dict()
 _URL = re.compile(r"https?://\S+")
 DEFAULT_LOGO_SECONDS = 3.0
 
@@ -155,5 +160,6 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "watermark": watermark,
         "on_screen_text": on_screen_text,
         "audio": audio,
+        "decider": decider_options(campaign).as_dict(),
         "render_spec": {"version": RENDER_SPEC_VERSION, "ruleset_version": rs.version, "required": required},
     }

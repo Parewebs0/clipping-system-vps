@@ -54,3 +54,7 @@ tmp/
 
 # Mission Control: build output of frontend/ (npm run build / Docker stage)
 /app/static/mission-control/
+
+# MOLI-48 timeline renders stay out of the repo. The text report is kept.
+reports/moli-48/*.mp4
+reports/moli-48/*.png

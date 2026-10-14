@@ -48,5 +48,5 @@ def test_run_decider_happy_path_picks_clips():
     rt = runtime_for(packed, llm=fake_llm([CLIP]), approval_threshold=10_000)
     result = run_decider(ASSET_ID, rt)
     assert result["report"]["decision"] == "clips"
-    assert 1 <= len(result["report"]["chosen_clips"]) <= 2
+    assert 1 <= len(result["report"]["chosen_clips"]) <= 8
     assert result["report"]["shadow"] is True

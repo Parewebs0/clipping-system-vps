@@ -19,6 +19,7 @@ from uuid import UUID
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from app.services.decider import window_iou
 from app.shadow.decider_graph.graph import run_decider
 from app.shadow.decider_graph.nodes import wrap_db
 from app.shadow.decider_graph.state import ShadowRuntime
@@ -31,12 +32,6 @@ def _load_current():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
-
-
-def window_iou(a: tuple[float, float], b: tuple[float, float]) -> float:
-    inter = max(0.0, min(a[1], b[1]) - max(a[0], b[0]))
-    union = max(a[1], b[1]) - min(a[0], b[0])
-    return inter / union if union else 0.0
 
 
 def match_iou(left: list[tuple[float, float]], right: list[tuple[float, float]]) -> float:
@@ -267,9 +262,11 @@ def load_from_db(limit: int, asset_id: str | None) -> list[dict[str, Any]]:
 
 
 def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
-    from app.services.publish_copy import clip_score, copy_rules_for_prompt
-    from app.services.rules.runtime import decider_brief, ruleset, duration_window
     from types import SimpleNamespace
+
+    from app.services.decider import MAX_SEGMENT_BLOCK_CHARS, chunk_segments, decider_options, limit_chunks
+    from app.services.publish_copy import copy_rules_for_prompt
+    from app.services.rules.runtime import decider_brief, duration_window, ruleset
 
     campaign = SimpleNamespace(**packed["campaign"])
     dmin, dmax = duration_window(campaign)
@@ -280,17 +277,37 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
     brief = decider_brief(campaign) or "- (none beyond duration/format)"
     rs = ruleset(campaign)
     copy_rules = copy_rules_for_prompt(rs)
-    prompt = mod.build_decider_prompt(
-        dmin=dmin, dmax=dmax, duration=duration, brief=brief, copy_rules=copy_rules,
-    ) + "\n".join(mod.segment_lines(segs))[:5000]
-    t0 = time.monotonic()
-    data, stats = llm(prompt)
-    latency_ms = int((time.monotonic() - t0) * 1000)
-    prepared = mod.prepare_clips(
-        (data.get("clips") if isinstance(data, dict) else None), dmin, dmax
+    opts = decider_options(campaign)
+    chunks = limit_chunks(chunk_segments(segs, opts), opts)
+    prompt_chars = 0
+    cost = 0.0
+    latency_ms = 0
+    model = None
+    stats_last: dict[str, Any] = {}
+
+    def _call_llm(prompt: str, meta: dict) -> dict:
+        nonlocal prompt_chars, cost, latency_ms, model, stats_last
+        t0 = time.monotonic()
+        data, stats = llm(prompt)
+        stats_last = dict(stats or {})
+        prompt_chars = max(prompt_chars, len(prompt), int(meta.get("prompt_chars") or 0))
+        latency_ms += int(stats_last.get("latency_ms") or (time.monotonic() - t0) * 1000)
+        cost += float(stats_last.get("cost_usd") or 0)
+        model = stats_last.get("model") or model
+        return data if isinstance(data, dict) else {}
+
+    reviewed = mod.collect_clips(
+        segments=segs,
+        dmin=dmin,
+        dmax=dmax,
+        duration=duration,
+        brief=brief,
+        copy_rules=copy_rules,
+        options=opts,
+        call_llm=_call_llm,
+        ruleset=rs,
+        retry_enabled=False,
     )
-    # Live (#67) stores every clip: copy-failing ones become needs_review candidates.
-    reviewed = mod.review_clip_copies(prepared, rs, retry=None)
     parsed = []
     for c in reviewed:
         start = float(c.get("start") or 0)
@@ -302,6 +319,7 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
             "title": str(c.get("title") or "")[:100],
             "caption": str(c.get("caption") or c.get("reason") or "")[:800],
             "on_screen_text": str(c.get("on_screen_text") or "")[:120],
+            "subscores": dict(c.get("subscores") or {}),
         }
         if hook_end is not None:
             extra["hook_end"] = hook_end
@@ -311,17 +329,20 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
         parsed.append({
             "start": round(start, 2),
             "end": round(end, 2),
-            "score": clip_score(end - start, dmin, dmax, c.get("score")),
+            "score": float(c.get("score") or 0),
             "reason": str(c.get("reason") or "grok")[:500],
             "extra": extra,
         })
+    if not prompt_chars:
+        prompt_chars = sum(min(len(ch["block"]), MAX_SEGMENT_BLOCK_CHARS) for ch in chunks)
     return {
         "clips": parsed,
-        "prompt_chars": len(prompt),
-        "latency_ms": stats.get("latency_ms", latency_ms),
-        "cost_usd": float(stats.get("cost_usd") or 0),
-        "model": stats.get("model"),
+        "prompt_chars": prompt_chars,
+        "latency_ms": latency_ms,
+        "cost_usd": cost,
+        "model": model,
         "duration_window": [dmin, dmax],
+        "n_chunks": len(chunks),
     }
 
 
