@@ -6,14 +6,14 @@ same. New accounts are added as extra rows with their own key; the worker
 maps each key to its own credentials.
 
 Revision ID: 0024_social_account_accounts
-Revises: 0023_campaign_queue_sync
+Revises: 0024_campaign_prize_pool
 Create Date: 2026-10-13
 """
 import sqlalchemy as sa
 from alembic import op
 
 revision = "0024_social_account_accounts"
-down_revision = "0023_campaign_queue_sync"
+down_revision = "0024_campaign_prize_pool"
 branch_labels = None
 depends_on = None
 
