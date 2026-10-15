@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import require_bearer
+from app.services.public_error import public_error
 from app.clip_selection.agent import ClipSelectionAgent
 from app.db.database import get_db
 from app.models.asset import Asset, AssetStatus
@@ -157,8 +158,8 @@ def process_all(
         try:
             results.append(agent.run(db, str(aid)))
         except Exception as e:  # noqa: BLE001
-            logger.exception("process_all failed for asset %s: %s", aid, e)
-            results.append({"asset_id": str(aid), "error": str(e)})
+            logger.exception("process_all failed for asset %s", aid)
+            results.append({"asset_id": str(aid), "error": public_error(e)})
         if len(results) >= max_assets:
             break
 
