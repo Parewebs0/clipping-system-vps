@@ -93,6 +93,32 @@ class AudioRule(Rule):
     music_recommended: bool = False
 
 
+class BrandingAsset(BaseModel):
+    """Intro/outro media stored on the VPS, served to the worker (#MOLI-54)."""
+    model_config = ConfigDict(extra="ignore")
+    url: Optional[str] = None        # /worker/campaigns/{id}/branding/{intro|outro}
+    max_seconds: Optional[float] = 1.5  # hard cap for a card inside the clip
+
+
+class BrandingRule(BaseModel):
+    """Brand templates (#7 of the Opus-parity epic / MOLI-54).
+
+    Stored under ``source_metadata.rules_overrides.branding`` (human-managed,
+    up to 4 templates). Everything is optional: absent → the worker keeps the
+    current hard-coded style, so behaviour never regresses by default.
+    """
+    model_config = ConfigDict(extra="ignore")
+    template: Optional[str] = None          # template name the campaign uses
+    font_url: Optional[str] = None          # /worker/campaigns/{id}/fonts/<name>
+    font_name: Optional[str] = None         # exact family name inside the TTF/OTF
+    caption_color: Optional[str] = None     # "&H00FFFFFF" ASS colour (BGR)
+    outline_color: Optional[str] = None
+    position: Literal["top", "center", "bottom"] = "bottom"
+    max_words: Optional[int] = None         # words per caption line
+    intro: BrandingAsset = Field(default_factory=BrandingAsset)
+    outro: BrandingAsset = Field(default_factory=BrandingAsset)
+
+
 class HookRule(Rule):
     max_seconds: Optional[float] = None
 
@@ -172,6 +198,7 @@ class RuleSet(BaseModel):
     captions: CaptionsRule = Field(default_factory=CaptionsRule)
     on_screen_text: OnScreenTextRule = Field(default_factory=OnScreenTextRule)
     logo: LogoRule = Field(default_factory=LogoRule)
+    branding: BrandingRule = Field(default_factory=BrandingRule)
     audio: AudioRule = Field(default_factory=AudioRule)
     hook: HookRule = Field(default_factory=HookRule)
     edit: EditRule = Field(default_factory=EditRule)
