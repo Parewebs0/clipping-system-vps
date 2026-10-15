@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
+from app.logctx import format_ids, ids_from_job, redact
 from app.models.job import JOB_STATUS_VALUES, Job, JobStatus
 
 
@@ -110,9 +111,22 @@ def _recover_expired_leases(db: Session, now: datetime) -> int:
             lease_until=None,
             worker_id=None,
         )
+        .returning(Job.id, Job.job_type, Job.payload)
     )
-    result = db.execute(stmt)
-    return result.rowcount or 0
+    rows = db.execute(stmt).all()
+    for row in rows:
+        payload = row.payload if isinstance(row.payload, dict) else {}
+        logger.warning(
+            "lease expired, requeue %s",
+            format_ids(
+                job_id=row.id,
+                job_type=row.job_type,
+                clip_id=payload.get("clip_id"),
+                campaign_id=payload.get("campaign_id"),
+                asset_id=payload.get("asset_id"),
+            ),
+        )
+    return len(rows)
 
 
 def claim_next_job(db: Session, *, worker_id: str) -> Optional[Job]:
@@ -190,10 +204,26 @@ def complete_job(db: Session, job_id: UUID, *, worker_id: str, result: dict) -> 
         if handler:
             handler(db, job, result or {})
     except Exception as e:  # noqa: BLE001
-        logger.exception(
-            "state transition %s failed for job %s: %s",
-            job.job_type, job.id, e,
-        )
+        # The worker already delivered a result. Keep the job completed, but
+        # do not hide the handler failure: it is why a transcribe or publish
+        # looks done while the asset never moved.
+        note = redact(f"{type(e).__name__}: {e}", limit=500)
+        logger.exception("state transition failed %s", format_ids(**ids_from_job(job)))
+        db.rollback()
+        fresh = db.get(Job, job_id)
+        if fresh is None:
+            return job
+        merged = dict(fresh.result or {})
+        merged["handler_error"] = note
+        fresh.result = merged
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "could not store handler_error %s", format_ids(**ids_from_job(job)),
+            )
+        return fresh
     return job
 
 
@@ -218,13 +248,23 @@ def fail_job(db: Session, job_id: UUID, *, worker_id: str, error_message: str) -
         job.lease_until = None
     db.commit()
     db.refresh(job)
+    logger.warning(
+        "job fail recorded %s status=%s attempts=%s/%s error=%s",
+        format_ids(**ids_from_job(job)),
+        job.status,
+        job.attempts,
+        job.max_attempts,
+        redact(error_message or ""),
+    )
     if job.status == JobStatus.FAILED.value:
         try:
             from app.services.job_state_transitions import on_job_failed
             on_job_failed(db, job)
         except Exception as e:  # noqa: BLE001
             logger.exception(
-                "on_job_failed handler failed for job %s: %s", job.id, e,
+                "on_job_failed handler failed %s: %s",
+                format_ids(**ids_from_job(job)),
+                redact(f"{type(e).__name__}: {e}"),
             )
     return job
 

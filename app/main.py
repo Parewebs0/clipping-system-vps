@@ -11,8 +11,10 @@ The API has zero background tasks.
 import logging
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from app.api.jobs import router as jobs_router
+from app.logctx import install_redact_filter, redact
 from app.api.mission_control import router as mission_control_router
 from app.api.system import router as system_router
 from app.config import settings
@@ -23,6 +25,7 @@ logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+install_redact_filter()
 
 logger = logging.getLogger("clipping-api")
 
@@ -46,24 +49,32 @@ app = FastAPI(
     description="Backend coordinator for the clipping pipeline (VPS side). "
     "All scheduled work runs from OpenClaw automations.",
 )
-import traceback as _tb
-_DEBUG_LOG_PATH = "/tmp/discovery_debug.log"
 
 
 @app.middleware("http")
-async def _debug_log_middleware(request, call_next):
-    """Capture tracebacks to /tmp/discovery_debug.log for debugging 500s."""
-    try:
-        response = await call_next(request)
-        if response.status_code >= 500:
-            with open(_DEBUG_LOG_PATH, "a") as f:
-                f.write(f"=== {request.method} {request.url.path} returned {response.status_code} ===\n")
-        return response
-    except Exception as e:  # noqa: BLE001
-        with open(_DEBUG_LOG_PATH, "a") as f:
-            f.write(f"=== {request.method} {request.url.path} raised {type(e).__name__}: {e} ===\n")
-            _tb.print_exc(file=f)
-        raise
+async def _log_server_errors(request, call_next):
+    """Log 5xx with the path only. No query string and no headers (tokens)."""
+    response = await call_next(request)
+    if response.status_code >= 500:
+        logger.error(
+            "http %s %s -> %s",
+            request.method,
+            request.url.path,
+            response.status_code,
+        )
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request, exc):
+    """Clear JSON for unexpected failures. Domain HTTP errors keep their handler."""
+    logger.error(
+        "unhandled %s %s: %s",
+        request.method,
+        request.url.path,
+        redact(f"{type(exc).__name__}: {exc}"),
+    )
+    return JSONResponse(status_code=500, content={"detail": "internal error"})
 
 
 

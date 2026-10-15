@@ -19,8 +19,8 @@ sys.path.insert(0, str(ROOT))
 try:
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
-except Exception:
-    pass
+except Exception as exc:
+    print(f"dotenv not loaded: {type(exc).__name__}", file=sys.stderr)
 
 PROMPT = """Pick up to {n} clip windows from this transcript chunk for short-form video.
 Rules: duration_min={dmin}, duration_max={dmax} seconds. Format 9:16.
@@ -488,7 +488,8 @@ def main() -> int:
         return 0
     except Exception as e:
         db.rollback()
-        print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
+        from app.logctx import redact
+        print(f"ERROR {type(e).__name__}: {redact(str(e))}", file=sys.stderr)
         return 1
     finally:
         db.close()
