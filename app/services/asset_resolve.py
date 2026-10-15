@@ -8,6 +8,8 @@ import re
 import subprocess
 import urllib.error
 import urllib.request
+
+from app.services.http_retry import RETRY_STATUS, pause
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -78,15 +80,41 @@ def _int(v: Any) -> int | None:
         return None
 
 
-def head_check(url: str, timeout: float = 15.0) -> tuple[bool, int | None, str]:
-    """HEAD a public URL. Returns (ok, content_length, content_type)."""
-    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "clipping-system-vps/1.0 (asset-resolver)"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 (public https only)
-            ctype = r.headers.get("Content-Type") or ""
-            return (200 <= r.status < 300), _int(r.headers.get("Content-Length")), ctype
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
-        return False, None, ""
+def head_check(
+    url: str,
+    timeout: float = 15.0,
+    *,
+    attempts: int = 3,
+    sleep=None,
+) -> tuple[bool, int | None, str]:
+    """HEAD a public URL. Returns (ok, content_length, content_type).
+
+    Timeouts and 429/5xx are retried. A 4xx or a bad URL returns False
+    without another attempt. Used for Whop/direct files and any public
+    video URL (YouTube, TikTok, Instagram included when they are fetched).
+    """
+    req = urllib.request.Request(
+        url, method="HEAD", headers={"User-Agent": "clipping-system-vps/1.0 (asset-resolver)"},
+    )
+    tries = max(1, attempts)
+    for attempt in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 (public https only)
+                ctype = r.headers.get("Content-Type") or ""
+                return (200 <= r.status < 300), _int(r.headers.get("Content-Length")), ctype
+        except urllib.error.HTTPError as exc:
+            if exc.code in RETRY_STATUS and attempt < tries:
+                pause(attempt, backoff_s=0.2, sleep=sleep)
+                continue
+            return False, None, ""
+        except ValueError:
+            return False, None, ""
+        except (urllib.error.URLError, TimeoutError, OSError):
+            if attempt < tries:
+                pause(attempt, backoff_s=0.2, sleep=sleep)
+                continue
+            return False, None, ""
+    return False, None, ""
 FOLDER_MIME = "application/vnd.google-apps.folder"
 SHORTCUT_MIME = "application/vnd.google-apps.shortcut"
 
