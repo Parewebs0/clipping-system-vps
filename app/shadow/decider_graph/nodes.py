@@ -275,11 +275,9 @@ def _call_llm(prompt: str, runtime: ShadowRuntime) -> tuple[dict[str, Any], dict
     if not key:
         return {}, {"model": "none", "cost_usd": 0.0, "latency_ms": 0, "skipped": "no_key"}
 
-    import httpx
-
+    from app.services.grok_client import request_chat_completion
     from app.services.llm_usage import estimate_cost, parse_usage
 
-    base = os.environ.get("XAI_API_BASE", "https://api.x.ai/v1").rstrip("/")
     model = os.environ.get("XAI_MODEL", "grok-4-1-fast")
     payload = {
         "model": model,
@@ -291,14 +289,9 @@ def _call_llm(prompt: str, runtime: ShadowRuntime) -> tuple[dict[str, Any], dict
         ],
     }
     t0 = time.monotonic()
-    with httpx.Client(timeout=60.0) as client:
-        r = client.post(
-            f"{base}/chat/completions",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json=payload,
-        )
-        r.raise_for_status()
-        data = r.json()
+    # Same retries as the live decider (timeouts, 429, 5xx). Usage stays in
+    # the shadow stats below; request_chat_completion does not write llm_usage.
+    data = request_chat_completion(payload, timeout=60.0)
     latency_ms = int((time.monotonic() - t0) * 1000)
     usage = parse_usage(data.get("usage"))
     cost = estimate_cost(usage)

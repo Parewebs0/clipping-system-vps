@@ -14,9 +14,40 @@ from app.auth import require_bearer
 from app.db.database import get_db
 from app.models.job import JobStatus
 from app.services import job_service
+from app.services.http_retry import RETRY_STATUS, pause
 
 
 router = APIRouter()
+
+_HEAD_ATTEMPTS = 3
+_HEAD_BACKOFF_S = 0.2
+
+
+def _head_video_url(video: str, *, attempts: int = _HEAD_ATTEMPTS, sleep=None) -> Optional[str]:
+    """HEAD an http(s) video URL. None when it looks reachable.
+
+    Retries timeouts, connection errors, 429 and 5xx. A 4xx is final.
+    Covers YouTube, Instagram and TikTok URLs when a transcribe job
+    points at them.
+    """
+    tries = max(1, attempts)
+    last_name = "HTTPError"
+    for attempt in range(1, tries + 1):
+        try:
+            response = httpx.head(video, timeout=5.0, follow_redirects=True)
+        except httpx.HTTPError as exc:
+            last_name = type(exc).__name__
+            if attempt < tries:
+                pause(attempt, backoff_s=_HEAD_BACKOFF_S, sleep=sleep)
+                continue
+            return f"video URL unreachable: {last_name}"
+        if response.status_code in RETRY_STATUS and attempt < tries:
+            pause(attempt, backoff_s=_HEAD_BACKOFF_S, sleep=sleep)
+            continue
+        if response.status_code >= 400:
+            return f"video URL not accessible: HTTP {response.status_code}"
+        return None
+    return f"video URL unreachable: {last_name}"
 
 
 def _validate_transcribe_payload(payload: dict) -> Optional[str]:
@@ -35,13 +66,7 @@ def _validate_transcribe_payload(payload: dict) -> Optional[str]:
         return "transcribe payload must include 'video' (string)"
     parsed = urlparse(video)
     if parsed.scheme in ("http", "https"):
-        try:
-            r = httpx.head(video, timeout=5.0, follow_redirects=True)
-            if r.status_code >= 400:
-                return f"video URL not accessible: HTTP {r.status_code}"
-        except httpx.HTTPError as e:
-            return f"video URL unreachable: {type(e).__name__}"
-        return None
+        return _head_video_url(video)
     if video.startswith("/"):
         if not os.path.isfile(video):
             return f"local video file not found: {video}"
