@@ -24,6 +24,25 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def campaign_platforms(db: Session, campaign: Optional[Campaign]) -> list[str]:
+    """Platforms the campaign RuleSet names (MOLI-53), filtered to what we can
+    post to. Campaigns without named platforms keep the legacy default
+    (youtube-only), so existing behaviour is unchanged."""
+    if campaign is None:
+        return list(DEFAULT_PLATFORMS)
+    from app.services.rules.schema import load_ruleset
+
+    sm = getattr(campaign, "source_metadata", None) or {}
+    rs = load_ruleset(sm if isinstance(sm, dict) else {})
+    if rs is None:
+        return list(DEFAULT_PLATFORMS)
+    from app.services.publish_copy import COPY_PLATFORMS
+
+    named = [str(p).strip().lower() for p in rs.platforms if p]
+    wanted = [p for p in named if p in COPY_PLATFORMS and p in SOCIAL_PLATFORM_VALUES]
+    return wanted or list(DEFAULT_PLATFORMS)
+
+
 class PublishGateError(ValueError):
     """Raised when the clip is not eligible for publish approval."""
 
@@ -89,15 +108,21 @@ def approve_clip_publish(
     confirmed_checks: Optional[list] = None,
     actor: str = "api:approve_publish",
 ) -> tuple[Clip, list[ClipPublication], bool]:
-    wanted = list(platforms) if platforms else list(DEFAULT_PLATFORMS)
-    wanted = [p.strip().lower() for p in wanted if p and p.strip()]
-    if not wanted:
-        wanted = list(DEFAULT_PLATFORMS)
-    for p in wanted:
+    requested = list(platforms) if platforms else []
+    given = [p.strip().lower() for p in requested if isinstance(p, str) and p.strip()]
+    for p in given:
         if p not in SOCIAL_PLATFORM_VALUES:
             raise PublishGateError(
                 f"platform must be one of {list(SOCIAL_PLATFORM_VALUES)}, got {p!r}"
             )
+    if platforms is not None:
+        # Explicit platform list (API/UI choice). Empty list keeps the legacy
+        # default rather than silently expanding to the campaign platforms.
+        wanted: list[str] = given or list(DEFAULT_PLATFORMS)
+    else:
+        # No explicit platforms → the campaign RuleSet decides (MOLI-53);
+        # resolved below, after the campaign row is loaded.
+        wanted = []
 
     clip = db.get(Clip, clip_id)
     if clip is None:
@@ -115,6 +140,8 @@ def approve_clip_publish(
                 f"campaign {campaign.id} is not workable (status '{campaign.status}', "
                 "rules pending human review or archived)"
             )
+    if not wanted:
+        wanted = campaign_platforms(db, campaign)
 
     if clip.qa_status != "pass":
         raise PublishGateError(

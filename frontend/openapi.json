@@ -4998,6 +4998,11 @@
       },
       "SocialAccountOut": {
         "properties": {
+          "account_key": {
+            "default": "default",
+            "title": "Account Key",
+            "type": "string"
+          },
           "auth_kind": {
             "title": "Auth Kind",
             "type": "string"
