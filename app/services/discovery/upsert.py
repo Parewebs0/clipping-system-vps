@@ -12,6 +12,7 @@ from app.models.asset import Asset
 from app.models.campaign import Campaign, CampaignStatus
 from app.services.campaign_closed import merge_prize_pool
 from app.services.discovery.models import DiscoveredCampaign
+from app.services.public_error import public_error
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +239,42 @@ def _unique_name(db: Session, base: str, *, exclude_id: int | None = None) -> st
         candidate = f"{base} ({suffix})"
 
 
+def fetch_details(provider, discovered: list, *, timeout_s: float = 20) -> list:
+    """Fetch details concurrently. A timeout or a raised error keeps the card.
+
+    ``None`` from the provider still means the campaign is closed and is
+    returned as None so the caller can drop it. A hung worker does not
+    fail the whole discovery run.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _safe_fetch(item):
+        try:
+            return provider.fetch_detail(item)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "provider %s fetch_detail failed for %s: %s",
+                provider.name,
+                getattr(item, "external_id", None),
+                public_error(exc),
+            )
+            return item
+
+    results: list = []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        try:
+            for item in pool.map(_safe_fetch, discovered, timeout=timeout_s):
+                results.append(item)
+        except TimeoutError:
+            logger.warning(
+                "provider %s fetch_detail timed out after %ss; keeping card data for the rest",
+                provider.name,
+                timeout_s,
+            )
+            results.extend(discovered[len(results):])
+    return results
+
+
 def run_discovery(db: Session, *, fetch_detail: bool = True, limit: int = 50) -> dict:
     """Run all registered providers, upsert campaigns, resolve assets.
 
@@ -251,8 +288,8 @@ def run_discovery(db: Session, *, fetch_detail: bool = True, limit: int = 50) ->
         try:
             discovered = provider.discover(limit=limit)
         except Exception as e:  # noqa: BLE001
-            logger.exception("provider %s discover failed: %s", provider.name, e)
-            summary["providers"][provider.name] = {"error": str(e)}
+            logger.exception("provider %s discover failed", provider.name)
+            summary["providers"][provider.name] = {"error": public_error(e)}
             continue
 
         if fetch_detail:
@@ -261,20 +298,7 @@ def run_discovery(db: Session, *, fetch_detail: bool = True, limit: int = 50) ->
             # campaign is kept with its card-level asset_links. A provider
             # returning None means "drop this campaign" (e.g. Whop detail page
             # says "Submissions closed"), so those are filtered out here.
-            from concurrent.futures import ThreadPoolExecutor
-
-            def _safe_fetch(d):
-                try:
-                    return provider.fetch_detail(d)
-                except Exception as e:  # noqa: BLE001
-                    logger.info(
-                        "provider %s fetch_detail failed for %s: %s",
-                        provider.name, d.external_id, e,
-                    )
-                    return d
-
-            with ThreadPoolExecutor(max_workers=8) as pool:
-                results = list(pool.map(_safe_fetch, discovered, timeout=20))
+            results = fetch_details(provider, discovered, timeout_s=20)
             dropped = sum(1 for r in results if r is None)
             if dropped:
                 logger.info(

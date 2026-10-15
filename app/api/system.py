@@ -7,12 +7,15 @@ from app.config import settings
 
 router = APIRouter()
 
+# Same version string as FastAPI(version=...) in app/main.py.
+APP_VERSION = "0.3.0"
+
 
 @router.get("/system/info")
 def system_info(_: bool = Depends(require_bearer)) -> dict:
     return {
         "service": "clipping-api",
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "environment": settings.environment,
         "api_host": settings.api_host,
         "api_port": settings.api_port,
