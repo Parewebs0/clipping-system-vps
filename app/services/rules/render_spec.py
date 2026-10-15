@@ -7,7 +7,8 @@ Same keys as the Windows worker, plus loudnorm policy:
     preset classic (default) is the static burn-in. karaoke | pop | bold opt in.
   watermark{enabled, url, position, width, start, end}
   on_screen_text{enabled, entrance, items[{text,start,end,position,entrance?}]}
-  audio{original_only, normalize, target_lufs, true_peak_db}
+  audio{original_only, normalize, target_lufs, true_peak_db,
+        enhance{engine: none|deepfilter|resemble, strength}}
   cleanup{fillers, max_pause_ms, bad_takes, filler_list}  ← off keeps today's edit
   reframe{mode, layout, smoothing, sample_fps, speakers}
       mode=center + layout=single keeps the worker's historical center crop.
@@ -16,6 +17,11 @@ Same keys as the Windows worker, plus loudnorm policy:
 Times are relative to the clip start.
 v2 worker results stay valid; v3 adds applied.audio (loudnorm -14 LUFS / -1 dBTP
 unless audio.original_only).
+
+audio.enhance defaults to engine ``none`` (loudnorm only, same as before MOLI-52).
+Set it from ``source_metadata.audio.enhance`` or, if present,
+``rules_overrides.audio_enhance``. ``original_only`` forces engine ``none``:
+the worker also refuses to enhance that track.
 """
 from __future__ import annotations
 
@@ -28,6 +34,8 @@ from app.services.rules.schema import RuleSet, load_ruleset
 RENDER_SPEC_VERSION = 3
 LOUDNORM_TARGET_LUFS = -14
 LOUDNORM_TRUE_PEAK_DB = -1
+ENHANCE_ENGINES = ("none", "deepfilter", "resemble")
+DEFAULT_ENHANCE = {"engine": "none", "strength": 1.0}
 _OUTPUT_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 _REFRAME_MODES = {"center", "face", "object", "auto"}
 _REFRAME_LAYOUTS = {"single", "split", "screenshare", "fit", "auto"}
@@ -281,6 +289,30 @@ def _logo_url(campaign, rs: RuleSet) -> Optional[str]:
     return m.group(0).rstrip(").,") if m else None
 
 
+def audio_enhance(campaign) -> dict[str, Any]:
+    """Campaign knob for ``audio.enhance``. Unknown engines fall back to none."""
+    raw: dict[str, Any] = {}
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if isinstance(meta, dict):
+        audio = meta.get("audio")
+        if isinstance(audio, dict) and isinstance(audio.get("enhance"), dict):
+            raw = dict(audio["enhance"])
+        overrides = meta.get("rules_overrides")
+        if isinstance(overrides, dict) and isinstance(overrides.get("audio_enhance"), dict):
+            raw = dict(overrides["audio_enhance"])
+    engine = str(raw.get("engine") or "none").strip().lower()
+    if engine not in ENHANCE_ENGINES:
+        engine = "none"
+    try:
+        strength = float(raw.get("strength", DEFAULT_ENHANCE["strength"]))
+    except (TypeError, ValueError):
+        strength = float(DEFAULT_ENHANCE["strength"])
+    if strength != strength:  # NaN
+        strength = float(DEFAULT_ENHANCE["strength"])
+    strength = min(1.0, max(0.0, strength))
+    return {"engine": engine, "strength": round(strength, 3)}
+
+
 def _rules_overrides(campaign) -> dict:
     raw = (getattr(campaign, "source_metadata", None) or {}).get("rules_overrides") or {}
     return raw if isinstance(raw, dict) else {}
@@ -471,6 +503,8 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "normalize": not original_only,
         "target_lufs": LOUDNORM_TARGET_LUFS,
         "true_peak_db": LOUDNORM_TRUE_PEAK_DB,
+        # original_only wins over a campaign enhance setting: do not ask the worker to touch the track.
+        "enhance": dict(DEFAULT_ENHANCE) if original_only else audio_enhance(campaign),
     }
     out_w, out_h = _OUTPUT_SIZES.get(rs.aspect.ratio or "9:16", (1080, 1920))
     required = {

@@ -89,13 +89,40 @@ def test_audio_policy_bumps_spec_to_v3():
     rs = RuleSet()
     out = build_render_spec(_camp(rs), asset, cand)
     assert out["render_spec"]["version"] == 3
-    assert out["audio"] == {"original_only": False, "normalize": True, "target_lufs": -14, "true_peak_db": -1}
+    assert out["audio"] == {
+        "original_only": False, "normalize": True, "target_lufs": -14, "true_peak_db": -1,
+        "enhance": {"engine": "none", "strength": 1.0},
+    }
     rs.audio.original_only = True
     rs.audio.no_added_music = True
     skipped = build_render_spec(_camp(rs), asset, cand)
     assert skipped["audio"]["original_only"] is True
     assert skipped["audio"]["normalize"] is False
+    assert skipped["audio"]["enhance"] == {"engine": "none", "strength": 1.0}
     assert skipped["render_spec"]["version"] == 3
+
+
+def test_audio_enhance_is_off_by_default_and_overridable():
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    asset = SimpleNamespace(extra_metadata={})
+    camp = _camp(RuleSet())
+    camp.source_metadata["audio"] = {"enhance": {"engine": "deepfilter", "strength": 0.4}}
+    out = build_render_spec(camp, asset, cand)
+    assert out["audio"]["enhance"] == {"engine": "deepfilter", "strength": 0.4}
+    assert out["audio"]["normalize"] is True
+    camp.source_metadata["rules_overrides"] = {"audio_enhance": {"engine": "resemble", "strength": 2}}
+    overridden = build_render_spec(camp, asset, cand)
+    assert overridden["audio"]["enhance"] == {"engine": "resemble", "strength": 1.0}
+    camp.source_metadata["rules_overrides"] = {"audio_enhance": {"engine": "nope", "strength": "x"}}
+    fallback = build_render_spec(camp, asset, cand)
+    assert fallback["audio"]["enhance"] == {"engine": "none", "strength": 1.0}
+    rs = RuleSet()
+    rs.audio.original_only = True
+    forced = _camp(rs)
+    forced.source_metadata["audio"] = {"enhance": {"engine": "deepfilter", "strength": 1}}
+    skipped = build_render_spec(forced, asset, cand)
+    assert skipped["audio"]["original_only"] is True
+    assert skipped["audio"]["enhance"] == {"engine": "none", "strength": 1.0}
 
 
 def test_cleanup_is_off_unless_the_campaign_opts_in():
