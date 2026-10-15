@@ -36,6 +36,7 @@ def build_propose_prompt(
     chunks: int = 1,
     chunk_start: float = 0.0,
     chunk_end: float = 0.0,
+    ask_broll: bool = False,
 ) -> str:
     from app.services.decider import MAX_SEGMENT_BLOCK_CHARS
 
@@ -48,7 +49,9 @@ def build_propose_prompt(
                 f"score={ex.get('score')} campaign={ex.get('campaign_id')}"
             )
         similar = "Similar campaigns (read-only, for calibration):\n" + "\n".join(lines)
-    return USER.format(
+    from app.services.production import with_broll_hint
+
+    prompt = USER.format(
         n=int(n),
         dmin=dmin,
         dmax=dmax,
@@ -61,3 +64,4 @@ def build_propose_prompt(
         chunk_end=float(chunk_end) if chunk_end else float(duration or 0),
         segments=segment_block[:MAX_SEGMENT_BLOCK_CHARS],
     )
+    return with_broll_hint(prompt, ask_broll)

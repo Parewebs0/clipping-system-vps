@@ -112,6 +112,12 @@ class Clip(Base):
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
 
+    # MOLI-55: YouTube views, retention and the calibrated clip_score.
+    # Written by scripts/clip_analytics_tick.py. Empty until the first read.
+    analytics: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+
     # Top-level status (derived from qa + manual decisions)
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, server_default="created"

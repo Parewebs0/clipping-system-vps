@@ -90,6 +90,8 @@ class ClipOut(BaseModel):
     # #43 post-render rules verifier
     compliance_status: str = "pending"
     compliance_report: dict = {}
+    # MOLI-55: YouTube views / retention and calibrated clip_score. {} until the tick runs.
+    analytics: dict = {}
 
 
 class ApprovePublishIn(BaseModel):

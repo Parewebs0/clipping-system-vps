@@ -2110,6 +2110,13 @@ export interface components {
         /** ClipOut */
         ClipOut: {
             /**
+             * Analytics
+             * @default {}
+             */
+            analytics: {
+                [key: string]: unknown;
+            };
+            /**
              * Asset Id
              * Format: uuid
              */

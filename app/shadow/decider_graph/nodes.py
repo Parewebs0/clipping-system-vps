@@ -329,6 +329,9 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
     dmax = float(state.get("duration_max") or 45)
     duration = float(state.get("video_duration") or 0) or dmax
     opts = decider_options(_campaign_ns(state.get("campaign") or {}), {"decider": state.get("decider_options") or {}})
+    from app.services.production import broll_requested, normalize_broll_marks
+
+    ask_broll = broll_requested(_campaign_ns(state.get("campaign") or {}))
     chunks = limit_chunks(chunk_segments(segs, opts), opts)
     n_chunks = max(1, len(chunks))
     calls = list(state.get("llm_calls") or [])
@@ -350,6 +353,7 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
             chunks=n_chunks,
             chunk_start=float(ch.get("start") or 0),
             chunk_end=float(ch.get("end") or duration),
+            ask_broll=ask_broll,
         )
         if use_heuristic:
             clips = heuristic_propose(
@@ -395,6 +399,14 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
                 end - start, dmin, dmax, clip.get("score"), clip["subscores"] or None
             )
             clip["chunk_index"] = ch.get("index")
+            marks = normalize_broll_marks(
+                clip.get("broll"),
+                clip_duration=end - start,
+                source_start=start,
+            )
+            clip.pop("broll", None)
+            if marks:
+                clip["broll_marks"] = marks
             collected.append(clip)
 
     merged = merge_by_iou(collected, threshold=opts.iou_threshold)
