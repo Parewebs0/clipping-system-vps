@@ -82,6 +82,32 @@ def _asset_id_from_payload(payload: dict) -> Optional[str]:
     return val
 
 
+def _brand_initial_prompt(db: Session, asset: Asset) -> Optional[str]:
+    """brand_dictionary as WhisperX initial_prompt (MOLI-54).
+
+    Vocabulary-only: names/spellings joined by spaces, capped (WhisperX keeps
+    ~224 tokens of prompt context). Never contains instructions — it just
+    biases the spelling of brand terms. Returns None when there is nothing.
+    """
+    try:
+        campaign = db.get(Campaign, asset.campaign_id)
+        if campaign is None:
+            return None
+        from app.services.rules.schema import load_ruleset
+
+        rs = load_ruleset(campaign.source_metadata or {})
+        if rs is None:
+            return None
+        words = [str(w).strip() for w in (rs.captions.brand_dictionary or []) if str(w).strip()]
+        if not words:
+            return None
+        prompt = " ".join(words)
+        return prompt[:900] or None
+    except Exception:  # noqa: BLE001 - a broken branding config never blocks transcription
+        logger.warning("brand initial_prompt failed for asset %s", asset.id, exc_info=True)
+        return None
+
+
 def on_download_completed(
     db: Session, job: Job, result_data: dict
 ) -> None:
@@ -138,7 +164,11 @@ def on_download_completed(
         create_job(
             db,
             job_type="transcribe",
-            payload=build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
+            payload={
+                **build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
+                # MOLI-54: brand vocabulary biases WhisperX spellings.
+                "initial_prompt": _brand_initial_prompt(db, asset),
+            },
             priority=job.priority,
             max_attempts=job.max_attempts,
         )
