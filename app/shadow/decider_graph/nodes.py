@@ -230,6 +230,8 @@ def heuristic_propose(
             "caption": "",
             "on_screen_text": "",
             "hook_end": 1.5 if end >= 1.5 else None,
+            "keywords": [],
+            "emojis": [],
             "reason": "heuristic: no segments",
         }]
     clips: list[dict[str, Any]] = []
@@ -258,6 +260,8 @@ def heuristic_propose(
             "caption": " ".join(texts)[:800],
             "on_screen_text": "",
             "hook_end": 1.5 if (end - start) >= 1.5 else None,
+            "keywords": [],
+            "emojis": [],
             "reason": "heuristic window from transcript",
         })
         i = j + 1 if j > i else i + 1
@@ -275,11 +279,9 @@ def _call_llm(prompt: str, runtime: ShadowRuntime) -> tuple[dict[str, Any], dict
     if not key:
         return {}, {"model": "none", "cost_usd": 0.0, "latency_ms": 0, "skipped": "no_key"}
 
-    import httpx
-
+    from app.services.grok_client import request_chat_completion
     from app.services.llm_usage import estimate_cost, parse_usage
 
-    base = os.environ.get("XAI_API_BASE", "https://api.x.ai/v1").rstrip("/")
     model = os.environ.get("XAI_MODEL", "grok-4-1-fast")
     payload = {
         "model": model,
@@ -291,14 +293,9 @@ def _call_llm(prompt: str, runtime: ShadowRuntime) -> tuple[dict[str, Any], dict
         ],
     }
     t0 = time.monotonic()
-    with httpx.Client(timeout=60.0) as client:
-        r = client.post(
-            f"{base}/chat/completions",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json=payload,
-        )
-        r.raise_for_status()
-        data = r.json()
+    # Same retries as the live decider (timeouts, 429, 5xx). Usage stays in
+    # the shadow stats below; request_chat_completion does not write llm_usage.
+    data = request_chat_completion(payload, timeout=60.0)
     latency_ms = int((time.monotonic() - t0) * 1000)
     usage = parse_usage(data.get("usage"))
     cost = estimate_cost(usage)
@@ -325,6 +322,9 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
     dmax = float(state.get("duration_max") or 45)
     duration = float(state.get("video_duration") or 0) or dmax
     opts = decider_options(_campaign_ns(state.get("campaign") or {}), {"decider": state.get("decider_options") or {}})
+    from app.services.production import broll_requested, normalize_broll_marks
+
+    ask_broll = broll_requested(_campaign_ns(state.get("campaign") or {}))
     chunks = limit_chunks(chunk_segments(segs, opts), opts)
     n_chunks = max(1, len(chunks))
     calls = list(state.get("llm_calls") or [])
@@ -346,6 +346,7 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
             chunks=n_chunks,
             chunk_start=float(ch.get("start") or 0),
             chunk_end=float(ch.get("end") or duration),
+            ask_broll=ask_broll,
         )
         if use_heuristic:
             clips = heuristic_propose(
@@ -391,6 +392,14 @@ def propose_clips(state: DeciderState, runtime: ShadowRuntime) -> dict[str, Any]
                 end - start, dmin, dmax, clip.get("score"), clip["subscores"] or None
             )
             clip["chunk_index"] = ch.get("index")
+            marks = normalize_broll_marks(
+                clip.get("broll"),
+                clip_duration=end - start,
+                source_start=start,
+            )
+            clip.pop("broll", None)
+            if marks:
+                clip["broll_marks"] = marks
             collected.append(clip)
 
     merged = merge_by_iou(collected, threshold=opts.iou_threshold)

@@ -2,7 +2,11 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from app.main import app
+
+pytestmark = pytest.mark.no_db
 
 OPENAPI_FILE = Path(__file__).resolve().parents[1] / "frontend" / "openapi.json"
 

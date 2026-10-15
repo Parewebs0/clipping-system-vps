@@ -19,8 +19,8 @@ sys.path.insert(0, str(ROOT))
 try:
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
-except Exception:
-    pass
+except Exception as exc:
+    print(f"dotenv not loaded: {type(exc).__name__}", file=sys.stderr)
 
 PROMPT = """Pick up to {n} clip windows from this transcript chunk for short-form video.
 Rules: duration_min={dmin}, duration_max={dmax} seconds. Format 9:16.
@@ -29,9 +29,10 @@ Campaign rules (must be respected):
 Copy rules for the title and the caption (must be respected):
 {copy_rules}
 Return JSON:
-{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80,"title":"max 80 chars hook","caption":"the full post caption that satisfies the copy rules above","on_screen_text":"short overlay text or empty","hook_end":1.5}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80,"title":"max 80 chars hook","caption":"the full post caption that satisfies the copy rules above","on_screen_text":"short overlay text or empty","hook_end":1.5,"keywords":["transcript word"],"emojis":[{{"emoji":"🔥","keyword":"transcript word"}}]}}]}}
 hook, flow, value and fit are 0-1 sub-scores for THIS window. Score each clip on its own. Do not reuse one number for every clip.
 hook_end is optional: seconds from the clip start where the hook ends. Omit the key when you are not sure. Do not guess.
+keywords: 0 to 3 words copied from the transcript to emphasize. emojis: 0 to 2 objects tying one emoji to a keyword that appears in the window. Use empty lists when nothing fits. Do not put emoji characters in on_screen_text.
 Prefer complete phrases. Do not exceed duration_max. Stay inside video_duration={duration}.
 This is chunk {chunk}/{chunks} covering {chunk_start:.1f}-{chunk_end:.1f}s of the video. Only pick windows inside this chunk.
 Transcript segments (start,end,text) for this chunk only:
@@ -55,8 +56,11 @@ def build_decider_prompt(
     chunks: int = 1,
     chunk_start: float = 0.0,
     chunk_end: float = 0.0,
+    ask_broll: bool = False,
 ) -> str:
-    return PROMPT.format(
+    from app.services.production import with_broll_hint
+
+    text = PROMPT.format(
         n=int(n),
         dmin=dmin,
         dmax=dmax,
@@ -68,6 +72,7 @@ def build_decider_prompt(
         chunk_start=float(chunk_start),
         chunk_end=float(chunk_end) if chunk_end else float(duration or 0),
     )
+    return with_broll_hint(text, ask_broll)
 
 
 def retry_prompt(base: str, failures: str) -> str:
@@ -126,6 +131,48 @@ def _hook_end(raw, duration: float | None = None) -> float | None:
     return value
 
 
+def _is_emoji(text: str) -> bool:
+    return any(ord(ch) > 127 for ch in text)
+
+
+def clip_keywords(raw) -> list[str]:
+    """Up to 3 short words the decider wants emphasized. Bad input becomes []."""
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        text = str(item or "").strip()
+        if not text or len(text) > 40:
+            continue
+        out.append(text)
+        if len(out) >= 3:
+            break
+    return out
+
+
+def clip_emojis(raw) -> list[dict]:
+    """Up to 2 emoji cues. Plain words are dropped; a keyword is kept when present."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for item in raw:
+        if isinstance(item, str):
+            item = {"emoji": item}
+        if not isinstance(item, dict):
+            continue
+        emoji = str(item.get("emoji") or item.get("char") or "").strip()
+        if not emoji or len(emoji) > 16 or not _is_emoji(emoji):
+            continue
+        cue: dict = {"emoji": emoji}
+        keyword = str(item.get("keyword") or "").strip()
+        if keyword:
+            cue["keyword"] = keyword[:40]
+        out.append(cue)
+        if len(out) >= 2:
+            break
+    return out
+
+
 def segment_lines(segs, limit: int | None = None) -> list[str]:
     """Format transcript segments the way the live decider prompt expects."""
     from app.services.decider import segment_lines as _lines
@@ -175,10 +222,17 @@ def parse_clips(data, dmin: float, dmax: float, limit: int | None = None) -> lis
             "caption": caption,
             "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
             "subscores": {k: v for k, v in subs.items() if v is not None},
+            "keywords": clip_keywords(clip.get("keywords")),
+            "emojis": clip_emojis(clip.get("emojis")),
         }
         hook_end = _hook_end(clip.get("hook_end"), end - start)
         if hook_end is not None:
             extra["hook_end"] = hook_end
+        from app.services.production import normalize_broll_marks
+
+        marks = normalize_broll_marks(clip.get("broll"), clip_duration=end - start, source_start=start)
+        if marks:
+            extra["broll_marks"] = marks
         out.append({
             "start": round(start, 2),
             "end": round(end, 2),
@@ -201,6 +255,7 @@ def collect_clips(
     call_llm,
     ruleset=None,
     retry_enabled: bool = True,
+    ask_broll: bool = False,
 ) -> list[dict]:
     """One LLM call per transcript chunk (at most ``options.max_chunks``), then IoU merge and phrase snap."""
     from app.services.decider import (
@@ -230,6 +285,7 @@ def collect_clips(
             chunks=n_chunks,
             chunk_start=ch["start"],
             chunk_end=ch["end"],
+            ask_broll=ask_broll,
         ) + block
         meta = {
             "chunk": ch["index"],
@@ -274,6 +330,15 @@ def collect_clips(
                 end - start, dmin, dmax, clip.get("score"), clip["subscores"] or None
             )
             clip["chunk_index"] = ch["index"]
+            from app.services.production import normalize_broll_marks
+
+            marks = normalize_broll_marks(
+                clip.get("broll") if clip.get("broll") is not None else clip.get("broll_marks"),
+                clip_duration=end - start,
+                source_start=start,
+            )
+            if marks:
+                clip["broll_marks"] = marks
             collected.append(clip)
     merged = merge_by_iou(collected, threshold=options.iou_threshold)
     return take_top_n(merged, options.top_n)
@@ -292,6 +357,7 @@ def main() -> int:
     from app.models.candidate import Candidate
     from app.models.job import Job  # noqa: F401
     from app.services.decider import decider_options
+    from app.services.production import broll_requested
     from app.services.grok_client import grok_chat_json
     from app.services.publish_copy import copy_rules_for_prompt
     from app.services.silent_clip_cutter import campaign_duration_window, is_speech, transcript_text
@@ -360,6 +426,7 @@ def main() -> int:
                 options=opts,
                 call_llm=_call_llm,
                 ruleset=rs,
+                ask_broll=broll_requested(campaign),
             )
             if not reviewed:
                 print("no clips")
@@ -377,6 +444,8 @@ def main() -> int:
                     "title": title,
                     "caption": caption,
                     "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
+                    "keywords": clip_keywords(clip.get("keywords")),
+                    "emojis": clip_emojis(clip.get("emojis")),
                     "copy_attempts": int(clip.get("copy_attempts") or 1),
                     "subscores": dict(clip.get("subscores") or {}),
                     "chunk_index": clip.get("chunk_index"),
@@ -386,6 +455,8 @@ def main() -> int:
                 hook_end = _hook_end(clip.get("hook_end"), end - start)
                 if hook_end is not None:
                     extra["hook_end"] = hook_end
+                if clip.get("broll_marks"):
+                    extra["broll_marks"] = clip["broll_marks"]
                 reasoning = str(clip.get("reason") or "grok")
                 if status == "needs_review" and clip.get("copy_reason"):
                     # Motive first so a long model reason cannot push it off the 500-char cut.
@@ -417,7 +488,8 @@ def main() -> int:
         return 0
     except Exception as e:
         db.rollback()
-        print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
+        from app.logctx import redact
+        print(f"ERROR {type(e).__name__}: {redact(str(e))}", file=sys.stderr)
         return 1
     finally:
         db.close()

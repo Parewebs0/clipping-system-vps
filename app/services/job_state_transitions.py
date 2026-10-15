@@ -8,7 +8,9 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.logctx import format_ids, ids_from_job, redact
 from app.models.asset import Asset, AssetStatus
+from app.models.campaign import Campaign
 from app.models.clip import Clip, ClipQAStatus, ClipStatus
 from app.models.job import Job, JobStatus  # JobType is a string, not enum
 from app.services.job_service import create_job
@@ -18,6 +20,40 @@ logger = logging.getLogger(__name__)
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def reframe_wants_diarization(campaign) -> bool:
+    """Pyannote only runs when this campaign's reframe mode is not the center crop."""
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if not isinstance(meta, dict):
+        return False
+    overrides = meta.get("rules_overrides")
+    if not isinstance(overrides, dict):
+        return False
+    reframe = overrides.get("reframe")
+    if not isinstance(reframe, dict):
+        return False
+    mode = str(reframe.get("mode") or "center").strip().lower()
+    return mode != "center"
+
+
+def build_transcribe_payload(asset, meta: dict | None = None, campaign=None) -> dict:
+    """Worker transcribe payload.
+
+    Diarization is on only when the campaign opted into a reframe mode other
+    than center. The worker already treats a diarization failure as non-fatal.
+    """
+    meta = meta or {}
+    video = asset.local_path or asset.source_url
+    return {
+        "asset_id": str(asset.id),
+        "campaign_id": str(asset.campaign_id),
+        "video": video,
+        "video_path": video,
+        "source_url": asset.source_url,
+        "language": meta.get("language"),
+        "diarization": reframe_wants_diarization(campaign),
+    }
 
 
 def _update_asset_status(db: Session, asset: Asset, new_status: str) -> None:
@@ -45,6 +81,32 @@ def _asset_id_from_payload(payload: dict) -> Optional[str]:
     if not val:
         val = payload.get("source_asset_id") if isinstance(payload, dict) else None
     return val
+
+
+def _brand_initial_prompt(db: Session, asset: Asset) -> Optional[str]:
+    """brand_dictionary as WhisperX initial_prompt (MOLI-54).
+
+    Vocabulary-only: names/spellings joined by spaces, capped (WhisperX keeps
+    ~224 tokens of prompt context). Never contains instructions — it just
+    biases the spelling of brand terms. Returns None when there is nothing.
+    """
+    try:
+        campaign = db.get(Campaign, asset.campaign_id)
+        if campaign is None:
+            return None
+        from app.services.rules.schema import load_ruleset
+
+        rs = load_ruleset(campaign.source_metadata or {})
+        if rs is None:
+            return None
+        words = [str(w).strip() for w in (rs.captions.brand_dictionary or []) if str(w).strip()]
+        if not words:
+            return None
+        prompt = " ".join(words)
+        return prompt[:900] or None
+    except Exception:  # noqa: BLE001 - a broken branding config never blocks transcription
+        logger.warning("brand initial_prompt failed for asset %s", asset.id, exc_info=True)
+        return None
 
 
 def on_download_completed(
@@ -104,17 +166,22 @@ def on_download_completed(
             db,
             job_type="transcribe",
             payload={
-                "asset_id": str(asset.id),
-                "campaign_id": str(asset.campaign_id),
-                "video": asset.local_path or asset.source_url,
-                "video_path": asset.local_path or asset.source_url,
-                "source_url": asset.source_url,
-                "language": meta.get("language"),
+                **build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
+                # MOLI-54: brand vocabulary biases WhisperX spellings.
+                "initial_prompt": _brand_initial_prompt(db, asset),
             },
             priority=job.priority,
             max_attempts=job.max_attempts,
         )
-        logger.info("auto-created transcribe job for asset %s (download %s done)", asset.id, job.id)
+        logger.info(
+            "auto-created transcribe %s",
+            format_ids(
+                job_id=job.id,
+                job_type="transcribe",
+                campaign_id=asset.campaign_id,
+                asset_id=asset.id,
+            ),
+        )
     except Exception as e:  # noqa: BLE001
         logger.exception("failed to auto-create transcribe job: %s", e)
 
@@ -137,7 +204,15 @@ def on_transcribe_completed(
     asset.extra_metadata = meta
     db.commit()
     db.refresh(asset)
-    logger.info("transcription stored for asset %s", asset.id)
+    logger.info(
+        "transcription stored %s",
+        format_ids(
+            job_id=job.id,
+            job_type="transcribe",
+            campaign_id=asset.campaign_id,
+            asset_id=asset.id,
+        ),
+    )
 
     try:
         from app.services.silent_clip_cutter import maybe_cut_silent
@@ -283,6 +358,11 @@ def _classify_job_error(job: Job) -> tuple[str | None, str | None]:
 
 
 def on_job_failed(db: Session, job: Job) -> None:
+    logger.warning(
+        "terminal job failure %s error=%s",
+        format_ids(**ids_from_job(job)),
+        redact(job.error_message or ""),
+    )
     asset_id = _asset_id_from_payload(job.payload or {})
     if not asset_id:
         return
@@ -290,6 +370,11 @@ def on_job_failed(db: Session, job: Job) -> None:
     if asset is None:
         return
     if asset.status not in (AssetStatus.PENDING.value, AssetStatus.DOWNLOADED.value):
+        logger.info(
+            "job failure left asset status=%s %s",
+            asset.status,
+            format_ids(**ids_from_job(job)),
+        )
         return
     error_kind, error_detail = _classify_job_error(job)
     asset.status = AssetStatus.FAILED.value
@@ -297,13 +382,16 @@ def on_job_failed(db: Session, job: Job) -> None:
     if error_kind and error_kind in TERMINAL_ERROR_KINDS:
         meta["skip_download"] = True
         meta["last_error_kind"] = error_kind
-        meta["last_error_detail"] = (error_detail or "")[:500]
+        meta["last_error_detail"] = redact(error_detail or "")[:500]
         meta["terminal_failed_at"] = _now().isoformat()
-        asset.extra_metadata = meta
-    elif meta.get("last_error_kind"):
+    else:
+        # A transcribe (or download) that died for a non-terminal reason used
+        # to clear any previous kind and leave no explanation. Keep the reason
+        # so a stalled asset can be seen and requeued on purpose.
         meta.pop("skip_download", None)
-        meta.pop("last_error_kind", None)
-        meta.pop("last_error_detail", None)
-        meta.pop("terminal_failed_at", None)
-        asset.extra_metadata = meta
+        meta["last_error_kind"] = (error_kind or f"{job.job_type}_failed")[:64]
+        detail = error_detail or job.error_message or ""
+        meta["last_error_detail"] = redact(str(detail))[:500]
+        meta["terminal_failed_at"] = _now().isoformat()
+    asset.extra_metadata = meta
     db.commit()

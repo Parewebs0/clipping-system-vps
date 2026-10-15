@@ -11,9 +11,10 @@ Campaign rules (must be respected):
 {brief}
 
 Return JSON matching:
-{{"clips":[{{"start":0.0,"end":20.0,"title":"max 80 chars hook","caption":"2-3 lines, no prices, no [whop]","on_screen_text":"short overlay or empty","hook_end":1.5,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"title":"max 80 chars hook","caption":"2-3 lines, no prices, no [whop]","on_screen_text":"short overlay or empty","hook_end":1.5,"keywords":["transcript word"],"emojis":[{{"emoji":"🔥","keyword":"transcript word"}}],"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80}}]}}
 hook, flow, value and fit are 0-1 sub-scores for THIS window. Score each clip on its own. Do not reuse one number.
 hook_end is optional: seconds from the clip start where the hook ends. Omit the key when unsure. Do not guess.
+keywords: 0 to 3 words copied from the transcript. emojis: 0 to 2 objects {{"emoji","keyword"}} tied to those words. Empty lists when nothing fits. Do not put emoji characters in on_screen_text.
 
 {similar}
 
@@ -35,6 +36,7 @@ def build_propose_prompt(
     chunks: int = 1,
     chunk_start: float = 0.0,
     chunk_end: float = 0.0,
+    ask_broll: bool = False,
 ) -> str:
     from app.services.decider import MAX_SEGMENT_BLOCK_CHARS
 
@@ -47,7 +49,9 @@ def build_propose_prompt(
                 f"score={ex.get('score')} campaign={ex.get('campaign_id')}"
             )
         similar = "Similar campaigns (read-only, for calibration):\n" + "\n".join(lines)
-    return USER.format(
+    from app.services.production import with_broll_hint
+
+    prompt = USER.format(
         n=int(n),
         dmin=dmin,
         dmax=dmax,
@@ -60,3 +64,4 @@ def build_propose_prompt(
         chunk_end=float(chunk_end) if chunk_end else float(duration or 0),
         segments=segment_block[:MAX_SEGMENT_BLOCK_CHARS],
     )
+    return with_broll_hint(prompt, ask_broll)

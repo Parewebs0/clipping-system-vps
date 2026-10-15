@@ -31,6 +31,8 @@ from typing import Iterable
 
 import requests
 
+from app.services.http_retry import RETRY_STATUS, pause, redact
+
 logger = logging.getLogger(__name__)
 
 # Default user agent (mirror DriveFetcher's so we don't get HTML "unsupported
@@ -82,16 +84,44 @@ def docs_export_url(url: str, fmt: str = "txt") -> str | None:
 # ---------------- Downloaders ----------------
 
 
-def fetch_url_to_bytes(url: str, *, timeout: int = 30, user_agent: str = DEFAULT_USER_AGENT) -> bytes:
-    """Fetch a URL and return raw bytes. Raises on HTTP error."""
-    resp = requests.get(
-        url,
-        headers={"User-Agent": user_agent, "Accept": "*/*"},
-        timeout=timeout,
-        allow_redirects=True,
-    )
-    resp.raise_for_status()
-    return resp.content
+def fetch_url_to_bytes(
+    url: str,
+    *,
+    timeout: int = 30,
+    user_agent: str = DEFAULT_USER_AGENT,
+    attempts: int = 3,
+    sleep=None,
+) -> bytes:
+    """Fetch a URL and return raw bytes. Raises on HTTP error.
+
+    Timeouts, connection errors, 429 and 5xx are retried. Other 4xx fail
+    on the first response. Covers brief docs and any linked YouTube,
+    Instagram or TikTok page the extractor has to read.
+    """
+    tries = max(1, attempts)
+    last: Exception | None = None
+    for attempt in range(1, tries + 1):
+        try:
+            resp = requests.get(
+                url,
+                headers={"User-Agent": user_agent, "Accept": "*/*"},
+                timeout=timeout,
+                allow_redirects=True,
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last = exc
+            if attempt < tries:
+                pause(attempt, backoff_s=0.2, sleep=sleep)
+                continue
+            raise
+        if resp.status_code in RETRY_STATUS and attempt < tries:
+            pause(attempt, backoff_s=0.2, sleep=sleep)
+            continue
+        resp.raise_for_status()
+        return resp.content
+    if last is not None:
+        raise last
+    raise requests.RequestException(redact(f"fetch failed for {url}"))
 
 
 def fetch_docs_text(url: str, *, timeout: int = 30) -> str:
