@@ -9,6 +9,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.asset import Asset, AssetStatus
+from app.models.campaign import Campaign
 from app.models.clip import Clip, ClipQAStatus, ClipStatus
 from app.models.job import Job, JobStatus  # JobType is a string, not enum
 from app.services.job_service import create_job
@@ -18,6 +19,40 @@ logger = logging.getLogger(__name__)
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def reframe_wants_diarization(campaign) -> bool:
+    """Pyannote only runs when this campaign's reframe mode is not the center crop."""
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if not isinstance(meta, dict):
+        return False
+    overrides = meta.get("rules_overrides")
+    if not isinstance(overrides, dict):
+        return False
+    reframe = overrides.get("reframe")
+    if not isinstance(reframe, dict):
+        return False
+    mode = str(reframe.get("mode") or "center").strip().lower()
+    return mode != "center"
+
+
+def build_transcribe_payload(asset, meta: dict | None = None, campaign=None) -> dict:
+    """Worker transcribe payload.
+
+    Diarization is on only when the campaign opted into a reframe mode other
+    than center. The worker already treats a diarization failure as non-fatal.
+    """
+    meta = meta or {}
+    video = asset.local_path or asset.source_url
+    return {
+        "asset_id": str(asset.id),
+        "campaign_id": str(asset.campaign_id),
+        "video": video,
+        "video_path": video,
+        "source_url": asset.source_url,
+        "language": meta.get("language"),
+        "diarization": reframe_wants_diarization(campaign),
+    }
 
 
 def _update_asset_status(db: Session, asset: Asset, new_status: str) -> None:
@@ -45,6 +80,32 @@ def _asset_id_from_payload(payload: dict) -> Optional[str]:
     if not val:
         val = payload.get("source_asset_id") if isinstance(payload, dict) else None
     return val
+
+
+def _brand_initial_prompt(db: Session, asset: Asset) -> Optional[str]:
+    """brand_dictionary as WhisperX initial_prompt (MOLI-54).
+
+    Vocabulary-only: names/spellings joined by spaces, capped (WhisperX keeps
+    ~224 tokens of prompt context). Never contains instructions — it just
+    biases the spelling of brand terms. Returns None when there is nothing.
+    """
+    try:
+        campaign = db.get(Campaign, asset.campaign_id)
+        if campaign is None:
+            return None
+        from app.services.rules.schema import load_ruleset
+
+        rs = load_ruleset(campaign.source_metadata or {})
+        if rs is None:
+            return None
+        words = [str(w).strip() for w in (rs.captions.brand_dictionary or []) if str(w).strip()]
+        if not words:
+            return None
+        prompt = " ".join(words)
+        return prompt[:900] or None
+    except Exception:  # noqa: BLE001 - a broken branding config never blocks transcription
+        logger.warning("brand initial_prompt failed for asset %s", asset.id, exc_info=True)
+        return None
 
 
 def on_download_completed(
@@ -104,12 +165,9 @@ def on_download_completed(
             db,
             job_type="transcribe",
             payload={
-                "asset_id": str(asset.id),
-                "campaign_id": str(asset.campaign_id),
-                "video": asset.local_path or asset.source_url,
-                "video_path": asset.local_path or asset.source_url,
-                "source_url": asset.source_url,
-                "language": meta.get("language"),
+                **build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
+                # MOLI-54: brand vocabulary biases WhisperX spellings.
+                "initial_prompt": _brand_initial_prompt(db, asset),
             },
             priority=job.priority,
             max_attempts=job.max_attempts,

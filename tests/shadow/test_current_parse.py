@@ -77,4 +77,23 @@ def test_parse_clips_matches_live_filters():
     assert clip["score"] != 0.7
     assert clip["extra"]["hook_end"] == 1.5
     assert clip["extra"]["source"] == "grok_clip_decider"
+    assert clip["extra"]["keywords"] == []
+    assert clip["extra"]["emojis"] == []
     assert parsed[1]["start"] == 10.0
+
+
+def test_parse_clips_keeps_keywords_and_emojis():
+    mod = _mod()
+    prompt = mod.build_decider_prompt(
+        dmin=15, dmax=45, duration=90, brief="- Hook", copy_rules="- none",
+    )
+    assert "keywords" in prompt and "emojis" in prompt
+    assert "Do not put emoji characters in on_screen_text" in prompt
+    data = {"clips": [{
+        "start": 0, "end": 20, "title": "t", "caption": "c", "reason": "r",
+        "keywords": ["casita", "", "x" * 50, "folds"],
+        "emojis": [{"emoji": "🔥", "keyword": "casita"}, "nope", {"emoji": ""}],
+    }]}
+    parsed = mod.parse_clips(data, dmin=15, dmax=45)
+    assert parsed[0]["extra"]["keywords"] == ["casita", "folds"]
+    assert parsed[0]["extra"]["emojis"] == [{"emoji": "🔥", "keyword": "casita"}]

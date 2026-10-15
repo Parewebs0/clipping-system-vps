@@ -87,6 +87,48 @@ def campaign_logo(
     return FileResponse(path, media_type="image/png", filename=f"{campaign_id}.png")
 
 
+@router.get("/campaigns/{campaign_id}/fonts/{font_name}")
+def campaign_font(
+    campaign_id: int,
+    font_name: str,
+    _: bool = Depends(require_bearer),
+):
+    """Caption font (TTF/OTF) for the worker's libass fontsdir (MOLI-54)."""
+    import re as _re
+
+    from app.services.rules import branding as branding_service
+
+    if not _re.fullmatch(r"[A-Za-z0-9_-]{1,64}(\.ttf|\.otf)", font_name):
+        raise HTTPException(status_code=400, detail="bad font name")
+    path = branding_service.font_file_path(campaign_id)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="Font not found")
+    media = "font/ttf" if path.suffix == ".ttf" else "font/otf"
+    return FileResponse(path, media_type=media, filename=path.name)
+
+
+@router.get("/campaigns/{campaign_id}/branding/{side}")
+def campaign_branding_media(
+    campaign_id: int,
+    side: str,
+    _: bool = Depends(require_bearer),
+):
+    """Intro/outro card (image or short video) for the worker (MOLI-54)."""
+    from app.services.rules import branding as branding_service
+
+    if side not in ("intro", "outro"):
+        raise HTTPException(status_code=404, detail="side must be intro or outro")
+    path = branding_service.media_file_path(campaign_id, side)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="Branding asset not found")
+    ext = path.suffix.lower()
+    media = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+        ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+    }.get(ext, "application/octet-stream")
+    return FileResponse(path, media_type=media, filename=path.name)
+
+
 @router.get("/{worker_id}", response_model=WorkerOut)
 def get_one(
     worker_id: str,

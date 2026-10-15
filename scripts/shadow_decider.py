@@ -265,6 +265,7 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
     from types import SimpleNamespace
 
     from app.services.decider import MAX_SEGMENT_BLOCK_CHARS, chunk_segments, decider_options, limit_chunks
+    from app.services.production import broll_requested
     from app.services.publish_copy import copy_rules_for_prompt
     from app.services.rules.runtime import decider_brief, duration_window, ruleset
 
@@ -307,6 +308,7 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
         call_llm=_call_llm,
         ruleset=rs,
         retry_enabled=False,
+        ask_broll=broll_requested(campaign),
     )
     parsed = []
     for c in reviewed:
@@ -323,6 +325,8 @@ def current_decider_on_asset(mod, packed: dict, llm) -> dict[str, Any]:
         }
         if hook_end is not None:
             extra["hook_end"] = hook_end
+        if c.get("broll_marks"):
+            extra["broll_marks"] = c["broll_marks"]
         if c.get("copy_status") == "needs_review":
             extra["copy_status"] = c["copy_status"]
             extra["copy_reason"] = c.get("copy_reason")
