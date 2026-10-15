@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
@@ -592,3 +593,137 @@ async def upload_logo(
     db.commit()
     db.refresh(c)
     return _ruleset_view(c)
+
+
+# --- MOLI-54: brand templates (fonts, intro/outro, style) ---------------------
+
+@router.get("/{campaign_id}/branding")
+def get_branding(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_bearer),
+):
+    """Templates + effective branding for this campaign ({} when unconfigured)."""
+    from app.services.rules import branding as branding_service
+
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    from app.services.rules.schema import load_ruleset
+
+    rs = load_ruleset(c.source_metadata or {})
+    effective = branding_service.resolve(c, rs)
+    return {
+        "campaign_id": c.id,
+        "templates": branding_service.templates(c),
+        "branding": effective or {},
+        "assets": {
+            "font": branding_service.font_file_path(c.id) is not None,
+            "intro": branding_service.media_file_path(c.id, "intro") is not None,
+            "outro": branding_service.media_file_path(c.id, "outro") is not None,
+        },
+    }
+
+
+@router.put("/{campaign_id}/branding")
+def put_branding_template(
+    campaign_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_write_bearer),
+):
+    """Upsert one template (≤ 4). Body: at least ``name`` plus any of
+    ``font_name``, ``caption_color``, ``outline_color``, ``position``,
+    ``max_words``, ``intro{max_seconds}``, ``outro{max_seconds}``.
+
+    Files are uploaded separately (POST /branding/{font|int|outro}).
+    """
+    from app.services.rules import branding as branding_service
+
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    name = str((payload or {}).get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="template name is required")
+    try:
+        branding_service.save_template(c, payload)
+    except branding_service.BrandingError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    db.commit()
+    db.refresh(c)
+    return get_branding(campaign_id, db, _)
+
+
+@router.post("/{campaign_id}/branding/font")
+async def upload_branding_font(
+    campaign_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_write_bearer),
+):
+    """Store the campaign's caption font (TTF/OTF, ≤ 10MB, one per campaign)."""
+    from app.services.rules import branding as branding_service
+
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    data = await file.read()
+    try:
+        path = branding_service.store_font(c.id, data, file.filename or "")
+    except branding_service.BrandingError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    # expose it to the worker through the effective branding block
+    meta = dict(c.source_metadata or {})
+    overrides = dict(meta.get("rules_overrides") or {})
+    branding = dict(overrides.get("branding") or {})
+    branding["font_url"] = f"/worker/campaigns/{c.id}/fonts/{path.name}"
+    if not branding.get("font_name"):
+        branding["font_name"] = Path(file.filename or "font").stem
+    overrides["branding"] = branding
+    meta["rules_overrides"] = overrides
+    c.source_metadata = meta
+    db.commit()
+    db.refresh(c)
+    return {"stored": path.name, "font_url": branding["font_url"]}
+
+
+@router.post("/{campaign_id}/branding/{side}")
+async def upload_branding_media(
+    campaign_id: int,
+    side: str,
+    file: UploadFile = File(...),
+    max_seconds: float = Query(1.5, gt=0.0, le=10.0),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_write_bearer),
+):
+    """Store an intro/outro card (image or short video, ≤ 50MB).
+
+    ``max_seconds`` caps what is actually used when both sides are videos
+    (duration counts towards the campaign's max_duration).
+    """
+    from app.services.rules import branding as branding_service
+
+    c = get_campaign(db, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if side not in ("intro", "outro"):
+        raise HTTPException(status_code=404, detail="side must be intro or outro")
+    data = await file.read()
+    try:
+        path = branding_service.store_media(c.id, side, data, file.filename or "")
+    except branding_service.BrandingError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    meta = dict(c.source_metadata or {})
+    overrides = dict(meta.get("rules_overrides") or {})
+    branding = dict(overrides.get("branding") or {})
+    piece = dict(branding.get(side) or {})
+    piece["url"] = f"/worker/campaigns/{c.id}/branding/{side}"
+    piece["max_seconds"] = float(max_seconds)
+    branding[side] = piece
+    overrides["branding"] = branding
+    meta["rules_overrides"] = overrides
+    c.source_metadata = meta
+    db.commit()
+    db.refresh(c)
+    return {"stored": path.name, "side": side, "url": piece["url"], "max_seconds": piece["max_seconds"]}
