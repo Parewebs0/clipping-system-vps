@@ -10,8 +10,6 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from app.services.discovery.whop_catalog import compute_economics, detail_summary, expected_value
-
 HISTORY_MAX = 60
 
 
@@ -63,6 +61,11 @@ def campaign_uuid_from_url(source_url: str | None) -> str | None:
 
 def park_reasons(detail: dict, *, check_fit: bool = True, th: dict | None = None) -> tuple[list[str], dict, dict]:
     """Return (reasons, economics, detail_summary). Empty reasons = keep."""
+    # Lazy: a module-level import of whop_catalog loads discovery/__init__,
+    # which imports upsert, which imports merge_prize_pool from this module
+    # before it exists (MOLI-68).
+    from app.services.discovery.whop_catalog import compute_economics, detail_summary
+
     th = th or thresholds()
     econ = compute_economics(detail, platform=th["platform"])
     summ = detail_summary(detail)
@@ -175,6 +178,7 @@ def apply_refresh(campaign, reasons: list[str], econ: dict, summ: dict, *, now: 
     Returns kept / parked / archived.
     """
     from app.services.campaign_transitions import record_auto_transition
+    from app.services.discovery.whop_catalog import expected_value
 
     outcome = disposition(reasons, econ)
     now_iso = now.isoformat()
