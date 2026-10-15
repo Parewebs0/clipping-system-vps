@@ -7,6 +7,14 @@ from typing import Any, Callable, TypedDict
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class EmojiCue(BaseModel):
+    """One sticker the decider wants on a transcript word."""
+
+    model_config = ConfigDict(extra="ignore")
+    emoji: str = ""
+    keyword: str = ""
+
+
 class ProposedClip(BaseModel):
     """Structured LLM clip proposal."""
 
@@ -17,6 +25,8 @@ class ProposedClip(BaseModel):
     caption: str = ""
     on_screen_text: str = ""
     hook_end: float | None = None
+    keywords: list[str] = Field(default_factory=list)
+    emojis: list[EmojiCue] = Field(default_factory=list)
     reason: str = ""
     hook: float | None = None
     flow: float | None = None

@@ -374,6 +374,34 @@
         "title": "AssetUpdate",
         "type": "object"
       },
+      "Body_upload_branding_font_campaigns__campaign_id__branding_font_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_branding_font_campaigns__campaign_id__branding_font_post",
+        "type": "object"
+      },
+      "Body_upload_branding_media_campaigns__campaign_id__branding__side__post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_branding_media_campaigns__campaign_id__branding__side__post",
+        "type": "object"
+      },
       "Body_upload_logo_campaigns__campaign_id__rules_logo_post": {
         "properties": {
           "file": {
@@ -4976,6 +5004,11 @@
       },
       "SocialAccountOut": {
         "properties": {
+          "account_key": {
+            "default": "default",
+            "title": "Account Key",
+            "type": "string"
+          },
           "auth_kind": {
             "title": "Auth Kind",
             "type": "string"
@@ -6598,6 +6631,241 @@
           }
         ],
         "summary": "Update",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
+    "/campaigns/{campaign_id}/branding": {
+      "get": {
+        "description": "Templates + effective branding for this campaign ({} when unconfigured).",
+        "operationId": "get_branding_campaigns__campaign_id__branding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Branding",
+        "tags": [
+          "campaigns"
+        ]
+      },
+      "put": {
+        "description": "Upsert one template (≤ 4). Body: at least ``name`` plus any of\n``font_name``, ``caption_color``, ``outline_color``, ``position``,\n``max_words``, ``intro{max_seconds}``, ``outro{max_seconds}``.\n\nFiles are uploaded separately (POST /branding/{font|int|outro}).",
+        "operationId": "put_branding_template_campaigns__campaign_id__branding_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Payload",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Branding Template",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
+    "/campaigns/{campaign_id}/branding/font": {
+      "post": {
+        "description": "Store the campaign's caption font (TTF/OTF, ≤ 10MB, one per campaign).",
+        "operationId": "upload_branding_font_campaigns__campaign_id__branding_font_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_branding_font_campaigns__campaign_id__branding_font_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Branding Font",
+        "tags": [
+          "campaigns"
+        ]
+      }
+    },
+    "/campaigns/{campaign_id}/branding/{side}": {
+      "post": {
+        "description": "Store an intro/outro card (image or short video, ≤ 50MB).\n\n``max_seconds`` caps what is actually used when both sides are videos\n(duration counts towards the campaign's max_duration).",
+        "operationId": "upload_branding_media_campaigns__campaign_id__branding__side__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "side",
+            "required": true,
+            "schema": {
+              "title": "Side",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_seconds",
+            "required": false,
+            "schema": {
+              "default": 1.5,
+              "exclusiveMinimum": 0.0,
+              "maximum": 10.0,
+              "title": "Max Seconds",
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_branding_media_campaigns__campaign_id__branding__side__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Branding Media",
         "tags": [
           "campaigns"
         ]
@@ -9599,6 +9867,116 @@
           }
         ],
         "summary": "List All Workers",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
+    "/worker/campaigns/{campaign_id}/branding/{side}": {
+      "get": {
+        "description": "Intro/outro card (image or short video) for the worker (MOLI-54).",
+        "operationId": "campaign_branding_media_worker_campaigns__campaign_id__branding__side__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "side",
+            "required": true,
+            "schema": {
+              "title": "Side",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Campaign Branding Media",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
+    "/worker/campaigns/{campaign_id}/fonts/{font_name}": {
+      "get": {
+        "description": "Caption font (TTF/OTF) for the worker's libass fontsdir (MOLI-54).",
+        "operationId": "campaign_font_worker_campaigns__campaign_id__fonts__font_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "title": "Campaign Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "font_name",
+            "required": true,
+            "schema": {
+              "title": "Font Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Campaign Font",
         "tags": [
           "workers"
         ]

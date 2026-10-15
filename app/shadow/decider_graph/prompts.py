@@ -11,9 +11,10 @@ Campaign rules (must be respected):
 {brief}
 
 Return JSON matching:
-{{"clips":[{{"start":0.0,"end":20.0,"title":"max 80 chars hook","caption":"2-3 lines, no prices, no [whop]","on_screen_text":"short overlay or empty","hook_end":1.5,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"title":"max 80 chars hook","caption":"2-3 lines, no prices, no [whop]","on_screen_text":"short overlay or empty","hook_end":1.5,"keywords":["transcript word"],"emojis":[{{"emoji":"🔥","keyword":"transcript word"}}],"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80}}]}}
 hook, flow, value and fit are 0-1 sub-scores for THIS window. Score each clip on its own. Do not reuse one number.
 hook_end is optional: seconds from the clip start where the hook ends. Omit the key when unsure. Do not guess.
+keywords: 0 to 3 words copied from the transcript. emojis: 0 to 2 objects {{"emoji","keyword"}} tied to those words. Empty lists when nothing fits. Do not put emoji characters in on_screen_text.
 
 {similar}
 

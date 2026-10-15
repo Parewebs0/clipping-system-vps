@@ -54,14 +54,18 @@ def create_job(
     payload: dict,
     priority: int = 5,
     max_attempts: int = 3,
+    available_at: datetime | None = None,
 ) -> Job:
+    """Create a pending job. `available_at` schedules it: `claim_next_job` only
+    hands out jobs whose ``available_at <= now``, so future datetimes hold the
+    job back (publish scheduling #MOLI-53). Default: available immediately."""
     job = Job(
         job_type=job_type,
         payload=payload,
         priority=priority,
         max_attempts=max_attempts,
         status=JobStatus.PENDING.value,
-        available_at=datetime.now(timezone.utc),
+        available_at=available_at or datetime.now(timezone.utc),
     )
     db.add(job)
     db.commit()

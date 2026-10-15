@@ -127,6 +127,7 @@ class ApprovePublishOut(BaseModel):
 class SocialAccountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     platform: str
+    account_key: str = "default"
     handle: Optional[str] = None
     status: str
     auth_kind: str

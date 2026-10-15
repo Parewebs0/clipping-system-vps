@@ -29,9 +29,10 @@ Campaign rules (must be respected):
 Copy rules for the title and the caption (must be respected):
 {copy_rules}
 Return JSON:
-{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80,"title":"max 80 chars hook","caption":"the full post caption that satisfies the copy rules above","on_screen_text":"short overlay text or empty","hook_end":1.5}}]}}
+{{"clips":[{{"start":0.0,"end":20.0,"reason":"why this window","hook":0.82,"flow":0.70,"value":0.75,"fit":0.80,"title":"max 80 chars hook","caption":"the full post caption that satisfies the copy rules above","on_screen_text":"short overlay text or empty","hook_end":1.5,"keywords":["transcript word"],"emojis":[{{"emoji":"🔥","keyword":"transcript word"}}]}}]}}
 hook, flow, value and fit are 0-1 sub-scores for THIS window. Score each clip on its own. Do not reuse one number for every clip.
 hook_end is optional: seconds from the clip start where the hook ends. Omit the key when you are not sure. Do not guess.
+keywords: 0 to 3 words copied from the transcript to emphasize. emojis: 0 to 2 objects tying one emoji to a keyword that appears in the window. Use empty lists when nothing fits. Do not put emoji characters in on_screen_text.
 Prefer complete phrases. Do not exceed duration_max. Stay inside video_duration={duration}.
 This is chunk {chunk}/{chunks} covering {chunk_start:.1f}-{chunk_end:.1f}s of the video. Only pick windows inside this chunk.
 Transcript segments (start,end,text) for this chunk only:
@@ -130,6 +131,48 @@ def _hook_end(raw, duration: float | None = None) -> float | None:
     return value
 
 
+def _is_emoji(text: str) -> bool:
+    return any(ord(ch) > 127 for ch in text)
+
+
+def clip_keywords(raw) -> list[str]:
+    """Up to 3 short words the decider wants emphasized. Bad input becomes []."""
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        text = str(item or "").strip()
+        if not text or len(text) > 40:
+            continue
+        out.append(text)
+        if len(out) >= 3:
+            break
+    return out
+
+
+def clip_emojis(raw) -> list[dict]:
+    """Up to 2 emoji cues. Plain words are dropped; a keyword is kept when present."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for item in raw:
+        if isinstance(item, str):
+            item = {"emoji": item}
+        if not isinstance(item, dict):
+            continue
+        emoji = str(item.get("emoji") or item.get("char") or "").strip()
+        if not emoji or len(emoji) > 16 or not _is_emoji(emoji):
+            continue
+        cue: dict = {"emoji": emoji}
+        keyword = str(item.get("keyword") or "").strip()
+        if keyword:
+            cue["keyword"] = keyword[:40]
+        out.append(cue)
+        if len(out) >= 2:
+            break
+    return out
+
+
 def segment_lines(segs, limit: int | None = None) -> list[str]:
     """Format transcript segments the way the live decider prompt expects."""
     from app.services.decider import segment_lines as _lines
@@ -179,6 +222,8 @@ def parse_clips(data, dmin: float, dmax: float, limit: int | None = None) -> lis
             "caption": caption,
             "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
             "subscores": {k: v for k, v in subs.items() if v is not None},
+            "keywords": clip_keywords(clip.get("keywords")),
+            "emojis": clip_emojis(clip.get("emojis")),
         }
         hook_end = _hook_end(clip.get("hook_end"), end - start)
         if hook_end is not None:
@@ -399,6 +444,8 @@ def main() -> int:
                     "title": title,
                     "caption": caption,
                     "on_screen_text": str(clip.get("on_screen_text") or "")[:120],
+                    "keywords": clip_keywords(clip.get("keywords")),
+                    "emojis": clip_emojis(clip.get("emojis")),
                     "copy_attempts": int(clip.get("copy_attempts") or 1),
                     "subscores": dict(clip.get("subscores") or {}),
                     "chunk_index": clip.get("chunk_index"),

@@ -1,13 +1,20 @@
-"""One connected social account per platform. No tokens in this table."""
+"""Social accounts. Several accounts can share one platform (#MOLI-53).
+
+The pair (platform, account_key) is the primary key. ``account_key`` selects
+the worker credentials for the account (see the worker side); the legacy
+single-account rows keep the key ``default``, so existing deployments are
+unchanged. No tokens in this table."""
 from __future__ import annotations
 
 import enum
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, String, func
+from sqlalchemy import CheckConstraint, DateTime, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
+
+DEFAULT_ACCOUNT_KEY = "default"
 
 
 class SocialPlatform(str, enum.Enum):
@@ -41,6 +48,12 @@ class SocialAccount(Base):
     __tablename__ = "social_accounts"
 
     platform: Mapped[str] = mapped_column(String(32), primary_key=True)
+    account_key: Mapped[str] = mapped_column(
+        String(64),
+        primary_key=True,
+        nullable=False,
+        server_default="default",
+    )
     handle: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, server_default="healthy"

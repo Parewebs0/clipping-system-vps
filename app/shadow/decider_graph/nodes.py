@@ -230,6 +230,8 @@ def heuristic_propose(
             "caption": "",
             "on_screen_text": "",
             "hook_end": 1.5 if end >= 1.5 else None,
+            "keywords": [],
+            "emojis": [],
             "reason": "heuristic: no segments",
         }]
     clips: list[dict[str, Any]] = []
@@ -258,6 +260,8 @@ def heuristic_propose(
             "caption": " ".join(texts)[:800],
             "on_screen_text": "",
             "hook_end": 1.5 if (end - start) >= 1.5 else None,
+            "keywords": [],
+            "emojis": [],
             "reason": "heuristic window from transcript",
         })
         i = j + 1 if j > i else i + 1
