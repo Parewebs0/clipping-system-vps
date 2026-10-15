@@ -8,6 +8,7 @@ Same keys as the Windows worker, plus loudnorm policy:
   watermark{enabled, url, position, width, start, end}
   on_screen_text{enabled, entrance, items[{text,start,end,position,entrance?}]}
   audio{original_only, normalize, target_lufs, true_peak_db}
+  cleanup{fillers, max_pause_ms, bad_takes, filler_list}  ← off keeps today's edit
   reframe{mode, layout, smoothing, sample_fps, speakers}
       mode=center + layout=single keeps the worker's historical center crop.
   decider{chunk_chars, candidates_per_chunk, top_n, overlap}  ← VPS clip-decider; worker ignores
@@ -33,6 +34,14 @@ _REFRAME_LAYOUTS = {"single", "split", "screenshare", "fit", "auto"}
 # MOLI-48: same keys as the Windows worker (`app/jobs/render.py`).
 # chunk_chars=0 restores the old first-80-segments / 5 000-char window.
 DEFAULT_DECIDER = DeciderOptions().as_dict()
+# MOLI-51: same keys as the worker (`app/tools/speech_cleanup.py`).
+# fillers/bad_takes off and max_pause_ms null → the worker does not cut.
+DEFAULT_CLEANUP: dict[str, Any] = {
+    "fillers": False,
+    "max_pause_ms": None,
+    "bad_takes": False,
+    "filler_list": None,
+}
 _URL = re.compile(r"https?://\S+")
 DEFAULT_LOGO_SECONDS = 3.0
 _CAPTION_PRESETS = {"classic", "karaoke", "pop", "bold"}
@@ -58,6 +67,77 @@ def _clip_word(w: dict, start: float, end: float, dur: float, seg_speaker: Optio
     if speaker:
         entry["speaker"] = str(speaker)
     return entry
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value in (0, 1):
+        return bool(int(value))
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in {"1", "true", "yes", "on"}:
+            return True
+        if token in {"0", "false", "no", "off", ""}:
+            return False
+    return default
+
+
+def _as_pause_ms(value: Any) -> Optional[int]:
+    if value is None or value is False:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        number = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _as_filler_list(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else None
+    if isinstance(value, dict):
+        out: dict[str, list[str]] = {}
+        for key, items in value.items():
+            if isinstance(items, str):
+                phrases = [items.strip()] if items.strip() else []
+            else:
+                phrases = [str(item).strip() for item in (items or []) if str(item).strip()]
+            if phrases:
+                out[str(key).lower().split("-")[0]] = phrases
+        return out or None
+    if isinstance(value, (list, tuple)):
+        phrases = [str(item).strip() for item in value if str(item).strip()]
+        return phrases or None
+    return None
+
+
+def normalize_cleanup(raw: Optional[dict[str, Any]]) -> dict[str, Any]:
+    data = raw or {}
+    return {
+        "fillers": _as_bool(data.get("fillers"), False),
+        "max_pause_ms": _as_pause_ms(data.get("max_pause_ms")),
+        "bad_takes": _as_bool(data.get("bad_takes"), False),
+        "filler_list": _as_filler_list(data.get("filler_list")),
+    }
+
+
+def cleanup_options(campaign) -> dict[str, Any]:
+    """Campaign `source_metadata.cleanup` or `ruleset.cleanup` over the off default."""
+    raw: dict[str, Any] = {}
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if isinstance(meta, dict):
+        if isinstance(meta.get("cleanup"), dict):
+            raw.update(meta["cleanup"])
+        ruleset = meta.get("ruleset")
+        if isinstance(ruleset, dict) and isinstance(ruleset.get("cleanup"), dict):
+            raw.update(ruleset["cleanup"])
+    return normalize_cleanup(raw)
 
 
 def clip_segments(asset, start: float, end: float) -> list[dict]:
@@ -409,6 +489,7 @@ def build_render_spec(campaign, asset, candidate, *, captions_default: bool = Tr
         "watermark": watermark,
         "on_screen_text": on_screen_text,
         "audio": audio,
+        "cleanup": cleanup_options(campaign),
         "reframe": reframe_config(campaign, asset, start, end),
         "decider": decider_options(campaign).as_dict(),
         "render_spec": {"version": RENDER_SPEC_VERSION, "ruleset_version": rs.version, "required": required},
