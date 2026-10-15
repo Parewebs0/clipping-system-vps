@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.logctx import format_ids, ids_from_job, redact
 from app.models.asset import Asset, AssetStatus
 from app.models.campaign import Campaign
 from app.models.clip import Clip, ClipQAStatus, ClipStatus
@@ -172,7 +173,15 @@ def on_download_completed(
             priority=job.priority,
             max_attempts=job.max_attempts,
         )
-        logger.info("auto-created transcribe job for asset %s (download %s done)", asset.id, job.id)
+        logger.info(
+            "auto-created transcribe %s",
+            format_ids(
+                job_id=job.id,
+                job_type="transcribe",
+                campaign_id=asset.campaign_id,
+                asset_id=asset.id,
+            ),
+        )
     except Exception as e:  # noqa: BLE001
         logger.exception("failed to auto-create transcribe job: %s", e)
 
@@ -195,7 +204,15 @@ def on_transcribe_completed(
     asset.extra_metadata = meta
     db.commit()
     db.refresh(asset)
-    logger.info("transcription stored for asset %s", asset.id)
+    logger.info(
+        "transcription stored %s",
+        format_ids(
+            job_id=job.id,
+            job_type="transcribe",
+            campaign_id=asset.campaign_id,
+            asset_id=asset.id,
+        ),
+    )
 
     try:
         from app.services.silent_clip_cutter import maybe_cut_silent
@@ -341,6 +358,11 @@ def _classify_job_error(job: Job) -> tuple[str | None, str | None]:
 
 
 def on_job_failed(db: Session, job: Job) -> None:
+    logger.warning(
+        "terminal job failure %s error=%s",
+        format_ids(**ids_from_job(job)),
+        redact(job.error_message or ""),
+    )
     asset_id = _asset_id_from_payload(job.payload or {})
     if not asset_id:
         return
@@ -348,6 +370,11 @@ def on_job_failed(db: Session, job: Job) -> None:
     if asset is None:
         return
     if asset.status not in (AssetStatus.PENDING.value, AssetStatus.DOWNLOADED.value):
+        logger.info(
+            "job failure left asset status=%s %s",
+            asset.status,
+            format_ids(**ids_from_job(job)),
+        )
         return
     error_kind, error_detail = _classify_job_error(job)
     asset.status = AssetStatus.FAILED.value
@@ -355,13 +382,16 @@ def on_job_failed(db: Session, job: Job) -> None:
     if error_kind and error_kind in TERMINAL_ERROR_KINDS:
         meta["skip_download"] = True
         meta["last_error_kind"] = error_kind
-        meta["last_error_detail"] = (error_detail or "")[:500]
+        meta["last_error_detail"] = redact(error_detail or "")[:500]
         meta["terminal_failed_at"] = _now().isoformat()
-        asset.extra_metadata = meta
-    elif meta.get("last_error_kind"):
+    else:
+        # A transcribe (or download) that died for a non-terminal reason used
+        # to clear any previous kind and leave no explanation. Keep the reason
+        # so a stalled asset can be seen and requeued on purpose.
         meta.pop("skip_download", None)
-        meta.pop("last_error_kind", None)
-        meta.pop("last_error_detail", None)
-        meta.pop("terminal_failed_at", None)
-        asset.extra_metadata = meta
+        meta["last_error_kind"] = (error_kind or f"{job.job_type}_failed")[:64]
+        detail = error_detail or job.error_message or ""
+        meta["last_error_detail"] = redact(str(detail))[:500]
+        meta["terminal_failed_at"] = _now().isoformat()
+    asset.extra_metadata = meta
     db.commit()
