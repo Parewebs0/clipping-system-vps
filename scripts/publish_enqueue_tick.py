@@ -22,7 +22,7 @@ logger = logging.getLogger("publish_enqueue_tick")
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--limit", type=int, default=1)
+    p.add_argument("--limit", type=int, default=1, help="max jobs per platform")
     p.add_argument(
         "--dry-run",
         action="store_true",
@@ -31,9 +31,13 @@ def main() -> int:
     p.add_argument(
         "--live",
         action="store_true",
-        help="payload.dry_run=false (YouTube API). Default is dry_run=true.",
+        help="payload.dry_run=false. Default is dry_run=true.",
     )
-    p.add_argument("--platform", default="youtube")
+    p.add_argument(
+        "--platform",
+        default="",
+        help="platform to queue; empty = every pending campaign platform (MOLI-53)",
+    )
     args = p.parse_args()
 
     if args.live:
@@ -47,7 +51,7 @@ def main() -> int:
         rows = enqueue_publish_jobs(
             db,
             limit=args.limit,
-            platform=args.platform,
+            platform=(args.platform or None),
             dry_run=not args.live,
             create_jobs=not args.dry_run,
         )

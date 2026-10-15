@@ -125,6 +125,80 @@ def test_audio_enhance_is_off_by_default_and_overridable():
     assert skipped["audio"]["enhance"] == {"engine": "none", "strength": 1.0}
 
 
+def test_cleanup_is_off_unless_the_campaign_opts_in():
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    out = build_render_spec(_camp(RuleSet()), SimpleNamespace(extra_metadata={}), cand)
+    assert out["cleanup"] == {
+        "fillers": False,
+        "max_pause_ms": None,
+        "bad_takes": False,
+        "filler_list": None,
+    }
+    camp = _camp(RuleSet())
+    camp.source_metadata["cleanup"] = {
+        "fillers": True,
+        "max_pause_ms": 600,
+        "bad_takes": "yes",
+        "filler_list": ["eh", "o sea"],
+    }
+    opted = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert opted["cleanup"] == {
+        "fillers": True,
+        "max_pause_ms": 600,
+        "bad_takes": True,
+        "filler_list": ["eh", "o sea"],
+    }
+    camp.source_metadata["cleanup"] = {"max_pause_ms": 0, "fillers": "nope", "filler_list": {"es": ["eh"]}}
+    invalid = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert invalid["cleanup"]["fillers"] is False
+    assert invalid["cleanup"]["max_pause_ms"] is None
+    assert invalid["cleanup"]["filler_list"] == {"es": ["eh"]}
+    camp.source_metadata["cleanup"] = {"filler_list": {"es": "eh"}}
+    as_phrase = build_render_spec(camp, SimpleNamespace(extra_metadata={}), cand)
+    assert as_phrase["cleanup"]["filler_list"] == {"es": ["eh"]}
+
+
+def test_reframe_defaults_to_center_and_keeps_output_size():
+    cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
+    out = build_render_spec(_camp(RuleSet()), SimpleNamespace(extra_metadata={}), cand)
+    assert out["render_spec"]["version"] == 3
+    assert out["reframe"]["mode"] == "center"
+    assert out["reframe"]["layout"] == "single"
+    assert out["reframe"]["smoothing"]["max_shift_frac"] == 0.05
+    assert out["reframe"]["speakers"] == []
+    assert out["render_spec"]["required"]["width"] == 1080
+    assert out["render_spec"]["required"]["height"] == 1920
+
+
+def test_reframe_override_speakers_and_aspect_size():
+    rs = RuleSet()
+    rs.aspect.ratio = "1:1"
+    asset = SimpleNamespace(extra_metadata={"transcription": {"segments": [
+        {"start": 8.0, "end": 14.0, "text": "hola", "speaker": "S0"},
+        {"start": 14.0, "end": 20.0, "text": "adios", "speaker": "S1"},
+        {"start": 40.0, "end": 42.0, "text": "fuera", "speaker": "S0"},
+    ]}})
+    camp = _camp(rs)
+    camp.source_metadata["rules_overrides"] = {"reframe": {
+        "mode": "auto", "layout": "split", "smoothing": 0.2, "sample_fps": 30,
+    }}
+    cand = SimpleNamespace(start_time=10.0, end_time=30.0, extra_metadata={})
+    out = build_render_spec(camp, asset, cand)
+    ref = out["reframe"]
+    assert ref["mode"] == "auto" and ref["layout"] == "split"
+    assert ref["smoothing"]["ema"] == 0.2
+    assert ref["sample_fps"] == 10.0  # clamped to the 5–10 fps window
+    assert ref["speakers"] == [
+        {"start": 0.0, "end": 4.0, "speaker": "S0"},
+        {"start": 4.0, "end": 10.0, "speaker": "S1"},
+    ]
+    assert out["captions"]["segments"][0]["speaker"] == "S0"
+    assert (out["render_spec"]["required"]["width"], out["render_spec"]["required"]["height"]) == (1080, 1080)
+    rs.aspect.ratio = "16:9"
+    wide = build_render_spec(_camp(rs), SimpleNamespace(extra_metadata={}), cand)
+    assert (wide["render_spec"]["required"]["width"], wide["render_spec"]["required"]["height"]) == (1920, 1080)
+
+
 def test_spec_includes_decider_defaults():
     cand = SimpleNamespace(start_time=0.0, end_time=10.0, extra_metadata={})
     out = build_render_spec(_camp(RuleSet()), SimpleNamespace(extra_metadata={}), cand)

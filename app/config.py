@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Campaign logo PNGs (#55). Empty: /opt/clipping-system/storage/logos when that
     # tree exists, otherwise ./storage/logos.
     logo_dir: str = ""
+    # Brand templates (MOLI-54): fonts, intro/outro cards per campaign.
+    # Empty: /opt/clipping-system/storage/branding when that tree exists,
+    # otherwise ./storage/branding.
+    branding_dir: str = ""
 
     @property
     def database_url(self) -> str:

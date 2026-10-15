@@ -68,6 +68,37 @@ def test_download_completed_marks_asset_and_creates_transcribe(db):
     )
     assert len(transcribe_jobs) == 1
     assert transcribe_jobs[0].payload["asset_id"] == str(aid)
+    # No rules_overrides.reframe: the center crop does not need speaker labels.
+    assert transcribe_jobs[0].payload["diarization"] is False
+
+
+def test_download_completed_diarizes_when_reframe_mode_is_not_center(db):
+    from app.models.campaign import Campaign
+
+    cid, aid = _create_campaign_and_asset(db)
+    camp = db.get(Campaign, cid)
+    camp.source_metadata = {"rules_overrides": {"reframe": {"mode": "auto"}}}
+    db.commit()
+    job = Job(
+        job_type="download",
+        payload={"asset_id": str(aid), "source_url": "https://..."},
+        status=JobStatus.COMPLETED,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    on_download_completed(
+        db, job,
+        result_data={"file_path": "C:\\data\\video.mp4", "file_size": 1024, "duration_seconds": 30.0},
+    )
+    transcribe_jobs = (
+        db.query(Job)
+        .filter(Job.job_type == "transcribe")
+        .filter(Job.payload["asset_id"].astext == str(aid))
+        .all()
+    )
+    assert len(transcribe_jobs) == 1
+    assert transcribe_jobs[0].payload["diarization"] is True
 
 
 def test_transcribe_completed_marks_asset_and_stores_transcription(db):

@@ -33,6 +33,12 @@ try:
 except OSError:
     logger.warning("logo directory is not writable", exc_info=True)
 
+try:
+    from app.services.rules.branding import branding_dir  # noqa: E402
+    branding_dir().mkdir(parents=True, exist_ok=True)
+except (OSError, Exception):  # noqa: BLE001 - storage layout must not boot-block
+    logger.warning("branding directory is not writable", exc_info=True)
+
 
 app = FastAPI(
     title="Clipping API",
