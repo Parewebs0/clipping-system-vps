@@ -15,6 +15,7 @@ from app.models.clip import Clip
 from app.models.clip_publication import ClipPublication
 from app.models.job import Job
 from app.models.social_account import SocialAccount
+from app.logctx import format_ids
 from app.services.job_service import create_job
 from app.services.publish_copy import paid_promotion, platform_copy, platform_mentions
 
@@ -142,7 +143,9 @@ def enqueue_publish_jobs(
         out.append(row)
         made += 1
         logger.info(
-            "enqueued publish job %s clip=%s platform=%s dry_run=%s title=%s",
-            job.id, clip.id, platform, payload_dry, title,
+            "enqueued publish %s platform=%s dry_run=%s",
+            format_ids(job_id=job.id, job_type="publish", clip_id=clip.id, campaign_id=clip.campaign_id),
+            platform,
+            payload_dry,
         )
     return out

@@ -35,8 +35,8 @@ sys.path.insert(0, str(ROOT))
 try:
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
-except Exception:
-    pass
+except Exception as exc:
+    print(f"dotenv not loaded: {type(exc).__name__}", file=sys.stderr)
 
 # Pipeline occupancy. needs_review waits on a person and must not take a slot.
 ACTIVE_STATUSES = (
@@ -62,6 +62,8 @@ def _setup_logging() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=handlers,
     )
+    from app.logctx import install_redact_filter
+    install_redact_filter()
 
 
 def _active_count(db) -> int:
@@ -93,8 +95,9 @@ def main(argv=None) -> int:
     try:
         code, summary = run(args, db)
     except Exception as e:  # noqa: BLE001
-        logger.exception("whop_discovery failed: %s", e)
-        print(json.dumps({"provider": "whop", "error": f"{type(e).__name__}: {e}"}))
+        from app.logctx import redact
+        logger.exception("whop_discovery failed")
+        print(json.dumps({"provider": "whop", "error": redact(f"{type(e).__name__}: {e}")}))
         return 1
     finally:
         db.close()

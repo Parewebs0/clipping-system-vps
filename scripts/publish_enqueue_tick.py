@@ -21,6 +21,11 @@ logger = logging.getLogger("publish_enqueue_tick")
 
 
 def main() -> int:
+    try:
+        from app.logctx import install_redact_filter
+        install_redact_filter()
+    except Exception as exc:
+        print(f"log redact filter not installed: {type(exc).__name__}", file=sys.stderr)
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=1)
     p.add_argument(
