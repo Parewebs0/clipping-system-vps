@@ -112,8 +112,18 @@ def test_set_template_bad_name(brand_dir):
 
 # --- render_spec ----------------------------------------------------------------
 
+# MOLI-49 caption presets always ride along. Branding only overrides position
+# and max_words; the preset defaults stay in the same style dict.
+_CAPTION_STYLE_DEFAULTS = {
+    "preset": "classic",
+    "highlight_color": "&H0000FFFF",
+    "emoji": False,
+    "censor": {"words": [], "beep": False},
+}
+
+
 def test_render_spec_without_branding_is_unchanged():
-    """No branding configured → no branding block content, defaults intact."""
+    """No branding configured → empty branding block, caption defaults intact."""
     rs = RuleSet()
     rs.captions.brand_dictionary = ["BOXABL"]
     campaign = _Camp({"ruleset": rs.dump()})
@@ -121,7 +131,11 @@ def test_render_spec_without_branding_is_unchanged():
     cand = type("C", (), {"start_time": 5.0, "end_time": 15.0, "extra_metadata": {}})()
     spec = build_render_spec(campaign, asset, cand)
     assert spec["branding"] == {}
-    assert spec["captions"]["style"] == {"position": "bottom", "max_words": 4}
+    assert spec["captions"]["style"] == {
+        "position": "bottom",
+        "max_words": 4,
+        **_CAPTION_STYLE_DEFAULTS,
+    }
 
 
 def test_render_spec_branding_overrides_style(brand_dir):
@@ -138,7 +152,11 @@ def test_render_spec_branding_overrides_style(brand_dir):
     asset = type("A", (), {"extra_metadata": {"transcription": {"segments": []}}})()
     cand = type("C", (), {"start_time": 5.0, "end_time": 15.0, "extra_metadata": {}})()
     spec = build_render_spec(campaign, asset, cand)
-    assert spec["captions"]["style"] == {"position": "top", "max_words": 5}
+    assert spec["captions"]["style"] == {
+        "position": "top",
+        "max_words": 5,
+        **_CAPTION_STYLE_DEFAULTS,
+    }
     br = spec["branding"]
     assert br["font_name"] == "Brand"
     assert br["intro"]["max_seconds"] == 2.0
