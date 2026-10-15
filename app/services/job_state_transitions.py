@@ -21,6 +21,40 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def reframe_wants_diarization(campaign) -> bool:
+    """Pyannote only runs when this campaign's reframe mode is not the center crop."""
+    meta = getattr(campaign, "source_metadata", None) or {}
+    if not isinstance(meta, dict):
+        return False
+    overrides = meta.get("rules_overrides")
+    if not isinstance(overrides, dict):
+        return False
+    reframe = overrides.get("reframe")
+    if not isinstance(reframe, dict):
+        return False
+    mode = str(reframe.get("mode") or "center").strip().lower()
+    return mode != "center"
+
+
+def build_transcribe_payload(asset, meta: dict | None = None, campaign=None) -> dict:
+    """Worker transcribe payload.
+
+    Diarization is on only when the campaign opted into a reframe mode other
+    than center. The worker already treats a diarization failure as non-fatal.
+    """
+    meta = meta or {}
+    video = asset.local_path or asset.source_url
+    return {
+        "asset_id": str(asset.id),
+        "campaign_id": str(asset.campaign_id),
+        "video": video,
+        "video_path": video,
+        "source_url": asset.source_url,
+        "language": meta.get("language"),
+        "diarization": reframe_wants_diarization(campaign),
+    }
+
+
 def _update_asset_status(db: Session, asset: Asset, new_status: str) -> None:
     if new_status not in (
         AssetStatus.PENDING.value,
@@ -131,14 +165,8 @@ def on_download_completed(
             db,
             job_type="transcribe",
             payload={
-                "asset_id": str(asset.id),
-                "campaign_id": str(asset.campaign_id),
-                "video": asset.local_path or asset.source_url,
-                "video_path": asset.local_path or asset.source_url,
-                "source_url": asset.source_url,
-                "language": meta.get("language"),
-                # MOLI-54: brand vocabulary biases WhisperX spellings
-                # ("boxabl" → "BOXABL") without conditioning the words.
+                **build_transcribe_payload(asset, meta, db.get(Campaign, asset.campaign_id)),
+                # MOLI-54: brand vocabulary biases WhisperX spellings.
                 "initial_prompt": _brand_initial_prompt(db, asset),
             },
             priority=job.priority,
