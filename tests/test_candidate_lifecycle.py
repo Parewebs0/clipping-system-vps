@@ -479,3 +479,43 @@ def test_approve_blocked_by_rules_gate(db, status, pending_rule):
     with pytest.raises(CandidateStateError, match="not workable"):
         approve_candidate(db, cand.id)
     assert db.query(Job).filter(Job.job_type == "render").count() == 0
+
+
+def test_thresholds_approve_and_reject_pending(db):
+    """Decider thresholds: >=0.80 approved with a render job, <0.60 rejected, middle and needs_review untouched."""
+    from app.models.asset import Asset, AssetStatus
+    from app.models.campaign import Campaign
+    from app.models.candidate import Candidate
+    from app.services.candidate_thresholds import apply_thresholds
+
+    c = Campaign(
+        name=f"lc-{uuid.uuid4().hex[:6]}",
+        source_provider="whop",
+        source_instructions="Make 30-60s clips in english.",
+    )
+    db.add(c)
+    db.commit()
+    a = Asset(
+        campaign_id=c.id, source_url="https://example.com/v",
+        source_provider="youtube", source_id="x", asset_type="video",
+        status=AssetStatus.TRANSCRIBED.value, duration_seconds=300.0,
+        extra_metadata={"transcription": {"text": "hello world"}},
+    )
+    db.add(a)
+    db.commit()
+    rows = []
+    for score, status in [(0.85, "pending"), (0.70, "pending"), (0.40, "pending"), (0.20, "needs_review")]:
+        cand = Candidate(
+            campaign_id=c.id, asset_id=a.id, start_time=10.0, end_time=40.0,
+            score=score, reasoning="t", status=status, extra_metadata={},
+        )
+        db.add(cand)
+        rows.append(cand)
+    db.commit()
+
+    apply_thresholds(db, rows, approve_min=0.80, reject_below=0.60, log=lambda _m: None)
+    for r in rows:
+        db.refresh(r)
+    assert [r.status for r in rows] == ["approved", "pending", "rejected", "needs_review"]
+    assert rows[0].extra_metadata.get("render_job_id")
+    assert rows[2].extra_metadata["rejected_reason"].startswith("auto: score 0.40")

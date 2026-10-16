@@ -349,7 +349,26 @@ def main() -> int:
     p.add_argument("--limit", type=int, default=1)
     p.add_argument("--approve", action="store_true")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument(
+        "--approve-min", type=float, default=None,
+        help="with --approve: approve pending candidates with score >= this (default 0.80, env DECIDER_APPROVE_MIN)",
+    )
+    p.add_argument(
+        "--reject-below", type=float, default=None,
+        help="with --approve: reject pending candidates with score < this (default 0.60, env DECIDER_REJECT_BELOW)",
+    )
     args = p.parse_args()
+
+    from app.services.candidate_thresholds import (
+        apply_thresholds,
+        default_approve_min,
+        default_reject_below,
+        validate_thresholds,
+    )
+
+    approve_min = args.approve_min if args.approve_min is not None else default_approve_min()
+    reject_below = args.reject_below if args.reject_below is not None else default_reject_below()
+    validate_thresholds(approve_min, reject_below)
 
     from app.db.database import SessionLocal
     from app.models.asset import Asset
@@ -362,7 +381,6 @@ def main() -> int:
     from app.services.publish_copy import copy_rules_for_prompt
     from app.services.silent_clip_cutter import campaign_duration_window, is_speech, transcript_text
     from app.services.rules.runtime import decider_brief, ruleset
-    from app.services.candidate_lifecycle import approve_candidate
 
     db = SessionLocal()
     try:
@@ -477,10 +495,12 @@ def main() -> int:
                 created.append(c)
                 print(f"candidate {c.id} {start}-{end} status={c.status} score={c.score}")
             db.commit()
-            # needs_review stays for a person. --approve only takes a clip whose copy passed.
-            ready = next((c for c in created if c.status == "pending"), None)
-            if args.approve and ready is not None:
-                print(approve_candidate(db, ready.id))
+            # needs_review stays for a person. --approve applies the score thresholds
+            # to every created pending candidate; the middle band stays pending.
+            if args.approve:
+                apply_thresholds(
+                    db, created, approve_min=approve_min, reject_below=reject_below
+                )
             done += 1
             if done >= args.limit:
                 break
