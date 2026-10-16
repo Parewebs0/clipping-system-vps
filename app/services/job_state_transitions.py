@@ -123,6 +123,8 @@ def on_download_completed(
         return
 
     _update_asset_status(db, asset, AssetStatus.DOWNLOADED.value)
+    if job.worker_id:
+        asset.extra_metadata = {**(asset.extra_metadata or {}), "downloaded_by": job.worker_id}
     if "file_path" in result_data:
         asset.local_path = result_data["file_path"]
     if "file_size" in result_data:
@@ -173,6 +175,7 @@ def on_download_completed(
             },
             priority=job.priority,
             max_attempts=job.max_attempts,
+            affinity_worker_id=job.worker_id,
         )
         logger.info(
             "auto-created transcribe %s",
@@ -282,7 +285,10 @@ def on_render_completed(
         }
         if qa_rules:
             qa_payload["rules"] = qa_rules
-        qa_job = create_job(db, job_type="qa", payload=qa_payload, priority=job.priority, max_attempts=job.max_attempts)
+        qa_job = create_job(
+            db, job_type="qa", payload=qa_payload, priority=job.priority,
+            max_attempts=job.max_attempts, affinity_worker_id=job.worker_id,
+        )
         clip.qa_job_id = qa_job.id
         db.commit()
         db.refresh(clip)

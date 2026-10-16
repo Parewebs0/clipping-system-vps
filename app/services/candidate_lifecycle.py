@@ -232,6 +232,7 @@ def approve_candidate(
             payload=render_payload,
             priority=priority,
             max_attempts=max_attempts,
+            affinity_worker_id=(asset.extra_metadata or {}).get("downloaded_by"),
         )
         meta["render_job_id"] = str(render_job.id)
         candidate.extra_metadata = meta

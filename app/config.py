@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # for everything else (worker). Empty = API_TOKEN can write (legacy).
     api_write_token: str = ""
 
+    # Worker affinity / CPU fallback.
+    # Comma-separated worker ids that only claim unpinned work when no other
+    # worker has sent a heartbeat in the last `worker_stale_seconds`.
+    fallback_worker_ids: str = ""
+    worker_stale_seconds: int = 600
+
     # App
     environment: str = "production"
     log_level: str = "INFO"
