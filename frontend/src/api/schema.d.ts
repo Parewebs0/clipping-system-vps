@@ -3076,6 +3076,11 @@ export interface components {
         WorkerFailCreate: {
             /** Error Message */
             error_message: string;
+            /**
+             * Permanent
+             * @default false
+             */
+            permanent: boolean;
         };
         /**
          * WorkerOut

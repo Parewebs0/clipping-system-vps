@@ -7,13 +7,14 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from app.auth import require_bearer
 from app.db.database import get_db
 from app.models.job import JobStatus
 from app.services import job_service
+from app.services.download_errors import INCOMING_LIMIT, clip_error_message
 from app.services.http_retry import RETRY_STATUS, pause
 
 
@@ -121,8 +122,34 @@ class WorkerFailCreate(BaseModel):
     # Ignore extra fields silently: Worker implementations vary (stage, stack_trace,
     # exit_code, retry, ...) and a strict schema caused 422s that left jobs stuck
     # in `processing` when the Worker tried to report a real failure.
+    #
+    # error_message is cleaned before the length check. A yt-dlp traceback is
+    # longer than 2048 and used to 422 here; the job then stayed `processing`
+    # until the lease requeued it. The service stores a shorter copy.
     model_config = {"extra": "ignore"}
-    error_message: str = Field(..., min_length=1, max_length=2048)
+    error_message: str = Field(..., min_length=1, max_length=INCOMING_LIMIT)
+    permanent: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _alias_error_message(cls, data):
+        if not isinstance(data, dict):
+            return data
+        current = data.get("error_message")
+        if isinstance(current, str) and current.strip():
+            return data
+        for key in ("error", "message"):
+            alias = data.get(key)
+            if isinstance(alias, str) and alias.strip():
+                merged = dict(data)
+                merged["error_message"] = alias
+                return merged
+        return data
+
+    @field_validator("error_message", mode="before")
+    @classmethod
+    def _clean_error_message(cls, value):
+        return clip_error_message(value, INCOMING_LIMIT)
 
 
 @router.post(
@@ -260,12 +287,14 @@ def worker_fail_endpoint(
     db: Session = Depends(get_db),
 ):
     try:
-        # Truncate error_message to schema max (2048) so the Worker can
-        # always report failures. Without this, a long subprocess error
-        # output causes 422 and leaves the job stuck in 'processing'.
-        msg = (payload.error_message or "")[:2048]
+        # Classification needs the whole (already ANSI-stripped) message.
+        # fail_job stores at most 2048 chars, keeping the yt-dlp line.
         job = job_service.fail_job(
-            db, job_id, worker_id=worker_id, error_message=msg
+            db,
+            job_id,
+            worker_id=worker_id,
+            error_message=payload.error_message,
+            permanent=payload.permanent,
         )
     except job_service.JobNotFound:
         raise HTTPException(status_code=404, detail="job not found")
