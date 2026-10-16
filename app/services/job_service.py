@@ -14,6 +14,56 @@ from app.services.download_errors import resolve_failure
 
 LEASE_DURATION_SECONDS = 300  # 5 minutes
 
+# payload key pinning a job to the worker that holds its local files.
+AFFINITY_KEY = "affinity_worker_id"
+# Job types that need no local file from a previous step.
+SELF_CONTAINED_JOB_TYPES = ("download",)
+
+
+def _fallback_ids() -> set[str]:
+    from app.config import settings
+    return {w.strip() for w in (settings.fallback_worker_ids or "").split(",") if w.strip()}
+
+
+def _fresh_worker_ids(db: Session, now: datetime) -> set[str]:
+    from app.config import settings
+    from app.models.worker import Worker, WorkerStatus
+    cutoff = now - timedelta(seconds=settings.worker_stale_seconds)
+    rows = db.execute(
+        select(Worker.worker_id).where(
+            Worker.last_heartbeat_at.is_not(None),
+            Worker.last_heartbeat_at >= cutoff,
+            Worker.status != WorkerStatus.DISABLED.value,
+        )
+    ).scalars()
+    return set(rows)
+
+
+def _claim_filter(db: Session, worker_id: str, now: datetime):
+    """Which pending jobs `worker_id` may take.
+
+    - Pinned to me (payload affinity_worker_id): always.
+    - Primary worker: also unpinned jobs, and self-contained (download) jobs
+      pinned to a stale worker.
+    - Fallback worker (FALLBACK_WORKER_IDS): only while no primary worker is
+      fresh, and only self-contained jobs that are unpinned or pinned to a
+      stale worker. Everything downstream of its own downloads is pinned to it.
+    Non-download jobs pinned to a stale worker wait for it: their input files
+    live on that worker's disk.
+    """
+    fallback = _fallback_ids()
+    fresh = _fresh_worker_ids(db, now) | {worker_id}
+    aff = Job.payload[AFFINITY_KEY].astext
+    mine = aff == worker_id
+    free_download = Job.job_type.in_(SELF_CONTAINED_JOB_TYPES) & or_(
+        aff.is_(None), aff.not_in(sorted(fresh))
+    )
+    if worker_id in fallback:
+        if fresh - fallback:
+            return mine
+        return or_(mine, free_download)
+    return or_(aff.is_(None), mine, free_download)
+
 
 VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.PENDING: {JobStatus.ASSIGNED, JobStatus.CANCELLED},
@@ -57,10 +107,14 @@ def create_job(
     priority: int = 5,
     max_attempts: int = 3,
     available_at: datetime | None = None,
+    affinity_worker_id: str | None = None,
 ) -> Job:
     """Create a pending job. `available_at` schedules it: `claim_next_job` only
     hands out jobs whose ``available_at <= now``, so future datetimes hold the
     job back (publish scheduling #MOLI-53). Default: available immediately."""
+    if affinity_worker_id:
+        # Jobs that read files from a worker's own disk must run there.
+        payload = {**payload, AFFINITY_KEY: affinity_worker_id}
     job = Job(
         job_type=job_type,
         payload=payload,
@@ -139,6 +193,7 @@ def claim_next_job(db: Session, *, worker_id: str) -> Optional[Job]:
         .where(
             Job.status == JobStatus.PENDING.value,
             Job.available_at <= now,
+            _claim_filter(db, worker_id, now),
         )
         .order_by(Job.priority.desc(), Job.created_at.asc())
         .limit(1)
