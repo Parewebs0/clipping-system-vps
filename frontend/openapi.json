@@ -5424,10 +5424,15 @@
       "WorkerFailCreate": {
         "properties": {
           "error_message": {
-            "maxLength": 2048,
+            "maxLength": 65536,
             "minLength": 1,
             "title": "Error Message",
             "type": "string"
+          },
+          "permanent": {
+            "default": false,
+            "title": "Permanent",
+            "type": "boolean"
           }
         },
         "required": [

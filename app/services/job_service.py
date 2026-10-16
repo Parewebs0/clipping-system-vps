@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.logctx import format_ids, ids_from_job, redact
 from app.models.job import JOB_STATUS_VALUES, Job, JobStatus
+from app.services.download_errors import resolve_failure
 
 
 LEASE_DURATION_SECONDS = 300  # 5 minutes
@@ -227,24 +228,36 @@ def complete_job(db: Session, job_id: UUID, *, worker_id: str, result: dict) -> 
     return job
 
 
-def fail_job(db: Session, job_id: UUID, *, worker_id: str, error_message: str) -> Job:
+def fail_job(
+    db: Session,
+    job_id: UUID,
+    *,
+    worker_id: str,
+    error_message: str,
+    permanent: bool = False,
+) -> Job:
     job = db.get(Job, job_id)
     if job is None:
         raise JobNotFound()
     _ensure_transition(JobStatus(job.status), JobStatus.FAILED)
     if job.worker_id != worker_id:
         raise WorkerMismatch()
+    terminal, message = resolve_failure(
+        job.job_type, error_message, permanent=permanent
+    )
     now = datetime.now(timezone.utc)
     job.attempts = job.attempts + 1
-    if job.attempts < job.max_attempts:
-        job.status = JobStatus.PENDING.value
-        job.error_message = error_message
-        job.available_at = now + timedelta(seconds=_backoff_seconds(job.attempts))
-        job.worker_id = None
+    # A private/unavailable download will not succeed on the next attempt.
+    # Failing it now stops the lease from requeueing the same URL.
+    if terminal or job.attempts >= job.max_attempts:
+        job.status = JobStatus.FAILED.value
+        job.error_message = message
         job.lease_until = None
     else:
-        job.status = JobStatus.FAILED.value
-        job.error_message = error_message
+        job.status = JobStatus.PENDING.value
+        job.error_message = message
+        job.available_at = now + timedelta(seconds=_backoff_seconds(job.attempts))
+        job.worker_id = None
         job.lease_until = None
     db.commit()
     db.refresh(job)
@@ -254,7 +267,7 @@ def fail_job(db: Session, job_id: UUID, *, worker_id: str, error_message: str) -
         job.status,
         job.attempts,
         job.max_attempts,
-        redact(error_message or ""),
+        redact(message or ""),
     )
     if job.status == JobStatus.FAILED.value:
         try:

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.logctx import format_ids, ids_from_job, redact
 from app.models.asset import Asset, AssetStatus
-from app.models.campaign import Campaign
+from app.models.campaign import Campaign, CampaignStatus
+from app.services.download_errors import PERMANENT_DOWNLOAD_KINDS, permanent_download_kind
 from app.models.clip import Clip, ClipQAStatus, ClipStatus
 from app.models.job import Job, JobStatus  # JobType is a string, not enum
 from app.services.job_service import create_job
@@ -354,7 +355,88 @@ def _classify_job_error(job: Job) -> tuple[str | None, str | None]:
         for k in TERMINAL_ERROR_KINDS:
             if em.startswith(k):
                 return k, em
+        if getattr(job, "job_type", None) == "download":
+            for k in PERMANENT_DOWNLOAD_KINDS:
+                if em.startswith(f"{k}:") or em == k:
+                    return k, em
+            found = permanent_download_kind(em)
+            if found:
+                return found, em
     return (str(kind) if kind else None, detail)
+
+
+_SKIP_ASSET_KINDS = frozenset({
+    "drive_folder", "dropbox_folder", "brand_asset",
+    "youtube_profile", "twitter_profile", "tiktok_profile",
+    "instagram_profile", "profile",
+})
+
+
+def _asset_can_still_produce(asset) -> bool:
+    """True when this asset can still become a clip."""
+    status = getattr(asset, "status", None)
+    if status in (AssetStatus.DOWNLOADED.value, AssetStatus.TRANSCRIBED.value):
+        return True
+    if status != AssetStatus.PENDING.value:
+        return False
+    if getattr(asset, "asset_type", None) in {"folder", "brand_asset"}:
+        return False
+    meta = asset.extra_metadata or {}
+    if meta.get("skip_download") is True:
+        return False
+    if meta.get("kind") in _SKIP_ASSET_KINDS:
+        return False
+    from app.api.campaigns import _is_real_video_url
+    return _is_real_video_url(getattr(asset, "source_url", None))
+
+
+def _maybe_mark_campaign_no_assets(db: Session, asset: Asset) -> None:
+    """Park a scored campaign whose videos all failed permanently.
+
+    Downloaded and transcribed assets keep the campaign scored so transcribe
+    and clip selection continue. The visible status is the existing
+    `blocked_no_assets` (there is no separate `no_assets` enum). The reason
+    is stored as no_assets for the dashboard history.
+    """
+    from app.services.campaign_transitions import record_auto_transition
+
+    campaign = db.get(Campaign, asset.campaign_id)
+    if campaign is None or campaign.status != CampaignStatus.SCORED.value:
+        return
+    assets = db.query(Asset).filter(Asset.campaign_id == asset.campaign_id).all()
+    if any(_asset_can_still_produce(item) for item in assets):
+        return
+    inflight = (
+        db.query(Job)
+        .filter(Job.job_type == "download")
+        .filter(Job.status.in_(("pending", "assigned", "processing")))
+        .all()
+    )
+    cid = str(asset.campaign_id)
+    for other in inflight:
+        if getattr(other, "job_type", None) not in (None, "download"):
+            continue
+        if getattr(other, "status", None) not in ("pending", "assigned", "processing"):
+            continue
+        payload = other.payload if isinstance(getattr(other, "payload", None), dict) else {}
+        if str(payload.get("campaign_id") or "") == cid:
+            return
+    record_auto_transition(
+        campaign,
+        CampaignStatus.BLOCKED_NO_ASSETS.value,
+        reason="no_assets: every downloadable video failed permanently",
+        actor="download_fail",
+    )
+    meta = dict(campaign.source_metadata or {})
+    meta["no_assets"] = {
+        "reason": "permanent_download_failure",
+        "at": _now().isoformat(),
+    }
+    campaign.source_metadata = meta
+    logger.info(
+        "campaign %s -> blocked_no_assets (no downloadable videos left)",
+        asset.campaign_id,
+    )
 
 
 def on_job_failed(db: Session, job: Job) -> None:
@@ -379,8 +461,11 @@ def on_job_failed(db: Session, job: Job) -> None:
     error_kind, error_detail = _classify_job_error(job)
     asset.status = AssetStatus.FAILED.value
     meta = dict(asset.extra_metadata or {})
-    if error_kind and error_kind in TERMINAL_ERROR_KINDS:
+    permanent_download = error_kind in PERMANENT_DOWNLOAD_KINDS
+    if error_kind and (error_kind in TERMINAL_ERROR_KINDS or permanent_download):
         meta["skip_download"] = True
+        if permanent_download:
+            meta["unavailable"] = True
         meta["last_error_kind"] = error_kind
         meta["last_error_detail"] = redact(error_detail or "")[:500]
         meta["terminal_failed_at"] = _now().isoformat()
@@ -394,4 +479,6 @@ def on_job_failed(db: Session, job: Job) -> None:
         meta["last_error_detail"] = redact(str(detail))[:500]
         meta["terminal_failed_at"] = _now().isoformat()
     asset.extra_metadata = meta
+    if permanent_download and getattr(job, "job_type", None) == "download":
+        _maybe_mark_campaign_no_assets(db, asset)
     db.commit()
