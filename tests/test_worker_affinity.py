@@ -86,3 +86,22 @@ def test_primary_unaffected_without_fallback_config(db, monkeypatch):
     monkeypatch.setattr(settings, "fallback_worker_ids", "")
     job_service.create_job(db, job_type="render", payload={})
     assert _claim(db, "any-worker") is not None
+
+
+def test_polling_counts_as_liveness(db, fleet):
+    """Workers don't call /worker/heartbeat; a poll must keep the GPU fresh."""
+    assert _claim(db, GPU) is None  # empty queue, but registers liveness
+    job_service.create_job(db, job_type="download", payload={"a": 1})
+    assert _claim(db, CPU) is None
+    db.expire_all()
+    assert db.get(Worker, GPU).last_heartbeat_at is not None
+
+
+def test_job_lease_heartbeat_counts_as_liveness(db, fleet):
+    fleet(GPU, 30)
+    job_service.create_job(db, job_type="render", payload={})
+    job = _claim(db, GPU)
+    fleet(GPU, 30)
+    job_service.heartbeat(db, job.id, worker_id=GPU)
+    job_service.create_job(db, job_type="download", payload={"a": 1})
+    assert _claim(db, CPU) is None

@@ -39,6 +39,21 @@ def _fresh_worker_ids(db: Session, now: datetime) -> set[str]:
     return set(rows)
 
 
+def touch_worker(db: Session, worker_id: str, now: datetime) -> None:
+    """Polling /worker/jobs/next or renewing a job lease counts as a liveness
+    signal: workers don't send /worker/heartbeat on their own."""
+    from sqlalchemy.dialects.postgresql import insert
+    from app.models.worker import Worker, WorkerStatus
+    stmt = insert(Worker).values(
+        worker_id=worker_id, status=WorkerStatus.ONLINE.value, last_heartbeat_at=now
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[Worker.worker_id],
+        set_={"last_heartbeat_at": now},
+    )
+    db.execute(stmt)
+
+
 def _claim_filter(db: Session, worker_id: str, now: datetime):
     """Which pending jobs `worker_id` may take.
 
@@ -188,6 +203,7 @@ def claim_next_job(db: Session, *, worker_id: str) -> Optional[Job]:
     now = datetime.now(timezone.utc)
     lease_expires = now + timedelta(seconds=LEASE_DURATION_SECONDS)
     _recover_expired_leases(db, now)
+    touch_worker(db, worker_id, now)
     claim_q = (
         select(Job)
         .where(
@@ -348,6 +364,7 @@ def heartbeat(db: Session, job_id: UUID, *, worker_id: str) -> Job:
         raise InvalidTransition(f"cannot heartbeat job in status {job.status}")
     now = datetime.now(timezone.utc)
     job.lease_until = now + timedelta(seconds=LEASE_DURATION_SECONDS)
+    touch_worker(db, worker_id, now)
     db.commit()
     db.refresh(job)
     return job
