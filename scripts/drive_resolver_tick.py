@@ -30,6 +30,13 @@ def _candidate_urls(campaign) -> list[str]:
     for u in rules.get("content_source_urls") or []:
         if isinstance(u, str):
             urls.append(u)
+    # Channel URLs extracted from the brief by the ruleset parser, often
+    # without scheme ("kick.com/gattouz0").
+    source_rules = (meta.get("ruleset") or {}).get("source") or {}
+    for u in source_rules.get("allowed_urls") or []:
+        if isinstance(u, str) and u.strip():
+            u = u.strip()
+            urls.append(u if "://" in u else f"https://{u}")
     discovered = meta.get("discovered") or {}
     detail = meta.get("detail") or {}
     refs = list(discovered.get("reference_materials") or []) + list(detail.get("reference_material") or [])
