@@ -60,7 +60,8 @@ def main() -> int:
     from app.schemas.asset import AssetCreate
     from app.services.asset_service import create_asset
     from app.services.asset_resolve import RESOLVER_VERSION, expand_all
-    from app.services.campaign_transitions import lock_if_status
+    from app.services.brief_access import NEEDS_JOIN, hidden_reference_count
+    from app.services.campaign_transitions import lock_if_status, record_auto_transition
 
     step_statuses = ("briefed", "failed_resolve", "assets_resolved")
 
@@ -101,6 +102,28 @@ def main() -> int:
             processed += 1
             urls = _candidate_urls(c)
             print(f"campaign={c.id} urls={len(urls)}")
+            hidden = hidden_reference_count(meta) if not urls else 0
+            if hidden:
+                # Whop hides the brief until we join: nothing to resolve. Park
+                # it with an explicit reason instead of failed_resolve.
+                print(f"campaign={c.id} hidden_references={hidden} -> blocked_no_assets/{NEEDS_JOIN}")
+                if not args.dry_run:
+                    if not lock_if_status(db, c, step_statuses):
+                        print(f"campaign={c.id} moved to {c.status} meanwhile -> left untouched")
+                        db.commit()
+                        continue
+                    reason = f"{NEEDS_JOIN}: Whop hides {hidden} reference(s) until the campaign is joined"
+                    record_auto_transition(c, "blocked_no_assets", reason=reason, actor="asset_resolver_tick")
+                    meta = dict(c.source_metadata or {})
+                    meta["resolve_error"] = {
+                        "kind": NEEDS_JOIN,
+                        "message": reason,
+                        "hidden_references": hidden,
+                        "resolver_version": RESOLVER_VERSION,
+                    }
+                    c.source_metadata = meta
+                    db.commit()
+                continue
             items, errors = expand_all(urls)
             existing_ids = {a.source_id for a in existing if a.source_id}
             new_assets = 0

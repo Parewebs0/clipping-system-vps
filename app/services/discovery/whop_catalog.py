@@ -315,6 +315,19 @@ def expected_value(econ: dict) -> float:
     return round(ev, 2)
 
 
+def _brief_counts(detail: dict) -> dict[str, int]:
+    raw = detail.get("briefCounts")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, int] = {}
+    for k in ("contentRules", "creatorRequirements", "references"):
+        try:
+            out[k] = int(raw.get(k) or 0)
+        except (TypeError, ValueError):
+            out[k] = 0
+    return out
+
+
 def detail_summary(detail: dict) -> dict[str, Any]:
     """The useful bits of the detail payload, stored in source_metadata.detail."""
     cf = detail.get("configuration") or {}
@@ -332,6 +345,10 @@ def detail_summary(detail: dict) -> dict[str, Any]:
         "requirement": cf.get("requirement") or {},
         "rules": cf.get("rules") or {},
         "reference_material": cf.get("referenceMaterial") or [],
+        # Since Oct 2026 Content Rewards hides the brief ("Join to see the
+        # brief"): references only show up as a count. Kept so the resolver
+        # can tell "hidden references" apart from "no references at all".
+        "brief_counts": _brief_counts(detail),
         "launch_date": detail.get("launchDate") or detail.get("createdAt"),
         "ends_at": detail.get("endsAt") or detail.get("endDate") or detail.get("expiresAt"),
         "fetched_at": datetime.now(timezone.utc).isoformat(),

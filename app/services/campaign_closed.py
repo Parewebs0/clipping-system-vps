@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 HISTORY_MAX = 60
+FORBIDDEN_REASON = "forbidden_on_source"
 
 
 def _f(name: str, default: float) -> float:
@@ -253,6 +254,11 @@ def sync_whop_campaign(
     except CatalogFetchError as e:
         if "HTTP 404" in str(e):
             reasons, econ, summ = ["not_found_on_source"], {}, {}
+        elif "HTTP 403" in str(e):
+            # Private / closed to us ("Missing required permission"). Parked,
+            # not archived: a human can re-open it. Parked is skipped by the
+            # tick, so it stops asking every run.
+            reasons, econ, summ = [FORBIDDEN_REASON], {}, {}
         else:
             return {**base, "outcome": "error", "error": str(e)[:200]}
     outcome = disposition(reasons, econ)

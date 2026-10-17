@@ -223,3 +223,17 @@ def test_parked_is_terminal_for_ticks_and_not_active():
         if f.name == "campaign_closed_tick.py":
             continue
         assert '"parked"' not in f.read_text(), f.name
+
+
+def test_tick_403_parks_and_is_not_rechecked(camps):
+    s, make = camps
+    c, uid = make("failed_resolve")
+    err = urllib.error.HTTPError("u", 403, "forbidden", {}, None)
+    code, summ = _load().run(_args(c.id), s, client=_client({f"/campaigns/{uid}": err}))
+    s.expire_all()
+    row = s.get(Campaign, c.id)
+    assert code == 0 and summ["parked"] == 1 and summ["errors"] == 0
+    assert row.status == "parked"
+    assert row.source_metadata["park"]["reasons"] == ["forbidden_on_source"]
+    assert row.source_metadata["park"]["previous_status"] == "failed_resolve"
+    assert "parked" not in _load()._checkable_statuses()
