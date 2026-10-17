@@ -6,6 +6,7 @@ import { ApiError } from '@/api/client'
 import { AppShell } from '@/components/layout/AppShell'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { SocialAccountsPage } from '@/pages/SocialAccounts'
 import { CampaignDetailPage } from '@/pages/CampaignDetail'
 import { CampaignsPage } from '@/pages/Campaigns'
 import { ClipsPage } from '@/pages/Clips'
@@ -40,6 +41,7 @@ const router = createHashRouter([
       { path: 'videos', element: <VideosPage /> },
       { path: 'candidates', element: <CandidatesPage /> },
       { path: 'clips', element: <ClipsPage /> },
+      { path: 'accounts', element: <SocialAccountsPage /> },
       { path: 'shadow', element: <ShadowRunsPage /> },
       { path: 'shadow/:id', element: <ShadowRunDetailPage /> },
       { path: '*', element: <Navigate to="/overview" replace /> },

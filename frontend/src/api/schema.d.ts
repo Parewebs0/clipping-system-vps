@@ -234,6 +234,77 @@ export interface paths {
         patch: operations["update_campaigns__campaign_id__patch"];
         trace?: never;
     };
+    "/campaigns/{campaign_id}/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Branding
+         * @description Templates + effective branding for this campaign ({} when unconfigured).
+         */
+        get: operations["get_branding_campaigns__campaign_id__branding_get"];
+        /**
+         * Put Branding Template
+         * @description Upsert one template (≤ 4). Body: at least ``name`` plus any of
+         *     ``font_name``, ``caption_color``, ``outline_color``, ``position``,
+         *     ``max_words``, ``intro{max_seconds}``, ``outro{max_seconds}``.
+         *
+         *     Files are uploaded separately (POST /branding/{font|int|outro}).
+         */
+        put: operations["put_branding_template_campaigns__campaign_id__branding_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaign_id}/branding/font": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Branding Font
+         * @description Store the campaign's caption font (TTF/OTF, ≤ 10MB, one per campaign).
+         */
+        post: operations["upload_branding_font_campaigns__campaign_id__branding_font_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaign_id}/branding/{side}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Branding Media
+         * @description Store an intro/outro card (image or short video, ≤ 50MB).
+         *
+         *     ``max_seconds`` caps what is actually used when both sides are videos
+         *     (duration counts towards the campaign's max_duration).
+         */
+        post: operations["upload_branding_media_campaigns__campaign_id__branding__side__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaign_id}/enqueue": {
         parameters: {
             query?: never;
@@ -1081,7 +1152,8 @@ export interface paths {
         /** List All */
         get: operations["list_all_social_accounts_get"];
         put?: never;
-        post?: never;
+        /** Create One */
+        post: operations["create_one_social_accounts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1098,11 +1170,29 @@ export interface paths {
         /** List All */
         get: operations["list_all_social_accounts__get"];
         put?: never;
-        post?: never;
+        /** Create One */
+        post: operations["create_one_social_accounts__post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/social_accounts/{platform}/{account_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update One */
+        patch: operations["update_one_social_accounts__platform___account_key__patch"];
         trace?: never;
     };
     "/system/info": {
@@ -1148,6 +1238,46 @@ export interface paths {
         };
         /** List All Workers */
         get: operations["list_all_workers_worker__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/campaigns/{campaign_id}/branding/{side}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaign Branding Media
+         * @description Intro/outro card (image or short video) for the worker (MOLI-54).
+         */
+        get: operations["campaign_branding_media_worker_campaigns__campaign_id__branding__side__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/campaigns/{campaign_id}/fonts/{font_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaign Font
+         * @description Caption font (TTF/OTF) for the worker's libass fontsdir (MOLI-54).
+         */
+        get: operations["campaign_font_worker_campaigns__campaign_id__fonts__font_name__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1300,6 +1430,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/worker/storage/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Storage Check Endpoint
+         * @description Read-only: which local campaign/asset/clip folders the worker may delete.
+         *
+         *     Body: {"campaign_ids": [...], "asset_ids": [...], "clip_ids": [...]}.
+         *     No file access and no state change on the server.
+         */
+        post: operations["storage_check_endpoint_worker_storage_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/worker/{worker_id}": {
         parameters: {
             query?: never;
@@ -1436,6 +1589,16 @@ export interface components {
             sha256?: string | null;
             /** Status */
             status?: string | null;
+        };
+        /** Body_upload_branding_font_campaigns__campaign_id__branding_font_post */
+        Body_upload_branding_font_campaigns__campaign_id__branding_font_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_branding_media_campaigns__campaign_id__branding__side__post */
+        Body_upload_branding_media_campaigns__campaign_id__branding__side__post: {
+            /** File */
+            file: string;
         };
         /** Body_upload_logo_campaigns__campaign_id__rules_logo_post */
         Body_upload_logo_campaigns__campaign_id__rules_logo_post: {
@@ -2933,8 +3096,43 @@ export interface components {
             /** Windows */
             windows?: number[][];
         };
+        /**
+         * SocialAccountCreate
+         * @description POST /social_accounts. Unknown fields (tokens, secrets) are rejected.
+         */
+        SocialAccountCreate: {
+            /**
+             * Account Key
+             * @default default
+             */
+            account_key: string;
+            /**
+             * Auth Kind
+             * @default oauth
+             * @enum {string}
+             */
+            auth_kind: "oauth" | "browser_profile";
+            /** Handle */
+            handle?: string | null;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "youtube" | "instagram" | "tiktok" | "facebook";
+            /**
+             * Status
+             * @default healthy
+             * @enum {string}
+             */
+            status: "healthy" | "expired" | "disabled";
+        };
         /** SocialAccountOut */
         SocialAccountOut: {
+            /**
+             * Account Key
+             * @default default
+             */
+            account_key: string;
             /** Auth Kind */
             auth_kind: string;
             /** Checked At */
@@ -2955,6 +3153,18 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * SocialAccountUpdate
+         * @description PATCH /social_accounts/{platform}/{account_key}. Identity is the path.
+         */
+        SocialAccountUpdate: {
+            /** Auth Kind */
+            auth_kind?: ("oauth" | "browser_profile") | null;
+            /** Handle */
+            handle?: string | null;
+            /** Status */
+            status?: ("healthy" | "expired" | "disabled") | null;
         };
         /** StatusMachineOut */
         StatusMachineOut: {
@@ -3690,6 +3900,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CampaignOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_branding_campaigns__campaign_id__branding_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_branding_template_campaigns__campaign_id__branding_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_branding_font_campaigns__campaign_id__branding_font_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_branding_font_campaigns__campaign_id__branding_font_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_branding_media_campaigns__campaign_id__branding__side__post: {
+        parameters: {
+            query?: {
+                max_seconds?: number;
+            };
+            header?: never;
+            path: {
+                campaign_id: number;
+                side: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_branding_media_campaigns__campaign_id__branding__side__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5238,6 +5589,39 @@ export interface operations {
             };
         };
     };
+    create_one_social_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_all_social_accounts__get: {
         parameters: {
             query?: never;
@@ -5254,6 +5638,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SocialAccountOut"][];
+                };
+            };
+        };
+    };
+    create_one_social_accounts__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_one_social_accounts__platform___account_key__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: string;
+                account_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialAccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5316,6 +5769,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkerOut"][];
+                };
+            };
+        };
+    };
+    campaign_branding_media_worker_campaigns__campaign_id__branding__side__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+                side: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    campaign_font_worker_campaigns__campaign_id__fonts__font_name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign_id: number;
+                font_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5575,6 +6092,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    storage_check_endpoint_worker_storage_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

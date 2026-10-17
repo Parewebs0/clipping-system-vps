@@ -10,6 +10,9 @@ import type {
   CandidateOut,
   CampaignRuleset,
   RulesConfirmIn,
+  SocialAccount,
+  SocialAccountCreate,
+  SocialAccountUpdate,
   StatusMachine,
 } from './types'
 
@@ -124,6 +127,32 @@ export function useApprovePublish(campaignId?: number) {
       if (campaignId != null) qc.invalidateQueries({ queryKey: ['campaign', campaignId] })
       else qc.invalidateQueries({ queryKey: ['campaign'] })
     },
+  })
+}
+
+function useInvalidateSocialAccounts() {
+  const qc = useQueryClient()
+  return () => qc.invalidateQueries({ queryKey: keys.socialAccounts })
+}
+
+export function useCreateSocialAccount() {
+  const invalidate = useInvalidateSocialAccounts()
+  return useMutation({
+    mutationFn: (body: SocialAccountCreate) =>
+      api<SocialAccount>('/social_accounts', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => invalidate(),
+  })
+}
+
+export function useUpdateSocialAccount() {
+  const invalidate = useInvalidateSocialAccounts()
+  return useMutation({
+    mutationFn: ({ platform, accountKey, body }: { platform: string; accountKey: string; body: SocialAccountUpdate }) =>
+      api<SocialAccount>(`/social_accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountKey)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => invalidate(),
   })
 }
 

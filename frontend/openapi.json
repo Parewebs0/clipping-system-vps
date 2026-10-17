@@ -5002,6 +5002,65 @@
         "title": "ShadowSideOut",
         "type": "object"
       },
+      "SocialAccountCreate": {
+        "additionalProperties": false,
+        "description": "POST /social_accounts. Unknown fields (tokens, secrets) are rejected.",
+        "properties": {
+          "account_key": {
+            "default": "default",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9_]{1,64}$",
+            "title": "Account Key",
+            "type": "string"
+          },
+          "auth_kind": {
+            "default": "oauth",
+            "enum": [
+              "oauth",
+              "browser_profile"
+            ],
+            "title": "Auth Kind",
+            "type": "string"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          },
+          "platform": {
+            "enum": [
+              "youtube",
+              "instagram",
+              "tiktok",
+              "facebook"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "status": {
+            "default": "healthy",
+            "enum": [
+              "healthy",
+              "expired",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform"
+        ],
+        "title": "SocialAccountCreate",
+        "type": "object"
+      },
       "SocialAccountOut": {
         "properties": {
           "account_key": {
@@ -5063,6 +5122,57 @@
           "updated_at"
         ],
         "title": "SocialAccountOut",
+        "type": "object"
+      },
+      "SocialAccountUpdate": {
+        "additionalProperties": false,
+        "description": "PATCH /social_accounts/{platform}/{account_key}. Identity is the path.",
+        "properties": {
+          "auth_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "oauth",
+                  "browser_profile"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Kind"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "healthy",
+                  "expired",
+                  "disabled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "SocialAccountUpdate",
         "type": "object"
       },
       "StatusMachineOut": {
@@ -9760,6 +9870,50 @@
         "tags": [
           "social_accounts"
         ]
+      },
+      "post": {
+        "operationId": "create_one_social_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create One",
+        "tags": [
+          "social_accounts"
+        ]
       }
     },
     "/social_accounts/": {
@@ -9787,6 +9941,118 @@
           }
         ],
         "summary": "List All",
+        "tags": [
+          "social_accounts"
+        ]
+      },
+      "post": {
+        "operationId": "create_one_social_accounts__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create One",
+        "tags": [
+          "social_accounts"
+        ]
+      }
+    },
+    "/social_accounts/{platform}/{account_key}": {
+      "patch": {
+        "operationId": "update_one_social_accounts__platform___account_key__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "pattern": "^(youtube|instagram|tiktok|facebook)$",
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_key",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9_]{1,64}$",
+              "title": "Account Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialAccountUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update One",
         "tags": [
           "social_accounts"
         ]

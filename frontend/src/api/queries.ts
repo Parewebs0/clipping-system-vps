@@ -12,6 +12,7 @@ import type {
   Pipeline,
   ShadowRunDetail,
   ShadowRunList,
+  SocialAccount,
   Videos,
 } from './types'
 
@@ -30,6 +31,7 @@ export const keys = {
   candidates: (f: { status?: string; campaign_id?: number }) => ['candidates', f] as const,
   shadowRuns: ['shadow-runs'] as const,
   shadowRun: (id: string) => ['shadow-run', id] as const,
+  socialAccounts: ['social-accounts'] as const,
 }
 
 export const useOverview = () =>
@@ -95,6 +97,12 @@ export const useCandidates = (f: { status?: string; campaign_id?: number }) =>
   useQuery({
     queryKey: keys.candidates(f),
     queryFn: () => api<Candidates>(`/mission-control/candidates${qs({ limit: 500, ...f })}`),
+  })
+
+export const useSocialAccounts = () =>
+  useQuery({
+    queryKey: keys.socialAccounts,
+    queryFn: () => api<SocialAccount[]>('/social_accounts'),
   })
 
 export const useShadowRuns = () =>

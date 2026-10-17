@@ -9,7 +9,7 @@
 | Variable (`.env`) | Uso |
 |---|---|
 | `API_TOKEN` | token histórico; lo usa el worker Windows. Lee todo y, si no hay `API_WRITE_TOKEN`, también escribe campañas |
-| `API_WRITE_TOKEN` (opcional, nuevo) | token de operador/dashboard. Si está definido: lee todo **y** es el único que puede crear/editar/cambiar estado/borrar campañas (`POST/PATCH/DELETE /campaigns…`, `POST /campaigns/{id}/status`) y aprobar/rechazar candidatos (`POST /candidates/{id}/approve|reject`, #17). `API_TOKEN` recibe **403** en esos endpoints y sigue funcionando en todo lo demás (worker) |
+| `API_WRITE_TOKEN` (opcional, nuevo) | token de operador/dashboard. Si está definido: lee todo **y** es el único que puede crear/editar/cambiar estado/borrar campañas (`POST/PATCH/DELETE /campaigns…`, `POST /campaigns/{id}/status`), aprobar/rechazar candidatos (`POST /candidates/{id}/approve|reject`, #17) y dar de alta o editar cuentas sociales (`POST /social_accounts`, `PATCH /social_accounts/{platform}/{account_key}`). `API_TOKEN` recibe **403** en esos endpoints y sigue funcionando en todo lo demás (worker) |
 | `API_READ_TOKEN` (opcional) | token de solo lectura para monitorización (Supervisor Clipping). Solo vale en `GET`/`HEAD`; cualquier otro método recibe **403**. Vacío = desactivado |
 
 Activarlo (decisión del operador):

@@ -19,7 +19,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '^/(mission-control/(overview|campaigns|jobs|pipeline|videos|clips|candidates|shadow)|campaigns|clips|jobs|candidates|health|worker)': {
+      '^/(mission-control/(overview|campaigns|jobs|pipeline|videos|clips|candidates|shadow)|campaigns|clips|jobs|candidates|health|worker|social_accounts)': {
         target: apiTarget,
         changeOrigin: true,
       },
