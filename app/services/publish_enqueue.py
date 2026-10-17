@@ -41,6 +41,10 @@ from app.services.publish_schedule import scheduled_at_for
 
 logger = logging.getLogger(__name__)
 
+# One warning per clip per process. A tick used to log the same clip again
+# on every platform and on every later run of this process.
+_unknown_worker_warned: set[str] = set()
+
 OPEN_JOB_STATUSES = ("pending", "assigned", "processing")
 # Milestone first, then the rest in a fixed readable order; unknown pending
 # platforms go last, alphabetical.
@@ -217,15 +221,18 @@ def enqueue_publish_jobs(
                     "platform": plat,
                     "reason": "blocked_unknown_worker",
                 })
-                logger.warning(
-                    "skip publish %s platform=%s reason=blocked_unknown_worker",
-                    format_ids(
-                        job_type="publish",
-                        clip_id=clip.id,
-                        campaign_id=clip.campaign_id,
-                    ),
-                    plat,
-                )
+                clip_key = str(clip.id)
+                if clip_key not in _unknown_worker_warned:
+                    _unknown_worker_warned.add(clip_key)
+                    logger.warning(
+                        "skip publish %s platform=%s reason=blocked_unknown_worker",
+                        format_ids(
+                            job_type="publish",
+                            clip_id=clip.id,
+                            campaign_id=clip.campaign_id,
+                        ),
+                        plat,
+                    )
                 continue
 
             campaign = db.get(Campaign, clip.campaign_id)

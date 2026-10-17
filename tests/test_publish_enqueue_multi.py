@@ -25,9 +25,15 @@ UTC = timezone.utc
 RENDER_WORKER = "windows-gpu-worker-01"
 FALLBACK_WORKER = "minipc-cpu-worker-01"
 
+# Sessions created for a single enqueue/seed call. The engine pool is 2+3;
+# leaving them open overflows it once the whole suite is collected in one process.
+_OPEN_SESSIONS: list = []
+
 
 def _mk_db() -> SessionLocal:  # returns a fresh Session
-    return SessionLocal()
+    session = SessionLocal()
+    _OPEN_SESSIONS.append(session)
+    return session
 
 
 def _job(db, *, job_type: str, worker_id: str | None, payload: dict) -> Job:
@@ -173,6 +179,19 @@ def _channels(db):
     for plat in ("youtube", "instagram", "tiktok"):
         db.add(SocialAccount(platform=plat, account_key="default", status="healthy"))
     db.commit()
+
+
+@pytest.fixture(autouse=True)
+def _close_mk_sessions():
+    """Close every `_mk_db()` session, including ones passed straight into
+    `enqueue_publish_jobs` and never stored by the test.
+
+    Defined after `_channels` so this teardown runs first and returns the
+    connection before the cleanup deletes rows.
+    """
+    yield
+    while _OPEN_SESSIONS:
+        _OPEN_SESSIONS.pop().close()
 
 
 def test_dry_run_enqueues_jobs_for_campaign_platforms_with_copy(db):
@@ -346,19 +365,27 @@ def test_affinity_from_render_pin_when_worker_id_cleared(db):
 
 
 def test_unknown_worker_is_not_enqueued(db, caplog):
-    clip = _seed_clip(db, platforms=["youtube"], via="none")
+    clip = _seed_clip(db, platforms=["youtube", "instagram"], via="none")
     db.close()
+    skipped = [
+        {
+            "skipped": True,
+            "clip_id": str(clip.id),
+            "platform": plat,
+            "reason": "blocked_unknown_worker",
+        }
+        for plat in ("youtube", "instagram")
+    ]
 
     with caplog.at_level(logging.WARNING, logger="app.services.publish_enqueue"):
-        rows = enqueue_publish_jobs(_mk_db(), platform="youtube", limit=5)
+        rows = enqueue_publish_jobs(_mk_db(), limit=5)
+        again = enqueue_publish_jobs(_mk_db(), limit=5)
 
-    assert rows == [{
-        "skipped": True,
-        "clip_id": str(clip.id),
-        "platform": "youtube",
-        "reason": "blocked_unknown_worker",
-    }]
-    assert any("blocked_unknown_worker" in r.message for r in caplog.records)
+    assert rows == skipped
+    assert again == rows
+    # Once per clip: two platforms and a second run do not log again.
+    warnings = [r for r in caplog.records if "blocked_unknown_worker" in r.message]
+    assert len(warnings) == 1
     db2 = _mk_db()
     n = db2.execute(text("SELECT count(*) FROM jobs WHERE job_type = 'publish'")).scalar()
     db2.close()
