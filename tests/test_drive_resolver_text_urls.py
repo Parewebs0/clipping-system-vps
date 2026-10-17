@@ -63,6 +63,12 @@ def test_text_urls_read_discovered_description_and_skip_known():
     ]
 
 
+@pytest.fixture(autouse=True)
+def _no_reach_network(monkeypatch):
+    import app.services.asset_resolve as ar
+    monkeypatch.setattr(ar, "reachclipping_footage", lambda url: [])
+
+
 def test_drive_vod_in_text_becomes_downloadable_asset_and_sheet_is_ignored():
     urls = urls_from_text(SPEED + "\nTracker: https://docs.google.com/spreadsheets/d/abcSHEET/edit")
     found, errors = expand_all(urls)

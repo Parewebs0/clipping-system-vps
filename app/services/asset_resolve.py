@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import heapq
+import html
 import json
 import os
 import re
@@ -244,6 +245,44 @@ def urls_from_text(text: str) -> list[str]:
         for raw in _TEXT_URL_RE.findall(line):
             u = raw.rstrip(".,;:!?")
             if u not in out:
+                out.append(u)
+    return out
+
+
+REACH_TIMEOUT_S = 10
+_TAG_RE = re.compile(r"<[^>]+>")
+_HREF_TAG_RE = re.compile(r"<[^>]*?\bhref=[\"']([^\"']+)[\"'][^>]*>", re.I)
+
+
+def is_reachclipping(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "reachclipping.com" or host.endswith(".reachclipping.com")
+
+
+def reachclipping_footage(url: str) -> list[str]:
+    """URLs on the «FOOTAGE» line(s) of a reachclipping.com campaign page.
+
+    Only that label is read; no other scraping. Network errors give [].
+    """
+    req = urllib.request.Request(url, headers={"User-Agent": "clipping-system-vps/1.0 (resolver)"})
+    try:
+        with urllib.request.urlopen(req, timeout=REACH_TIMEOUT_S) as resp:
+            page = resp.read(2_000_000).decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        return []
+    # Keep link targets as text so «FOOTAGE: <a href=URL>label</a>» still has the URL.
+    text = html.unescape(_TAG_RE.sub(" ", _HREF_TAG_RE.sub(r" \1 ", page)))
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    out: list[str] = []
+    for i, line in enumerate(lines):
+        if "footage" not in line.lower():
+            continue
+        found = urls_from_text(line)
+        if not found and i + 1 < len(lines):
+            # «FOOTAGE LINK:» with the URL on the next line.
+            found = urls_from_text(lines[i + 1])
+        for u in found:
+            if not is_reachclipping(u) and u not in out:
                 out.append(u)
     return out
 
@@ -585,6 +624,14 @@ def expand_url(url: str) -> tuple[list[dict], str | None]:
         )], None
     if kind == "unsupported":
         return [], "unsupported_source"
+    if kind == "unknown" and is_reachclipping(url):
+        assets: list[dict] = []
+        for footage in reachclipping_footage(url):
+            if classify(footage) in {"unknown", "unsupported"}:
+                continue
+            found, _err = expand_url(footage)
+            assets += found
+        return assets, (None if assets else "unsupported_source")
     if kind == "unknown":
         return [], "unsupported_source"
     if kind == "drive_folder":
