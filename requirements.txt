@@ -25,6 +25,9 @@ pillow==11.3.0
 cairosvg==2.8.2
 python-multipart==0.0.20
 
+# Channel -> VOD metadata for the asset resolver (paso 3b); no media download.
+yt-dlp==2026.8.19
+
 # Config loading
 python-dotenv==1.2.3
 
