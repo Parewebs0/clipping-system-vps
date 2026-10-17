@@ -12,6 +12,10 @@ Dry-run stays the default: without an explicit live run the job payload
 carries ``dry_run: true`` and the worker only moves the clip into
 ``uploaded/`` and fabricates a dry-run URL. No real post without an explicit
 operator-approved live run.
+
+Each publish job is pinned (``affinity_worker_id``) to the worker that has
+the mp4 on disk. The file never moves to the CPU fallback, so a clip whose
+owner cannot be determined is not queued.
 """
 from __future__ import annotations
 
@@ -31,7 +35,7 @@ from app.models.clip_publication import ClipPublication
 from app.models.job import Job
 from app.models.social_account import SocialAccount
 from app.logctx import format_ids
-from app.services.job_service import create_job
+from app.services.job_service import AFFINITY_KEY, create_job
 from app.services.publish_copy import paid_promotion, platform_copy, platform_mentions
 from app.services.publish_schedule import scheduled_at_for
 
@@ -84,6 +88,48 @@ def _healthy_accounts(db: Session, platform: str) -> list[SocialAccount]:
             .order_by(SocialAccount.account_key)
         ).scalars()
     )
+
+
+def _nonempty(value: object) -> str | None:
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            return text
+    return None
+
+
+def _job_affinity(job: Job | None) -> str | None:
+    if job is None or not isinstance(job.payload, dict):
+        return None
+    return _nonempty(job.payload.get(AFFINITY_KEY))
+
+
+def _file_worker(db: Session, clip: Clip) -> str | None:
+    """Worker that holds the rendered mp4.
+
+    Clip has no worker column. Order:
+
+    1. ``worker_id`` of the render job (``clip.render_job_id``) — the
+       process that wrote the file.
+    2. The QA job (``clip.qa_job_id``): its ``affinity_worker_id`` pin,
+       copied from the render worker when the QA job was created, then
+       its own ``worker_id``.
+    3. The render job's affinity pin (``downloaded_by``), if the render
+       ``worker_id`` was cleared after the file was written.
+    """
+    render = db.get(Job, clip.render_job_id) if clip.render_job_id else None
+    if render is not None:
+        owner = _nonempty(render.worker_id)
+        if owner:
+            return owner
+
+    qa = db.get(Job, clip.qa_job_id) if clip.qa_job_id else None
+    if qa is not None:
+        owner = _job_affinity(qa) or _nonempty(qa.worker_id)
+        if owner:
+            return owner
+
+    return _job_affinity(render)
 
 
 def _pending_platforms(db: Session) -> list[str]:
@@ -161,6 +207,27 @@ def enqueue_publish_jobs(
             if _blocks_requeue(db, clip.id, plat, live=live):
                 continue
 
+            worker = _file_worker(db, clip)
+            if not worker:
+                # Do not count toward `limit`: a clip we cannot place must
+                # not hide a later clip that does have an owner.
+                out.append({
+                    "skipped": True,
+                    "clip_id": str(clip.id),
+                    "platform": plat,
+                    "reason": "blocked_unknown_worker",
+                })
+                logger.warning(
+                    "skip publish %s platform=%s reason=blocked_unknown_worker",
+                    format_ids(
+                        job_type="publish",
+                        clip_id=clip.id,
+                        campaign_id=clip.campaign_id,
+                    ),
+                    plat,
+                )
+                continue
+
             campaign = db.get(Campaign, clip.campaign_id)
             cand = db.get(Candidate, clip.candidate_id) if clip.candidate_id else None
             title, description, hashtags = platform_copy(campaign, clip, cand, plat)
@@ -193,6 +260,7 @@ def enqueue_publish_jobs(
                 "account": accounts[0].account_key,
                 "scheduled_at": scheduled.isoformat(),
                 "dry_run": payload_dry,
+                "worker": worker,
             }
             if not create_jobs:
                 row["job_id"] = None
@@ -208,6 +276,7 @@ def enqueue_publish_jobs(
                 priority=4,
                 max_attempts=3,
                 available_at=scheduled if not payload_dry else None,
+                affinity_worker_id=worker,
             )
             pub.job_id = job.id
             db.commit()
@@ -215,7 +284,7 @@ def enqueue_publish_jobs(
             out.append(row)
             made += 1
             logger.info(
-                "enqueued publish %s platform=%s dry_run=%s scheduled_at=%s account=%s",
+                "enqueued publish %s platform=%s dry_run=%s scheduled_at=%s account=%s worker=%s",
                 format_ids(
                     job_id=job.id,
                     job_type="publish",
@@ -226,6 +295,7 @@ def enqueue_publish_jobs(
                 payload_dry,
                 scheduled.isoformat(),
                 accounts[0].account_key,
+                worker,
             )
             if scheduled > now:
                 logger.info(
