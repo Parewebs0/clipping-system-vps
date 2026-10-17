@@ -1,4 +1,4 @@
-"""Unified 3b backends: Drive folders, Dropbox, direct downloadable URLs."""
+"""Unified 3b backends: Drive folders, Dropbox, direct URLs, streamer channels/VODs."""
 from __future__ import annotations
 
 import heapq
@@ -8,6 +8,7 @@ import re
 import subprocess
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 from app.services.http_retry import RETRY_STATUS, pause
 from pathlib import Path
@@ -129,6 +130,24 @@ VIMEO_RE = re.compile(r"vimeo\.com/(?:video/)?(\d+)", re.I)
 TIKTOK_RE = re.compile(r"tiktok\.com/@[^/]+/video/(\d+)", re.I)
 DROPBOX_FOLDER_RE = re.compile(r"dropbox\.com/scl/fo/([a-zA-Z0-9_-]+)", re.I)
 DROPBOX_FILE_RE = re.compile(r"dropbox\.com/(?:scl/fi|s)/([a-zA-Z0-9_-]+)", re.I)
+# Streamer sources. Single VODs are direct sources; channels resolve to their
+# latest VODs (see resolve_channel_vods).
+TWITCH_VOD_RE = re.compile(r"twitch\.tv/videos/(\d+)", re.I)
+KICK_VOD_RE = re.compile(r"kick\.com/([A-Za-z0-9_-]+)/videos/([A-Za-z0-9-]{8,})", re.I)
+_END = r"/?(?:[?#].*)?$"
+YT_CHANNEL_RE = re.compile(
+    r"youtube\.com/(@[A-Za-z0-9._-]+|channel/[A-Za-z0-9_-]+|c/[A-Za-z0-9._-]+|user/[A-Za-z0-9._-]+)"
+    r"(?:/(videos|streams|featured))?" + _END,
+    re.I,
+)
+TWITCH_CHANNEL_RE = re.compile(r"twitch\.tv/([A-Za-z0-9_]{2,25})(?:/videos)?" + _END, re.I)
+KICK_CHANNEL_RE = re.compile(r"kick\.com/([A-Za-z0-9_-]{2,40})(?:/videos)?" + _END, re.I)
+_CHANNEL_RESERVED = {
+    "videos", "video", "directory", "p", "settings", "search", "downloads", "jobs", "turbo",
+    "subscriptions", "inventory", "wallet", "drops", "following", "browse", "categories",
+    "category", "signup", "login", "privacy", "terms", "dashboard", "clips", "clip", "help",
+    "about", "community", "api", "moderator", "store", "prime",
+}
 
 # Social pages that are references (sounds/audio pages, short-links, profiles,
 # posts we cannot download) rather than source footage. A campaign whose only
@@ -185,6 +204,12 @@ def classify(url: str) -> str:
         return "dropbox_file"
     if YT_RE.search(url or ""):
         return "youtube"
+    if TWITCH_VOD_RE.search(url or ""):
+        return "twitch_vod"
+    if KICK_VOD_RE.search(url or ""):
+        return "kick_vod"
+    if channel_ref(url):
+        return "channel"
     if TIKTOK_RE.search(url or ""):
         return "tiktok"
     if VIMEO_RE.search(url or "") and "/user" not in u:
@@ -327,6 +352,192 @@ def _resolved(
     return out
 
 
+# --------------------------------------------------------------------------
+# Streamer channels (YouTube / Twitch / Kick) -> latest VODs, metadata only.
+# --------------------------------------------------------------------------
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def channel_settings() -> dict[str, Any]:
+    """All knobs by env. Nothing is downloaded: only metadata is read."""
+    vods = max(0, _env_int("RESOLVE_CHANNEL_VODS", 2))
+    return {
+        "enabled": os.environ.get("RESOLVE_CHANNELS_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"},
+        "vods": vods,
+        "max_age_days": max(0, _env_int("RESOLVE_CHANNEL_MAX_AGE_DAYS", 7)),
+        "max_duration_s": max(0, _env_int("RESOLVE_CHANNEL_MAX_DURATION_S", 4 * 3600)),
+        "min_duration_s": max(0, _env_int("RESOLVE_CHANNEL_MIN_DURATION_S", 60)),
+        # How many newest entries to inspect to find `vods` that pass the filters.
+        "scan": max(1, min(_env_int("RESOLVE_CHANNEL_SCAN", max(vods * 3, 1)), 20)),
+        "ytdlp_bin": os.environ.get("RESOLVE_YTDLP_BIN", "yt-dlp"),
+        "timeout_s": max(10, _env_int("RESOLVE_YTDLP_TIMEOUT_S", 180)),
+    }
+
+
+def channel_ref(url: str) -> tuple[str, str] | None:
+    """(platform, listing_url) for a channel URL, else None.
+
+    YouTube /@x, /channel/ID, /c/x, /user/x (+ /videos|/streams), twitch.tv/x
+    (+ /videos) and kick.com/x (+ /videos). Disabled -> None.
+    """
+    if not channel_settings()["enabled"]:
+        return None
+    u = (url or "").strip()
+    try:
+        host = (urlparse(u).hostname or "").lower()
+    except ValueError:
+        return None
+    if host.endswith("youtube.com"):
+        m = YT_CHANNEL_RE.search(u)
+        if not m:
+            return None
+        tab = (m.group(2) or "videos").lower()
+        tab = "streams" if tab == "streams" else "videos"
+        return "youtube", f"https://www.youtube.com/{m.group(1)}/{tab}"
+    if host == "twitch.tv" or host.endswith(".twitch.tv"):
+        m = TWITCH_CHANNEL_RE.search(u)
+        if not m or m.group(1).lower() in _CHANNEL_RESERVED:
+            return None
+        return "twitch", f"https://www.twitch.tv/{m.group(1)}/videos?filter=archives&sort=time"
+    if host == "kick.com" or host.endswith(".kick.com"):
+        m = KICK_CHANNEL_RE.search(u)
+        if not m or m.group(1).lower() in _CHANNEL_RESERVED:
+            return None
+        return "kick", m.group(1)
+    return None
+
+
+def _run_ytdlp_json(listing_url: str, cfg: dict[str, Any]) -> dict:
+    """yt-dlp -J over the newest `scan` entries, without downloading media."""
+    cmd = [
+        cfg["ytdlp_bin"], "-J", "--skip-download", "--ignore-errors", "--no-warnings",
+        "--playlist-items", f"1:{cfg['scan']}", listing_url,
+    ]
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=cfg["timeout_s"])
+    out = (p.stdout or "").strip()
+    if not out:
+        raise RuntimeError((p.stderr or f"yt-dlp exit {p.returncode}")[-300:])
+    return json.loads(out)
+
+
+def _kick_api_videos(slug: str, cfg: dict[str, Any]) -> list[dict]:
+    """Kick has no channel-listing extractor in yt-dlp: read the public JSON
+    listing and map it to yt-dlp-like entries. Each VOD URL is then a
+    kick.com/<slug>/videos/<uuid> that yt-dlp (kick:vod) downloads."""
+    req = urllib.request.Request(
+        f"https://kick.com/api/v2/channels/{slug}/videos",
+        headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) clipping-system-vps/1.0", "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=cfg["timeout_s"]) as r:  # noqa: S310 (public https)
+        data = json.loads(r.read().decode("utf-8", errors="replace"))
+    entries = []
+    for v in data if isinstance(data, list) else []:
+        if not isinstance(v, dict) or v.get("is_live"):
+            continue
+        vid = (v.get("video") or {}).get("uuid")
+        if not vid:
+            continue
+        dur = v.get("duration")
+        entries.append({
+            "id": vid,
+            "title": v.get("session_title") or vid,
+            "duration": (float(dur) / 1000.0) if isinstance(dur, (int, float)) else None,
+            "release_date_str": v.get("start_time") or v.get("created_at"),
+            "webpage_url": f"https://kick.com/{slug}/videos/{vid}",
+            "live_status": "was_live",
+        })
+    return entries
+
+
+def _entry_time(e: dict) -> datetime | None:
+    for key in ("timestamp", "release_timestamp"):
+        v = e.get(key)
+        if isinstance(v, (int, float)) and v > 0:
+            return datetime.fromtimestamp(float(v), tz=timezone.utc)
+    for key in ("upload_date", "release_date"):
+        v = str(e.get(key) or "")
+        if len(v) == 8 and v.isdigit():
+            return datetime.strptime(v, "%Y%m%d").replace(tzinfo=timezone.utc)
+    v = e.get("release_date_str")
+    if v:
+        try:
+            return datetime.strptime(str(v)[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    return None
+
+
+def pick_vods(entries: list[dict], cfg: dict[str, Any], *, now: datetime | None = None) -> list[dict]:
+    """Newest-first entries -> up to cfg['vods'] that are finished, recent and
+    within the duration window. Unknown date or duration is skipped (safer)."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=cfg["max_age_days"])
+    out: list[dict] = []
+    for e in entries:
+        if len(out) >= cfg["vods"]:
+            break
+        if not isinstance(e, dict):
+            continue
+        if e.get("live_status") in {"is_live", "is_upcoming", "post_live"}:
+            continue
+        when = _entry_time(e)
+        dur = e.get("duration")
+        if when is None or when < cutoff:
+            continue
+        if not isinstance(dur, (int, float)):
+            continue
+        if dur < cfg["min_duration_s"] or (cfg["max_duration_s"] and dur > cfg["max_duration_s"]):
+            continue
+        out.append(e)
+    return out
+
+
+def resolve_channel_vods(url: str, *, now: datetime | None = None) -> tuple[list[dict], str | None]:
+    """Channel URL -> (assets for its latest VODs, error kind or None)."""
+    ref = channel_ref(url)
+    if not ref:
+        return [], "unsupported_source"
+    platform, listing = ref
+    cfg = channel_settings()
+    if cfg["vods"] <= 0:
+        return [], "channel_disabled"
+    try:
+        if platform == "kick":
+            entries = _kick_api_videos(listing, cfg)
+        else:
+            data = _run_ytdlp_json(listing, cfg)
+            entries = [e for e in (data.get("entries") or []) if isinstance(e, dict)]
+    except Exception as e:  # noqa: BLE001 - network/yt-dlp failure, reported, not raised
+        return [], f"channel_listing_failed:{type(e).__name__}"
+    picked = pick_vods(entries, cfg, now=now)
+    out: list[dict] = []
+    for e in picked:
+        vid = str(e.get("id") or "")
+        if platform == "twitch":
+            vid = vid.lstrip("v")  # yt-dlp twitch ids are "v<digits>"
+        page = e.get("webpage_url") or e.get("url") or ""
+        if platform == "twitch" and vid and not page.startswith("http"):
+            page = f"https://www.twitch.tv/videos/{vid.lstrip('v')}"
+        if platform == "youtube" and vid and not page.startswith("http"):
+            page = f"https://www.youtube.com/watch?v={vid}"
+        if not vid or not page:
+            continue
+        out.append(_resolved(
+            source_url=page,
+            source_id=f"{platform}:{vid}",
+            provider=platform if platform == "youtube" else f"{platform}_vod",
+            name=str(e.get("title") or vid)[:200],
+            kind="channel_vod",
+        ))
+    return out, (None if out else "channel_no_recent_vods")
+
+
 def expand_url(url: str) -> tuple[list[dict], str | None]:
     """Return (assets, error_kind_or_none). error only if this URL should fail the campaign when it is the only source."""
     url = normalize_url(url)
@@ -405,11 +616,16 @@ def expand_url(url: str) -> tuple[list[dict], str | None]:
         )], None
     if kind == "dropbox_folder":
         return [], "dropbox_folder_needs_list"
-    if kind in {"youtube", "tiktok", "vimeo", "direct"}:
+    if kind == "channel":
+        return resolve_channel_vods(url)
+    if kind in {"youtube", "tiktok", "vimeo", "direct", "twitch_vod", "kick_vod"}:
         ident = url
-        m = YT_RE.search(url) or TIKTOK_RE.search(url) or VIMEO_RE.search(url)
+        m = YT_RE.search(url) or TIKTOK_RE.search(url) or VIMEO_RE.search(url) or TWITCH_VOD_RE.search(url)
         if m:
             ident = m.group(1)
+        km = KICK_VOD_RE.search(url)
+        if kind == "kick_vod" and km:
+            ident = km.group(2)
         return [_resolved(
             source_url=url,
             source_id=ident,
@@ -442,6 +658,8 @@ def expand_all(urls: list[str]) -> tuple[list[dict], list[str]]:
             errors.append(f"unsupported_source:{url[:120]}")
         elif err == "whop_asset_unreachable":
             errors.append(f"whop_asset_unreachable:{url[-80:]}")
+        elif err and err.startswith("channel_"):
+            errors.append(f"{err}:{url[:120]}")
         for a in assets:
             key = a["source_id"] or a["source_url"]
             if key in seen:
