@@ -1,8 +1,9 @@
 """Download a Whop organization logo into the existing logo store (#55).
 
-Called from ``upsert_campaign`` after the row is saved. Never raises and
-never confirms ``human:logo_file``: the organization mark may not be the
-brand logo, so Mission Control still confirms it.
+Called from ``upsert_campaign`` and from ``persist_rules`` (the ruleset
+does not exist yet on the first upsert). Never raises and never confirms
+``human:logo_file``: the organization mark may not be the brand logo, so
+Mission Control still confirms it. A confirmed logo is not replaced.
 
 Manual uploads win. ``rules_overrides.logo_source`` is ``manual`` after
 ``POST /campaigns/{id}/rules/logo`` and ``whop_org`` after this fetch.
@@ -72,14 +73,16 @@ def _apply_org_logo(campaign) -> bool:
     # A URL set by the upload endpoint before logo_source existed, or by hand.
     if overrides.get("logo_url") and source != LOGO_SOURCE_WHOP:
         return False
+    # Jesús already accepted this logo. A later Whop URL must not swap the file
+    # out from under that confirmation.
+    if _logo_confirmed(meta):
+        return False
     raw_url = _organization_logo_url(meta)
     if not raw_url:
-        logger.warning(
-            "logo autofetch skipped campaign_id=%s reason=no_organization_logo_url",
-            campaign_id,
-        )
-        return False
+        return _remember_failure(campaign, meta, overrides, "", "no_organization_logo_url", campaign_id)
     if source == LOGO_SOURCE_WHOP and str(overrides.get("logo_whop_url") or "") == raw_url:
+        return False
+    if overrides.get("logo_fetch_error") and str(overrides.get("logo_fetch_url") or "") == raw_url:
         return False
     absolute = normalize_url(raw_url)
     if not absolute.lower().startswith(("http://", "https://")):
@@ -93,21 +96,14 @@ def _apply_org_logo(campaign) -> bool:
         png = rasterize_logo(data, content_type, urlparse(absolute).path)
         store_logo_png(campaign_id, png)
     except LogoFetchError as exc:
-        logger.warning(
-            "logo autofetch failed campaign_id=%s reason=%s",
-            campaign_id,
-            exc.reason,
-        )
-        return False
+        return _remember_failure(campaign, meta, overrides, raw_url, exc.reason, campaign_id)
     except LogoError:
-        logger.warning(
-            "logo autofetch failed campaign_id=%s reason=unsupported_format",
-            campaign_id,
-        )
-        return False
+        return _remember_failure(campaign, meta, overrides, raw_url, "unsupported_format", campaign_id)
     overrides["logo_url"] = worker_logo_path(campaign_id)
     overrides["logo_source"] = LOGO_SOURCE_WHOP
     overrides["logo_whop_url"] = raw_url
+    overrides.pop("logo_fetch_error", None)
+    overrides.pop("logo_fetch_url", None)
     meta["rules_overrides"] = overrides
     campaign.source_metadata = meta
     logger.info("logo autofetch stored campaign_id=%s source=%s", campaign_id, LOGO_SOURCE_WHOP)
@@ -127,6 +123,25 @@ def _needs_logo_file(meta: dict) -> bool:
     if any(item.get("key") == "human:logo_file" for item in blocking_items(rs)):
         return True
     return not (rs.logo.url or "").strip()
+
+
+def _logo_confirmed(meta: dict) -> bool:
+    conf = meta.get("rules_confirmations")
+    if not isinstance(conf, dict):
+        return False
+    return bool(conf.get("human:logo_file"))
+
+
+def _remember_failure(campaign, meta: dict, overrides: dict, raw_url: str, reason: str, campaign_id: int) -> bool:
+    """Record the miss so the same URL is not fetched again. Returns True if metadata changed."""
+    if overrides.get("logo_fetch_error") == reason and str(overrides.get("logo_fetch_url") or "") == raw_url:
+        return False
+    logger.warning("logo autofetch failed campaign_id=%s reason=%s", campaign_id, reason)
+    overrides["logo_fetch_error"] = reason
+    overrides["logo_fetch_url"] = raw_url
+    meta["rules_overrides"] = overrides
+    campaign.source_metadata = meta
+    return True
 
 
 def _organization_logo_url(meta: dict) -> str:

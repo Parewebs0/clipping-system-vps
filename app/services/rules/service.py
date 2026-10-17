@@ -79,6 +79,11 @@ def persist_rules(campaign, rs: RuleSet, bundle: SourceBundle) -> dict:
     spec["extra"] = extra
     campaign.spec = spec
     campaign.source_instructions = (legacy.get("extra_rules") or legacy.get("difficulty_notes") or "")[:4000]
+    # The ruleset did not exist at discovery upsert. Fetch now, after it is stored
+    # and confirmations are reconciled. Never raises; the caller commits.
+    from app.services.logo_autofetch import apply_org_logo
+
+    apply_org_logo(campaign)
     return legacy
 
 

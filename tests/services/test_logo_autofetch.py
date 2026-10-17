@@ -261,6 +261,80 @@ def test_manual_upload_after_auto_is_not_overwritten(logos, http):
     assert _overrides(camp)["logo_source"] == "manual"
 
 
+def test_new_campaign_fetches_logo_when_rules_are_persisted(logos, http):
+    """Discovery upsert has no ruleset yet. The brief reader persists it later."""
+    from app.services.rules.service import persist_rules
+    from app.services.rules.sources import SourceBundle
+
+    http.png()
+
+    class _NewDB(_DB):
+        def __init__(self):
+            super().__init__(None)
+
+        def execute(self, _stmt):
+            class _Result:
+                def scalar_one_or_none(_self):
+                    return None
+
+                def scalar_one(_self):
+                    return 0
+
+            return _Result()
+
+        def add(self, obj):
+            self.added = obj
+
+        def refresh(self, obj):
+            if getattr(obj, "id", None) is None:
+                obj.id = 18
+
+    saved = upsert_campaign(_NewDB(), _discovered(_REL), status="queued")
+    assert http.calls == []
+    assert "ruleset" not in (saved.source_metadata or {})
+    assert "logo_url" not in _overrides(saved)
+
+    rs = RuleSet()
+    rs.logo.required = True
+    persist_rules(saved, assign_enforcement(rs), SourceBundle())
+    assert http.calls == [("GET", _BASE + _REL)]
+    assert logo_file_path(18).read_bytes() == _PNG
+    assert _overrides(saved)["logo_url"] == "/worker/campaigns/18/logo"
+    assert _overrides(saved)["logo_source"] == "whop_org"
+    assert saved.source_metadata["ruleset"]["logo"]["required"] is True
+    assert "human:logo_file" not in (saved.source_metadata.get("rules_confirmations") or {})
+
+
+def test_confirmed_logo_is_not_replaced_when_whop_url_changes(logos, http):
+    http.png()
+    camp = _campaign()
+    db = _DB(camp)
+    _upsert(db)
+    camp.source_metadata = {
+        **camp.source_metadata,
+        "rules_confirmations": {"human:logo_file": {"by": "jesus", "note": "ok"}},
+    }
+    http.queue.append(_Resp(200, _OTHER, {"content-type": "image/png"}))
+    _upsert(db, raw_url="organizations/other/logo/new.hash.png")
+    assert len(http.calls) == 1
+    assert logo_file_path(18).read_bytes() == _PNG
+    assert _overrides(camp)["logo_whop_url"] == _REL
+    assert _overrides(camp)["logo_source"] == "whop_org"
+
+
+def test_same_failed_url_is_not_retried(logos, http):
+    http.queue.append(_Resp(404, b"", {"content-type": "text/plain"}))
+    camp = _campaign()
+    db = _DB(camp)
+    _upsert(db)
+    assert _overrides(camp)["logo_fetch_error"] == "http_404"
+    assert _overrides(camp)["logo_fetch_url"] == _REL
+    http.png()
+    _upsert(db)
+    assert len(http.calls) == 1
+    assert not logo_file_path(18).exists()
+
+
 def test_two_upserts_download_once(logos, http):
     http.png()
     camp = _campaign()
