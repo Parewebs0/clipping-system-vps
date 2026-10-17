@@ -226,6 +226,28 @@ def classify(url: str) -> str:
     return "unknown"
 
 
+_TEXT_URL_RE = re.compile(r"https?://[^\s<>()\[\]\"']+", re.I)
+# A brief line that names a watermark or logo points at a brand image, not footage.
+_TEXT_SKIP_LINE = ("watermark", "logo")
+
+
+def urls_from_text(text: str) -> list[str]:
+    """http(s) URLs written in a brief, deduplicated, in order.
+
+    Lines that mention a watermark or a logo are skipped: their Drive link is
+    an image. Whether a URL is ingestible is decided later by expand_all.
+    """
+    out: list[str] = []
+    for line in (text or "").splitlines():
+        if any(w in line.lower() for w in _TEXT_SKIP_LINE):
+            continue
+        for raw in _TEXT_URL_RE.findall(line):
+            u = raw.rstrip(".,;:!?")
+            if u not in out:
+                out.append(u)
+    return out
+
+
 def drive_file_id(url: str) -> str | None:
     m = DRIVE_FILE_RE.search(url or "")
     if m:
