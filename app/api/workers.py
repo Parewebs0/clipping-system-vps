@@ -3,6 +3,7 @@
 Implements the contract expected by the Windows Worker (clipping-windows-worker):
     POST /worker/register   — WorkerRegistration payload, upsert worker
     POST /worker/heartbeat  — Heartbeat payload, update state
+    POST /worker/storage/check — read-only cleanup check (what the worker may delete)
     GET  /worker            — list workers
     GET  /worker/{id}       — get one worker
 
@@ -13,7 +14,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -62,6 +63,27 @@ def heartbeat(
             ),
         )
     return WorkerOut.model_validate(worker)
+
+
+@router.post("/storage/check")
+def storage_check_endpoint(
+    payload: dict = Body(default_factory=dict),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_bearer),
+) -> dict:
+    """Read-only: which local campaign/asset/clip folders the worker may delete.
+
+    Body: {"campaign_ids": [...], "asset_ids": [...], "clip_ids": [...]}.
+    No file access and no state change on the server.
+    """
+    from app.services.storage_check import storage_check
+
+    return storage_check(
+        db,
+        campaign_ids=payload.get("campaign_ids") or [],
+        asset_ids=payload.get("asset_ids") or [],
+        clip_ids=payload.get("clip_ids") or [],
+    )
 
 
 @router.get("", response_model=List[WorkerOut])

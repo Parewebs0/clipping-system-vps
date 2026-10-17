@@ -10414,6 +10414,56 @@
         ]
       }
     },
+    "/worker/storage/check": {
+      "post": {
+        "description": "Read-only: which local campaign/asset/clip folders the worker may delete.\n\nBody: {\"campaign_ids\": [...], \"asset_ids\": [...], \"clip_ids\": [...]}.\nNo file access and no state change on the server.",
+        "operationId": "storage_check_endpoint_worker_storage_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Payload",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Storage Check Endpoint Worker Storage Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Storage Check Endpoint",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
     "/worker/{worker_id}": {
       "get": {
         "operationId": "get_one_worker__worker_id__get",
