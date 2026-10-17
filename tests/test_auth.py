@@ -66,3 +66,35 @@ def test_reads_accept_both_tokens(client, auth_headers, write_token):
 def test_worker_endpoints_keep_api_token(client, auth_headers, write_token):
     # the worker's token still works on non-campaign endpoints
     assert client.get("/system/info", headers=auth_headers).status_code == 200
+
+
+# --- API_READ_TOKEN (monitoring, read-only) ----------------------------------
+@pytest.fixture
+def read_token(monkeypatch):
+    monkeypatch.setattr(settings, "api_read_token", "read-secret-test", raising=False)
+    return {"Authorization": "Bearer read-secret-test"}
+
+
+def test_read_token_can_get(client, read_token):
+    assert client.get("/system/info", headers=read_token).status_code == 200
+    assert client.get("/campaigns", headers=read_token).status_code == 200
+
+
+def test_read_token_cannot_write(client, auth_headers, read_token, monkeypatch):
+    monkeypatch.setattr(settings, "api_write_token", "", raising=False)
+    r = client.post("/campaigns", json={"name": f"rt-{uuid.uuid4().hex[:6]}"}, headers=read_token)
+    assert r.status_code == 403
+    monkeypatch.setattr(settings, "api_write_token", "write-secret-test", raising=False)
+    r = client.post("/campaigns", json={"name": f"rt-{uuid.uuid4().hex[:6]}"}, headers=read_token)
+    assert r.status_code == 403
+
+
+def test_read_token_worker_routes(client, read_token):
+    assert client.get("/worker", headers=read_token).status_code == 200
+    r = client.post("/worker/heartbeat", json={"worker_id": "rt"}, headers=read_token)
+    assert r.status_code == 403
+
+
+def test_read_token_disabled_when_empty(client, monkeypatch):
+    monkeypatch.setattr(settings, "api_read_token", "", raising=False)
+    assert client.get("/campaigns", headers={"Authorization": "Bearer "}).status_code in {401, 403}

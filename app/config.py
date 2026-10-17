@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # campaign create/PATCH/status/DELETE require it; API_TOKEN keeps working
     # for everything else (worker). Empty = API_TOKEN can write (legacy).
     api_write_token: str = ""
+    # Optional read-only token (monitoring bots): only GET/HEAD on non-/worker
+    # routes. Empty = disabled.
+    api_read_token: str = ""
 
     # Worker affinity / CPU fallback.
     # Comma-separated worker ids that only claim unpinned work when no other
