@@ -87,6 +87,11 @@ def test_upload_confirms_only_the_logo_blocker(client, auth_headers, write_token
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["logo_url"] == f"/worker/campaigns/{c.id}/logo"
+    db.expire_all()
+    fresh = db.get(Campaign, c.id)
+    overrides = (fresh.source_metadata or {}).get("rules_overrides") or {}
+    assert overrides.get("logo_source") == "manual"
+    assert "logo_whop_url" not in overrides
     by_key = {b["key"]: b for b in body["blockers"]}
     assert by_key["human:logo_file"]["confirmed"] is True
     assert by_key["human:pre_approval"]["confirmed"] is False
