@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 VALID_QA_STATUSES = {"pending", "pass", "fail", "review"}
@@ -134,3 +134,57 @@ class SocialAccountOut(BaseModel):
     checked_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+
+SocialPlatformLiteral = Literal["youtube", "instagram", "tiktok", "facebook"]
+SocialStatusLiteral = Literal["healthy", "expired", "disabled"]
+SocialAuthKindLiteral = Literal["oauth", "browser_profile"]
+_ACCOUNT_KEY = r"^[a-z0-9_]{1,64}$"
+
+
+def _strip_handle(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v = v.strip()
+    return v or None
+
+
+class SocialAccountCreate(BaseModel):
+    """POST /social_accounts. Unknown fields (tokens, secrets) are rejected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    platform: SocialPlatformLiteral
+    account_key: str = Field(default="default", pattern=_ACCOUNT_KEY, max_length=64)
+    handle: Optional[str] = Field(None, max_length=128)
+    status: SocialStatusLiteral = "healthy"
+    auth_kind: SocialAuthKindLiteral = "oauth"
+
+    @field_validator("handle")
+    @classmethod
+    def _handle(cls, v: Optional[str]) -> Optional[str]:
+        return _strip_handle(v)
+
+
+class SocialAccountUpdate(BaseModel):
+    """PATCH /social_accounts/{platform}/{account_key}. Identity is the path."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    handle: Optional[str] = Field(None, max_length=128)
+    status: Optional[SocialStatusLiteral] = None
+    auth_kind: Optional[SocialAuthKindLiteral] = None
+
+    @field_validator("handle")
+    @classmethod
+    def _handle(cls, v: Optional[str]) -> Optional[str]:
+        return _strip_handle(v)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _enums_not_null(cls, data):
+        if isinstance(data, dict):
+            for key in ("status", "auth_kind"):
+                if key in data and data[key] is None:
+                    raise ValueError(f"{key} cannot be null")
+        return data

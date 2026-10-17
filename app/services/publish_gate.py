@@ -48,7 +48,11 @@ class PublishGateError(ValueError):
 
 
 def list_social_accounts(db: Session) -> list[SocialAccount]:
-    return list(db.execute(select(SocialAccount).order_by(SocialAccount.platform)).scalars())
+    return list(
+        db.execute(
+            select(SocialAccount).order_by(SocialAccount.platform, SocialAccount.account_key)
+        ).scalars()
+    )
 
 
 def list_publications_for_clip(db: Session, clip_id: uuid.UUID) -> list[ClipPublication]:

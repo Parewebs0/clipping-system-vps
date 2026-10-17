@@ -226,6 +226,36 @@ def test_two_accounts_on_one_platform_in_payload(db):
     db2.close()
 
 
+def test_healthy_tiktok_default_stops_blocked_missing_account(db, client, auth_headers):
+    """A healthy tiktok/default row is what unblocks the enqueue (MOLI-75)."""
+    db.execute(text("DELETE FROM social_accounts WHERE platform = 'tiktok'"))
+    db.commit()
+    _seed_clip(db, platforms=["tiktok"])
+    blocked = enqueue_publish_jobs(db, create_jobs=False)
+    assert any(r.get("reason") == "blocked_missing_account:tiktok" for r in blocked)
+
+    created = client.post(
+        "/social_accounts",
+        json={
+            "platform": "tiktok",
+            "account_key": "default",
+            "handle": "@x",
+            "status": "healthy",
+            "auth_kind": "oauth",
+        },
+        headers=auth_headers,
+    )
+    assert created.status_code == 201, created.text
+    db.expire_all()
+
+    rows = enqueue_publish_jobs(db, create_jobs=False)
+    assert not any(r.get("reason") == "blocked_missing_account:tiktok" for r in rows)
+    queued = [r for r in rows if r.get("platform") == "tiktok" and r.get("would_create")]
+    assert len(queued) == 1
+    assert queued[0]["account"] == "default"
+    assert queued[0]["job_id"] is None
+
+
 def test_missing_account_is_reported_not_silent():
     db2 = _mk_db()
     _seed_accounts(db2, [("instagram", "default")])  # no tiktok account

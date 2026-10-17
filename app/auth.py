@@ -6,9 +6,10 @@ Two tokens (issue #11):
 * ``API_WRITE_TOKEN`` (optional) — dashboard/operator token. When it is set:
     - read endpoints (``require_bearer``) accept either token;
     - dashboard write endpoints (``require_write_bearer``: create / PATCH /
-      status / DELETE on /campaigns and approve / reject on /candidates,
-      issue #17) accept ONLY the write token, so the worker's token can no
-      longer edit campaigns or approve clips. The worker only calls
+      status / DELETE on /campaigns, approve / reject on /candidates,
+      issue #17, and create / PATCH on /social_accounts) accept ONLY the
+      write token, so the worker's token can no longer edit campaigns,
+      approve clips, or register social accounts. The worker only calls
       /worker/* (``require_bearer``), so it keeps working with API_TOKEN.
   When it is empty, behaviour is unchanged: API_TOKEN does everything.
 * ``API_READ_TOKEN`` (optional) — read-only token for monitoring: accepted

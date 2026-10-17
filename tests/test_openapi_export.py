@@ -27,6 +27,19 @@ def test_mission_control_endpoints_are_typed():
         assert "$ref" in schema, f"{path} has no response_model"
 
 
+def test_social_account_writes_reject_unknown_fields():
+    spec = app.openapi()
+    paths = spec["paths"]
+    assert "post" in paths["/social_accounts"]
+    assert "patch" in paths["/social_accounts/{platform}/{account_key}"]
+    created = spec["components"]["schemas"]["SocialAccountCreate"]
+    updated = spec["components"]["schemas"]["SocialAccountUpdate"]
+    assert created["additionalProperties"] is False
+    assert updated["additionalProperties"] is False
+    assert "token" not in created["properties"]
+    assert "secret" not in created["properties"]
+
+
 def test_campaign_status_is_enum_in_schema():
     from app.models.campaign import CAMPAIGN_STATUS_VALUES
     comps = app.openapi()["components"]["schemas"]

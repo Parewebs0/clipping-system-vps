@@ -47,6 +47,10 @@ export type TranscriptLine = S['TranscriptLine']
 export type CandidateApproveOut = S['CandidateApproveOut']
 export type CandidateOut = S['CandidateOut']
 
+export type SocialAccount = S['SocialAccountOut']
+export type SocialAccountCreate = S['SocialAccountCreate']
+export type SocialAccountUpdate = S['SocialAccountUpdate']
+
 export type ShadowRunSummary = S['ShadowRunSummaryOut']
 export type ShadowRunList = S['ShadowRunListOut']
 export type ShadowRunDetail = S['ShadowRunDetailOut']
