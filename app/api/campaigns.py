@@ -560,6 +560,7 @@ async def upload_logo(
     The file is kept on this server. ``rules_overrides.logo_url`` is the
     worker route, not a public URL.
     """
+    from app.services.logo_autofetch import LOGO_SOURCE_MANUAL, worker_logo_path
     from app.services.logo_store import MAX_LOGO_BYTES, LogoError, rasterize_logo, store_logo_png
     from app.services.rules.gate import GateError, blockers, confirm
 
@@ -575,7 +576,9 @@ async def upload_logo(
         raise HTTPException(status_code=400, detail=str(e)) from e
     meta = dict(c.source_metadata or {})
     overrides = dict(meta.get("rules_overrides") or {})
-    overrides["logo_url"] = f"/worker/campaigns/{campaign_id}/logo"
+    overrides["logo_url"] = worker_logo_path(campaign_id)
+    overrides["logo_source"] = LOGO_SOURCE_MANUAL
+    overrides.pop("logo_whop_url", None)
     meta["rules_overrides"] = overrides
     c.source_metadata = meta
     logo_blocker = next((b for b in blockers(c) if b["key"] == "human:logo_file" and not b["confirmed"]), None)

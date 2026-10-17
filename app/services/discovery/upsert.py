@@ -12,6 +12,7 @@ from app.models.asset import Asset
 from app.models.campaign import Campaign, CampaignStatus
 from app.services.campaign_closed import merge_prize_pool
 from app.services.discovery.models import DiscoveredCampaign
+from app.services.logo_autofetch import apply_org_logo
 from app.services.public_error import public_error
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,7 @@ def upsert_campaign(
         existing.assets_count = int(actual_count or 0)
         db.commit()
         db.refresh(existing)
+        _fetch_org_logo(db, existing)
         logger.debug(
             "upsert_campaign: updated %s (assets_count=%d)",
             existing.name,
@@ -221,8 +223,30 @@ def upsert_campaign(
     db.add(c)
     db.commit()
     db.refresh(c)
+    _fetch_org_logo(db, c)
     logger.info("upsert_campaign: created %s (external_id=%s)", c.name, discovered.external_id)
     return c
+
+
+def _fetch_org_logo(db: Session, campaign: Campaign) -> None:
+    """Best-effort. The campaign row is already committed; a logo miss stays a log line."""
+    try:
+        if not apply_org_logo(campaign):
+            return
+        db.commit()
+        db.refresh(campaign)
+    except Exception:  # noqa: BLE001 — discovery must keep the campaign either way
+        logger.warning(
+            "logo autofetch failed campaign_id=%s reason=save_failed",
+            getattr(campaign, "id", None),
+        )
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "logo autofetch failed campaign_id=%s reason=rollback_failed",
+                getattr(campaign, "id", None),
+            )
 
 
 def _unique_name(db: Session, base: str, *, exclude_id: int | None = None) -> str:
