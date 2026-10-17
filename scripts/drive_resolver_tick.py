@@ -54,6 +54,29 @@ def _candidate_urls(campaign) -> list[str]:
     return out
 
 
+def _text_urls(campaign, known: list[str]) -> list[str]:
+    """URLs written only in the brief text (Whop description).
+
+    The brief reader overwrites source_instructions with its rule notes, so the
+    original description in source_metadata.discovered is read too.
+    """
+    from app.services.asset_resolve import urls_from_text
+
+    meta = campaign.source_metadata or {}
+    texts = [
+        getattr(campaign, "source_instructions", None) or "",
+        (meta.get("discovered") or {}).get("description") or "",
+    ]
+    out: list[str] = []
+    for text in texts:
+        if not isinstance(text, str):
+            continue
+        for u in urls_from_text(text):
+            if u not in known and u not in out:
+                out.append(u)
+    return out
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=1)
@@ -108,9 +131,14 @@ def main() -> int:
                 continue
             processed += 1
             urls = _candidate_urls(c)
-            print(f"campaign={c.id} urls={len(urls)}")
+            text_urls = _text_urls(c, urls)
+            print(f"campaign={c.id} urls={len(urls)} text_urls={len(text_urls)}")
             hidden = hidden_reference_count(meta) if not urls else 0
-            if hidden:
+            if hidden and not text_urls:
+                items, errors = [], []
+            else:
+                items, errors = expand_all(urls + text_urls)
+            if hidden and not items:
                 # Whop hides the brief until we join: nothing to resolve. Park
                 # it with an explicit reason instead of failed_resolve.
                 print(f"campaign={c.id} hidden_references={hidden} -> blocked_no_assets/{NEEDS_JOIN}")
@@ -131,7 +159,6 @@ def main() -> int:
                     c.source_metadata = meta
                     db.commit()
                 continue
-            items, errors = expand_all(urls)
             existing_ids = {a.source_id for a in existing if a.source_id}
             new_assets = 0
             for item in items:
